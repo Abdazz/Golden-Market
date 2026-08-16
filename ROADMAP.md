@@ -59,8 +59,21 @@ du starter (régions `gb/de/dk/se/fr/es/it`, devises EUR/USD).
 - [ ] Vérifier que la clé publishable est bien liée au *Default Sales Channel* utilisé par
       la région BF (piège déjà documenté dans `ARCHITECTURE.md` : sinon `GET /store/products`
       renvoie 0 produit).
-- [ ] Charger le catalogue réel via l'admin Medusa (saisie manuelle pour le MVP — pas de
-      script d'import automatisé à ce stade, cf. phase différée).
+- [ ] **Importer le catalogue réel via un script d'import** (décision révisée le
+      2026-08-16 — remplace la saisie manuelle prévue initialement). Source :
+      `Golden Market - Catalogue des produits.xlsx` (racine du dépôt, non versionné) —
+      2 feuilles, ~29 produits réels, 29 images intégrées au fichier :
+      - **« Produits en vente express »** (~22 produits) → collection Medusa
+        « Vente express ».
+      - **« Produits en vente sur commande »** (~7 produits) → collection Medusa
+        « Vente sur commande ».
+      - Chaque produit a un prix détail et un prix de gros : prix détail = prix Medusa
+        standard ; prix de gros = price list Medusa réservée à un customer group
+        « grossistes » (à créer).
+      - Images : extraites du fichier xlsx (images intégrées, pas d'URL externe) et
+        uploadées en tant que média produit.
+      - À traiter comme un plan dédié après la Phase 0 (ne pas mélanger avec le paiement
+        Orange Money / notifications).
 
 ## Phase 2 — Durcissement sécurité
 
@@ -114,9 +127,9 @@ Hors périmètre du lancement, à reprendre une fois la boutique ouverte :
 - Synchronisation catalogue Medusa → `public.products` (workflow n8n périodique, décrit
   dans `ARCHITECTURE.md`).
 - Bouton "Commander via WhatsApp" (message `wa.me` prérempli depuis le panier).
-- Script d'import/migration automatisé du catalogue existant (`golden_market.public.products`
-  → Medusa via Admin API), si le volume de produits rend la saisie manuelle de la phase 1
-  trop coûteuse.
+- Migration du catalogue de la base `golden_market.public.products` (source n8n/WhatsApp)
+  vers Medusa via Admin API — distinct de l'import du fichier Excel traité en Phase 1 ;
+  à évaluer si cette base contient des produits/données absents du fichier Excel.
 - Nettoyage des TODOs hérités du template storefront (Toaster de notifications,
   mise à jour email/mot de passe du compte client, gestion de l'inventaire v2 dans
   `apps/storefront/src/modules/cart/components/item/index.tsx`).

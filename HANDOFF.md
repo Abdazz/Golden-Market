@@ -31,12 +31,13 @@ Statut global : **en cours** (travail entamé hors session Claude, non commité)
 - [ ] Vérification bout en bout du flux de paiement — à faire
 
 ### Phase 1 — Catalogue & région Burkina Faso
-Statut global : **à faire**
+Statut global : **à faire** (périmètre révisé le 2026-08-16, voir `ROADMAP.md`)
 
 - [ ] Région BF (XOF) créée/seedée — à faire
 - [ ] `NEXT_PUBLIC_DEFAULT_REGION=bf` dans le storefront — à faire
 - [ ] Clé publishable liée au bon sales channel — à faire
-- [ ] Catalogue réel saisi dans l'admin — à faire
+- [ ] Import du catalogue réel via script (plus de saisie manuelle — décision révisée,
+      voir journal) — à faire, plan dédié pas encore écrit
 
 ### Phase 2 — Durcissement sécurité
 Statut global : **à faire**
@@ -65,3 +66,15 @@ catalogue automatisé, nettoyage TODOs template).
   provider email Medusa. `ROADMAP.md` créé et validé. `HANDOFF.md` créé (ce fichier).
   Prochaine étape : plan d'implémentation détaillé de la Phase 0 via le skill
   `writing-plans`.
+- **2026-08-16 (suite)** — Plan d'implémentation Phase 0 écrit
+  (`docs/superpowers/plans/2026-08-16-phase-0-paiement-notifications.md`, 10 tâches)
+  et exécuté via `subagent-driven-development`, directement sur `main` (décision
+  utilisateur). Tasks 1 à 8 terminées et validées en review (voir le ledger
+  `.superpowers/sdd/2026-08-16-phase-0-paiement-notifications/progress.md` pour le
+  détail des rulings). En cours : Tasks 9-10. Pendant l'exécution, l'utilisateur a
+  fourni le catalogue produits réel (`Golden Market - Catalogue des produits.xlsx`,
+  racine du dépôt, non versionné) : ~29 produits sur 2 feuilles (vente express / vente
+  sur commande), 29 images intégrées. Décision : import automatisé (pas de saisie
+  manuelle) via 2 collections Medusa + price list grossistes pour le prix de gros —
+  détail dans `ROADMAP.md` Phase 1. Ce travail sera traité comme un plan séparé après
+  la clôture de la Phase 0.
