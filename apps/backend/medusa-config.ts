@@ -29,5 +29,36 @@ module.exports = defineConfig({
         redisUrl: process.env.REDIS_URL,
       },
     },
+    payment: {
+      resolve: '@medusajs/medusa/payment',
+      options: {
+        providers: [
+          {
+            resolve: './src/modules/orange-money-manual',
+            id: 'orange-money-manual',
+            options: {
+              phone_number: process.env.ORANGE_MONEY_NUMBER,
+              account_name: process.env.ORANGE_MONEY_NAME,
+            },
+          },
+        ],
+      },
+    },
+    notification: {
+      resolve: '@medusajs/medusa/notification',
+      options: {
+        providers: [
+          {
+            resolve: './src/modules/resend',
+            id: 'resend',
+            options: {
+              channels: ['email'],
+              api_key: process.env.RESEND_API_KEY,
+              from: process.env.RESEND_FROM_EMAIL,
+            },
+          },
+        ],
+      },
+    },
   }
 })
