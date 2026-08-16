@@ -69,9 +69,10 @@ catalogue automatisé, nettoyage TODOs template).
   Prochaine étape : plan d'implémentation détaillé de la Phase 0 via le skill
   `writing-plans`.
 - **2026-08-16 (suite)** — Plan d'implémentation Phase 0 écrit (le plan détaillé de
-  cette phase, écrit pendant la session — fichier de travail non commité, voir
-  `docs/` et `.superpowers/` dans `.gitignore`), 11 tâches (dont une ajoutée après
-  coup) et exécuté via `subagent-driven-development`, directement sur `main`
+  cette phase, écrit pendant la session — fichier de travail non commité :
+  `docs/` n'est pas suivi par git, `.superpowers/` est dans `.gitignore`), 11 tâches
+  (dont une ajoutée après coup) et exécuté via `subagent-driven-development`,
+  directement sur `main`
   (décision utilisateur). Tasks 1 à 8 terminées et validées en review (détail des
   rulings conservé dans le ledger de session, lui aussi non commité). En cours :
   Tasks 9-10. Pendant l'exécution, l'utilisateur a
