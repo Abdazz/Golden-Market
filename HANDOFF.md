@@ -16,10 +16,12 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
-2026-08-16 — Phase 0 clôturée : vérification bout en bout du paiement Orange Money
-effectuée (Task 10), `HANDOFF.md` mis à jour. Voir journal ci-dessous pour le détail,
-notamment un bug non planifié découvert dans le storefront (bouton « Place order »
-non fonctionnel pour Orange Money) et son contournement.
+2026-08-16 — Phase 1 clôturée : vérification bout en bout du storefront sur la région
+Burkina Faso effectuée (Task 6 du plan « catalogue-region-bf »), commande réelle passée
+avec succès en XOF (panier → checkout → livraison 0 FCFA → Orange Money → confirmation).
+Voir journal ci-dessous pour le détail, notamment une pollution de données découverte et
+corrigée (un `geo_zone` « bf » orphelin sur le fulfillment set européen, résidu de la
+Phase 0, faussait les options de livraison proposées pour la région BF).
 
 ## Statut par phase
 
@@ -140,3 +142,43 @@ catalogue automatisé, nettoyage TODOs template).
   WhatsApp). Ce n'est pas un bug ; si une session future cherche à « fixer » ce prix,
   consulter d'abord l'utilisateur. Scripts ré-exécutables sans risque de doublon
   (vérification par nom/titre avant création).
+- **2026-08-16 (Task 6 — vérification bout en bout)** — Storefront configuré
+  (`apps/storefront/.env.local` : `NEXT_PUBLIC_DEFAULT_REGION=bf`, fichier gitignored,
+  positionné manuellement) et parcours d'achat réel rejoué en direct (backend `:9001` +
+  storefront `:8001`) : redirection `/` → `/bf` confirmée, 33 produits renvoyés par
+  `/store/products` dont 29 réels (22 « Vente express » + 7 « Vente sur commande »,
+  comptage vérifié via l'API par `collection_id`) + 4 produits de démo scaffold
+  toujours présents (T-Shirt/Sweatpants/Shorts/Sweatshirt — non nettoyés, hors périmètre
+  de ce plan) ; image produit vérifiée chargée (`naturalWidth` non nul) ; ajout au panier
+  → checkout → option « Livraison — à convenir avec le marchand » sélectionnée à
+  **F CFA 0** exact → Orange Money seul moyen de paiement proposé (aucun Stripe, aucun
+  manuel générique) → commande passée avec succès, page de confirmation affichée
+  (`order_...`, display_id 3, total 975 000 XOF, `payment_status: authorized`,
+  `provider_id: pp_orange-money-manual_orange-money-manual`). Clé publishable du
+  storefront déjà correctement liée au *Default Sales Channel* (vérifié via
+  `/admin/api-keys`, aucune correction nécessaire).
+  **Bug de données découvert et corrigé (hors scope des scripts Phase 1)** : le
+  fulfillment set « European Warehouse delivery » avait une service zone renommée
+  « Europe + Burkina Faso » avec un `geo_zone` `bf` orphelin (créé le 2026-08-12,
+  donc résidu de la Phase 0 — ni `seed-region-bf.ts` ni `import-catalog.ts` ne touchent
+  ce fulfillment set, vérifié par lecture du code). Conséquence concrète : le checkout
+  BF proposait 3 options de livraison au lieu d'une seule — « Standard Shipping » et
+  « Express Shipping » (du warehouse européen, prix `F CFA NaN` faute de prix XOF) en
+  plus de la bonne option à 0 FCFA. Corrigé en direct via l'API admin
+  (`POST /admin/fulfillment-sets/:id/service-zones/:zone_id`) : retrait du geo_zone
+  `bf`, renommage de la zone en « Europe ». Après correction, `/store/shipping-options`
+  ne renvoie plus que la bonne option. Un cache de fetch Next.js (disque,
+  `.next/cache/fetch-cache`) a nécessité un redémarrage du storefront pour refléter le
+  changement — comportement de cache normal, pas un bug applicatif.
+  **Étape 4 (optionnelle) entièrement vérifiée, pas seulement documentée en limite** :
+  le tarif de gros n'est pas implémenté via une `PriceList` Medusa (aucune trouvée sur
+  `/admin/price-lists`) mais via une règle de prix directement sur le variant
+  (`rules: { "customer.groups.id": ... }` dans `import-catalog.ts`). Client de test créé
+  (`task6-grossiste@golden-market.co`), ajouté au groupe « Grossistes », connecté sur le
+  vrai storefront (`/bf/account`) : le prix affiché passe de F CFA 975 000 (anonyme) à
+  F CFA 875 000 (connecté, groupe Grossistes) sur la fiche produit et sur les produits
+  liés — confirmé en direct dans l'UI, pas seulement via l'API.
+  Comptes de vérification créés dans cette session (dev uniquement, non documentés comme
+  identifiants permanents) : admin `task6-verify@golden-market.co`, client
+  `task6-grossiste@golden-market.co`. Aucun code applicatif modifié (conforme au
+  périmètre de la tâche) ; seule modification de fichier suivi par git : ce journal.
