@@ -83,15 +83,71 @@ describe("parseWorkbook", () => {
     })
   })
 
-  it("throws a clear error naming the row when a product has no associated image", () => {
+  it("throws naming the sheet and the count mismatch when the number of images doesn't match the number of products", () => {
     const workbook = new ExcelJS.Workbook()
     const sheet1 = workbook.addWorksheet("Produits en vente express")
     sheet1.getCell("C3").value = "Nom du produit"
     sheet1.getCell("D3").value = "Prix en détail"
     sheet1.getCell("E3").value = "Prix en gros"
     sheet1.getCell("F3").value = "Description"
-    sheet1.getCell("C4").value = "Produit sans image"
+    sheet1.getCell("C4").value = "Produit un"
     sheet1.getCell("D4").value = 1000
+    sheet1.getCell("E4").value = 800
+    sheet1.getCell("C5").value = "Produit deux"
+    sheet1.getCell("D5").value = 2000
+    sheet1.getCell("E5").value = 1500
+    // Un seul produit sur deux a une image -> désalignement systématique, détecté
+    // globalement avant même de savoir quelle ligne précise pose problème.
+
+    const sheet2 = workbook.addWorksheet("Prouits en vente sur commande")
+    sheet2.getCell("C3").value = "Nom du produit"
+    sheet2.getCell("D3").value = "Description"
+    sheet2.getCell("E3").value = "Prix en détail"
+    sheet2.getCell("F3").value = "Prix en gros"
+
+    expect(() => parseWorkbook(workbook)).toThrow(
+      /Nombre d'images \(0\) différent du nombre de produits \(2\)|Désalignement images\/produits.*2.*produit/
+    )
+  })
+
+  it("throws a clear error naming the row when a product's image is attached to the wrong row", () => {
+    const workbook = new ExcelJS.Workbook()
+    const sheet1 = workbook.addWorksheet("Produits en vente express")
+    sheet1.getCell("C3").value = "Nom du produit"
+    sheet1.getCell("D3").value = "Prix en détail"
+    sheet1.getCell("E3").value = "Prix en gros"
+    sheet1.getCell("F3").value = "Description"
+    sheet1.getCell("C4").value = "Produit mal aligné"
+    sheet1.getCell("D4").value = 1000
+    sheet1.getCell("E4").value = 800
+
+    const image1 = workbook.addImage({
+      buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      extension: "png",
+    })
+    // Décompte correct (1 image pour 1 produit) mais l'image est attachée à la
+    // ligne 5 au lieu de la ligne 4 : doit être détecté par le contrôle par ligne,
+    // pas par le contrôle global de décompte.
+    sheet1.addImage(image1, { tl: { col: 1, row: 4 }, br: { col: 2, row: 5 } })
+
+    const sheet2 = workbook.addWorksheet("Prouits en vente sur commande")
+    sheet2.getCell("C3").value = "Nom du produit"
+    sheet2.getCell("D3").value = "Description"
+    sheet2.getCell("E3").value = "Prix en détail"
+    sheet2.getCell("F3").value = "Prix en gros"
+
+    expect(() => parseWorkbook(workbook)).toThrow(/ligne 4/)
+  })
+
+  it("throws a clear error naming the product and row when a price cell isn't a finite number", () => {
+    const workbook = new ExcelJS.Workbook()
+    const sheet1 = workbook.addWorksheet("Produits en vente express")
+    sheet1.getCell("C3").value = "Nom du produit"
+    sheet1.getCell("D3").value = "Prix en détail"
+    sheet1.getCell("E3").value = "Prix en gros"
+    sheet1.getCell("F3").value = "Description"
+    sheet1.getCell("C4").value = "Produit prix invalide"
+    sheet1.getCell("D4").value = { richText: [{ text: "N/A" }] }
     sheet1.getCell("E4").value = 800
 
     const sheet2 = workbook.addWorksheet("Prouits en vente sur commande")
@@ -100,6 +156,7 @@ describe("parseWorkbook", () => {
     sheet2.getCell("E3").value = "Prix en détail"
     sheet2.getCell("F3").value = "Prix en gros"
 
+    expect(() => parseWorkbook(workbook)).toThrow(/Produit prix invalide/)
     expect(() => parseWorkbook(workbook)).toThrow(/ligne 4/)
   })
 })

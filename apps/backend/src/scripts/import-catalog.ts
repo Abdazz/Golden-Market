@@ -62,6 +62,7 @@ async function ensureCustomerGroup(container: ExecArgs["container"], name: strin
 
 export default async function importCatalog({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const productModuleService = container.resolve(Modules.PRODUCT)
   const storeModuleService = container.resolve(Modules.STORE)
 
@@ -80,6 +81,18 @@ export default async function importCatalog({ container }: ExecArgs) {
 
   const [store] = await storeModuleService.listStores()
   const defaultSalesChannelId = store.default_sales_channel_id!
+
+  // Sans shipping_profile_id, createProductsWorkflow ne crée aucun lien
+  // produit -> shipping profile (voir create-products.js de Medusa) : le panier
+  // calculerait alors requires_shipping=false pour ces produits (aucun lien de
+  // profil de livraison + manage_inventory:false), masquant silencieusement le
+  // besoin de sélectionner un mode de livraison. Un seul profil existe par
+  // défaut, on le résout une fois pour tous les produits.
+  const { data: shippingProfileResult } = await query.graph({
+    entity: "shipping_profile",
+    fields: ["id"],
+  })
+  const shippingProfile = shippingProfileResult[0]
 
   let created = 0
   let skipped = 0
@@ -121,6 +134,7 @@ export default async function importCatalog({ container }: ExecArgs) {
               description: product.description,
               status: ProductStatus.PUBLISHED,
               collection_id: collections[product.collection].id,
+              shipping_profile_id: shippingProfile.id,
               images: [{ url: imageUrl }],
               thumbnail: imageUrl,
               sales_channels: [{ id: defaultSalesChannelId }],

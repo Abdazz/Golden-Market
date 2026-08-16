@@ -72,11 +72,22 @@ function parseSheet(
       ? String(row.getCell(columns.description).value ?? "").trim()
       : ""
 
+    const retailPrice = Number(row.getCell(columns.retailPrice).value)
+    const wholesalePrice = Number(row.getCell(columns.wholesalePrice).value)
+
+    if (!Number.isFinite(retailPrice) || !Number.isFinite(wholesalePrice)) {
+      throw new Error(
+        `Prix invalide pour le produit "${name}" (feuille "${worksheet.name}", ligne ${rowNumber}) : ` +
+          `prix détail=${JSON.stringify(row.getCell(columns.retailPrice).value)}, ` +
+          `prix gros=${JSON.stringify(row.getCell(columns.wholesalePrice).value)}`
+      )
+    }
+
     products.push({
       name,
       description: description || name,
-      retailPrice: Number(row.getCell(columns.retailPrice).value),
-      wholesalePrice: Number(row.getCell(columns.wholesalePrice).value),
+      retailPrice,
+      wholesalePrice,
       collection,
     })
 
@@ -94,7 +105,12 @@ function attachImages(
   const imagesByRow = new Map<number, { buffer: Buffer; extension: string }>()
 
   for (const image of worksheet.getImages()) {
-    const excelRow = Math.round(image.range.tl.row) + 1
+    // .row est la coordonnée flottante du coin haut-gauche de l'ancre ; la ligne
+    // qui la contient est le sol de cette coordonnée, pas la valeur arrondie —
+    // arrondir risquerait de rattacher une image à la mauvaise ligne si un futur
+    // export du fichier source déplace légèrement une ancre près d'une frontière
+    // de ligne.
+    const excelRow = Math.floor(image.range.tl.row) + 1
     const media = workbook.getImage(Number(image.imageId))
     imagesByRow.set(excelRow, {
       buffer: Buffer.isBuffer(media.buffer)
@@ -102,6 +118,13 @@ function attachImages(
         : Buffer.from(media.buffer as ArrayBuffer),
       extension: media.extension,
     })
+  }
+
+  if (imagesByRow.size !== products.length) {
+    throw new Error(
+      `Désalignement images/produits dans la feuille "${worksheet.name}" : ` +
+        `${imagesByRow.size} image(s) trouvée(s) pour ${products.length} produit(s)`
+    )
   }
 
   return products.map((product, index) => {
@@ -143,7 +166,10 @@ export async function parseCatalog(filePath: string): Promise<ParsedProduct[]> {
   return parseWorkbook(workbook)
 }
 
-export const DEFAULT_CATALOG_PATH = path.join(
-  __dirname,
-  "Golden Market - Catalogue des produits.xlsx"
-)
+// CATALOG_PATH permet de pointer vers le fichier source dans un déploiement où le
+// build compilé ne l'embarque pas à côté de ce script (Phase 3, pas encore fait) ;
+// le chemin relatif à __dirname reste le comportement par défaut inchangé pour tous
+// les usages actuels (dev, `medusa exec` depuis un checkout source).
+export const DEFAULT_CATALOG_PATH =
+  process.env.CATALOG_PATH ??
+  path.join(__dirname, "Golden Market - Catalogue des produits.xlsx")

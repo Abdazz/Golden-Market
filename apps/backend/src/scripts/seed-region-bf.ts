@@ -40,15 +40,20 @@ export default async function seedRegionBf({
       currency_code: c.currency_code,
       is_default: c.is_default,
     })) ?? []
+  // Le garde-fou d'idempotence en haut de la fonction ne porte que sur la région,
+  // créée bien après cette mise à jour : une exécution précédente interrompue entre
+  // les deux laisserait passer une seconde exécution ici. Sans cette vérification,
+  // "xof" serait ajouté une seconde fois (pas de contrainte d'unicité côté Medusa
+  // sur (store_id, currency_code)).
+  const hasXof = currentCurrencies.some((c) => c.currency_code === "xof")
 
   await updateStoresWorkflow(container).run({
     input: {
       selector: { id: store.id },
       update: {
-        supported_currencies: [
-          ...currentCurrencies,
-          { currency_code: "xof", is_default: false },
-        ],
+        supported_currencies: hasXof
+          ? currentCurrencies
+          : [...currentCurrencies, { currency_code: "xof", is_default: false }],
       },
     },
   })
