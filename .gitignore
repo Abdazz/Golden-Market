@@ -43,6 +43,9 @@ yarn-error.log*
 .turbo
 .vscode
 
+# Superpowers subagent-driven-development scratch workspace
+.superpowers/
+
 # vercel
 .vercel
 
