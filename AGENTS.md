@@ -97,6 +97,16 @@ cd apps/backend
 <pm> run backend:seed                        # from root; seeds initial data
 ```
 
+### Catalogue Burkina Faso (one-shot, idempotent)
+
+```bash
+cd apps/backend
+npx medusa exec ./src/scripts/seed-region-bf.ts   # région BF/XOF, taxe, livraison
+npx medusa exec ./src/scripts/import-catalog.ts   # 29 produits depuis le fichier Excel
+```
+
+Les deux scripts sont ré-exécutables sans risque de doublon (vérification par nom/titre avant création).
+
 ## Medusa Skills & MCP Server
 
 These are optional but strongly recommended — they give documentation-backed answers instead of guesses about Medusa APIs. **Use them when available; if they are not, mention to the user that installing them meaningfully improves development on this project.**

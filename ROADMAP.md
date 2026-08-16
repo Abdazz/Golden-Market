@@ -48,18 +48,18 @@ n'est testable sans un paiement fonctionnel.
 
 ## Phase 1 — Catalogue & région Burkina Faso
 
-`apps/backend/src/migration-scripts/initial-data-seed.ts` est encore le seed générique
-du starter (régions `gb/de/dk/se/fr/es/it`, devises EUR/USD).
+Implémentation complétée le 2026-08-16 via deux scripts d'import idempotents :
+`apps/backend/src/scripts/seed-region-bf.ts` et `apps/backend/src/scripts/import-catalog.ts`.
 
-- [ ] Créer/seed la région Burkina Faso (`bf`, devise `xof`) ; retirer ou neutraliser les
+- [x] Créer/seed la région Burkina Faso (`bf`, devise `xof`) ; retirer ou neutraliser les
       régions de démo Europe si elles ne servent pas.
-- [ ] `apps/storefront/.env.local` : `NEXT_PUBLIC_DEFAULT_REGION=bf` (actuellement absent
+- [x] `apps/storefront/.env.local` : `NEXT_PUBLIC_DEFAULT_REGION=bf` (actuellement absent
       du fichier, donc le middleware retombe sur le défaut `dk`, cf.
       `apps/storefront/src/middleware.ts`).
-- [ ] Vérifier que la clé publishable est bien liée au *Default Sales Channel* utilisé par
+- [x] Vérifier que la clé publishable est bien liée au *Default Sales Channel* utilisé par
       la région BF (piège déjà documenté dans `ARCHITECTURE.md` : sinon `GET /store/products`
       renvoie 0 produit).
-- [ ] **Importer le catalogue réel via un script d'import** (décision révisée le
+- [x] **Importer le catalogue réel via un script d'import** (décision révisée le
       2026-08-16 — remplace la saisie manuelle prévue initialement). Source :
       `Golden Market - Catalogue des produits.xlsx` (racine du dépôt, non versionné) —
       2 feuilles, ~29 produits réels, 29 images intégrées au fichier :

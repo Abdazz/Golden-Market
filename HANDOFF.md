@@ -33,13 +33,13 @@ Statut global : **fait**
 - [x] Vérification bout en bout du flux de paiement — fait (Task 10)
 
 ### Phase 1 — Catalogue & région Burkina Faso
-Statut global : **à faire** (périmètre révisé le 2026-08-16, voir `ROADMAP.md`)
+Statut global : **fait**
 
-- [ ] Région BF (XOF) créée/seedée — à faire
-- [ ] `NEXT_PUBLIC_DEFAULT_REGION=bf` dans le storefront — à faire
-- [ ] Clé publishable liée au bon sales channel — à faire
-- [ ] Import du catalogue réel via script (plus de saisie manuelle — décision révisée,
-      voir journal) — à faire, plan dédié pas encore écrit
+- [x] Région BF (XOF) créée/seedée — fait (Task 3)
+- [x] `NEXT_PUBLIC_DEFAULT_REGION=bf` dans le storefront — fait (Task 3)
+- [x] Clé publishable liée au bon sales channel — fait (Task 3)
+- [x] Import du catalogue réel via script (plus de saisie manuelle — décision révisée,
+      voir journal) — fait (Task 4)
 
 ### Phase 2 — Durcissement sécurité
 Statut global : **à faire**
@@ -128,3 +128,15 @@ catalogue automatisé, nettoyage TODOs template).
   Money »). Le bug ne reste donc plus un blocage réel — le paragraphe ci-dessus
   documente son historique (découverte, cause, contournement temporaire) mais est
   résolu depuis ce commit.
+- **2026-08-16 (Phase 1)** — Phase 1 clôturée : catalogue et région Burkina Faso
+  complètement implémentés via deux scripts idempotents (`seed-region-bf.ts`,
+  `import-catalog.ts`). Livrables : région Burkina Faso (devise XOF, seul Orange Money
+  comme payment provider, lieu de stock et fulfillment point, tax region), 29 produits
+  réels importés depuis le fichier Excel « Golden Market - Catalogue des produits.xlsx »
+  avec images intégrées (22 « Vente express » + 7 « Vente sur commande »), deux collections
+  Medusa correspondantes, et customer group « Grossistes » pour le tarif de gros via
+  price list. **Point ouvert intentionnel : la livraison est tarifiée à 0 XOF** (placeholder
+  volontaire — le merchant négocie le coût réel de livraison après la commande via
+  WhatsApp). Ce n'est pas un bug ; si une session future cherche à « fixer » ce prix,
+  consulter d'abord l'utilisateur. Scripts ré-exécutables sans risque de doublon
+  (vérification par nom/titre avant création).
