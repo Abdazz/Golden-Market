@@ -1,7 +1,8 @@
 "use client"
 import { RadioGroup } from "@headlessui/react"
-import { isStripeLike, paymentInfoMap } from "@lib/constants"
+import { isOrangeMoney, isStripeLike, paymentInfoMap } from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
+import { convertToLocale } from "@lib/util/money"
 import { CheckCircleSolid, CreditCard } from "@medusajs/icons"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import PaymentContainer, {
@@ -47,7 +48,7 @@ const Payment = ({
   const setPaymentMethod = async (method: string) => {
     setError(null)
     setSelectedPaymentMethod(method)
-    if (isStripeLike(method)) {
+    if (isStripeLike(method) || isOrangeMoney(method)) {
       await initiatePaymentSession(cart, {
         provider_id: method,
       })
@@ -185,6 +186,39 @@ const Payment = ({
             </div>
           )}
 
+          {isOrangeMoney(selectedPaymentMethod) && activeSession && (
+            <div
+              className="mt-4 rounded-lg border border-brand-primary p-4 bg-brand-secondary"
+              data-testid="orange-money-instructions"
+            >
+              <Heading level="h3" className="text-lg mb-2">
+                Paiement par Orange Money
+              </Heading>
+              <Text className="mb-2">
+                Envoyez le montant total au numéro{" "}
+                <span className="font-semibold">
+                  {String(activeSession.data?.phone_number ?? "")}
+                </span>{" "}
+                —{" "}
+                <span className="font-semibold">
+                  {String(activeSession.data?.account_name ?? "Golden Market")}
+                </span>
+              </Text>
+              <Text className="mb-2">
+                Montant à envoyer :{" "}
+                <span className="font-semibold">
+                  {convertToLocale({
+                    amount: cart.total ?? 0,
+                    currency_code: cart.currency_code ?? "XOF",
+                  })}
+                </span>
+              </Text>
+              <Text className="text-ui-fg-subtle">
+                {String(activeSession.data?.note ?? "")}
+              </Text>
+            </div>
+          )}
+
           <ErrorMessage
             error={error}
             data-testid="payment-method-error-message"
@@ -236,9 +270,11 @@ const Payment = ({
                     )}
                   </Container>
                   <Text>
-                    {isStripeLike(selectedPaymentMethod) && cardBrand
-                      ? cardBrand
-                      : "Another step will appear"}
+                    {isOrangeMoney(selectedPaymentMethod)
+                      ? String(activeSession?.data?.phone_number ?? "Orange Money")
+                      : isStripeLike(selectedPaymentMethod) && cardBrand
+                        ? cardBrand
+                        : "Another step will appear"}
                   </Text>
                 </div>
               </div>

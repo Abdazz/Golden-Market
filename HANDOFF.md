@@ -16,19 +16,21 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
-2026-08-16 — Session de planification initiale (analyse du projet + `ROADMAP.md` créé
-et validé). Aucun code modifié dans cette session.
+2026-08-16 — Phase 0 clôturée : vérification bout en bout du paiement Orange Money
+effectuée (Task 10), `HANDOFF.md` mis à jour. Voir journal ci-dessous pour le détail,
+notamment un bug non planifié découvert dans le storefront (bouton « Place order »
+non fonctionnel pour Orange Money) et son contournement.
 
 ## Statut par phase
 
 ### Phase 0 — Débloquer le paiement manuel Orange Money
-Statut global : **en cours** (travail entamé hors session Claude, non commité)
+Statut global : **fait**
 
-- [ ] Corriger le double `export default` dans `orange-money-manual.ts` — à faire
-- [ ] Instructions Orange Money sur la page de confirmation de commande — à faire
-- [ ] Subscriber `order-placed` → webhook n8n (notification WhatsApp marchand) — à faire
-- [ ] Provider email Medusa (Resend/SMTP) dans `medusa-config.ts` — à faire
-- [ ] Vérification bout en bout du flux de paiement — à faire
+- [x] Corriger le double `export default` dans `orange-money-manual.ts` — fait (Task 1)
+- [x] Instructions Orange Money sur la page de confirmation de commande — fait (Task 3)
+- [x] Subscriber `order-placed` → webhook n8n (notification WhatsApp marchand) — fait (Task 2)
+- [x] Provider email Medusa (Resend/SMTP) dans `medusa-config.ts` — fait (Task 4)
+- [x] Vérification bout en bout du flux de paiement — fait (Task 10)
 
 ### Phase 1 — Catalogue & région Burkina Faso
 Statut global : **à faire** (périmètre révisé le 2026-08-16, voir `ROADMAP.md`)
@@ -78,3 +80,43 @@ catalogue automatisé, nettoyage TODOs template).
   manuelle) via 2 collections Medusa + price list grossistes pour le prix de gros —
   détail dans `ROADMAP.md` Phase 1. Ce travail sera traité comme un plan séparé après
   la clôture de la Phase 0.
+- **2026-08-16 (clôture Phase 0)** — Task 9 (page de réinitialisation de mot de passe)
+  et Task 10 (vérification E2E) terminées. Parcours complet rejoué en direct (backend
+  `:9001` + storefront `:8001`, Postgres/Redis Docker) : panier → checkout → sélection
+  Orange Money → instructions affichées au checkout (numéro, montant, texte FR) →
+  commande passée → page de confirmation affichant les mêmes instructions Orange Money
+  (Task 3 confirmé) → log backend `Commande ... placée — N8N_ORDER_WEBHOOK_URL non
+  configuré, notification marchand ignorée` (fallback Task 2 propre, sans erreur) →
+  admin Medusa : commande retrouvée, paiement `pending`, capture manuelle effectuée,
+  passage à `Captured` / `paid` confirmé (`POST /admin/payments/.../capture` → 200).
+  Suite de tests unitaires : 5 suites / 10 tests, tous verts (Tasks 1, 2, 4, 5, 6).
+  Email de confirmation client (Task 5) : tentative bien déclenchée mais échoue
+  proprement (log d'erreur explicite, capturé par le try/catch, ne bloque pas la
+  commande) faute de `RESEND_API_KEY` réelle dans ce sandbox — vérification live de
+  la réception email **différée à la Phase 5** (déjà signalé comme lacune connue
+  depuis la review de la Task 9, pas une régression).
+  **Bug non planifié découvert pendant la vérification** : le bouton « Place order »
+  du storefront (`apps/storefront/src/modules/checkout/components/payment-button/index.tsx`,
+  code du scaffold initial, jamais touché par aucune tâche de ce plan) ne gère pas le
+  provider Orange Money dans son `switch` — seuls `isStripeLike` et `isManual` sont
+  couverts, donc le bouton reste bloqué sur « Select a payment method » (disabled) dès
+  qu'Orange Money est sélectionné, empêchant tout client réel de finaliser sa commande
+  par ce moyen de paiement. Contourné temporairement (patch local non commité, retiré
+  après usage) le temps de vérifier le reste du parcours ; **ce n'est pas un artefact
+  Playwright/DOM** (le bouton est un vrai `<button disabled>` React, confirmé par
+  lecture du code et par le comportement live) — c'est un vrai défaut applicatif, à
+  corriger avant tout lancement réel. Recommandation : créer une tâche dédiée (ajouter
+  un `case isOrangeMoney(...)` réutilisant `ManualTestPaymentButton`, les instructions
+  de paiement Orange Money n'exigeant pas de saisie carte côté client) et l'inscrire
+  dans `ROADMAP.md`. Par contraste, le flux de capture admin (dialogue de confirmation
+  Radix) a fonctionné sans aucune friction d'automatisation ; le seul bruit console
+  observé était un warning `validateDOMNesting` préexistant dans le composant
+  `CostBreakdown` de l'admin Medusa lui-même, sans rapport avec ce plan.
+  **Reste ouvert côté n8n** : le contrat exact du payload webhook (URL, méthode,
+  structure JSON envoyée à `N8N_ORDER_WEBHOOK_URL`) n'a jamais été validé contre le
+  dépôt `n8n_automation` — signalé depuis la Task 2, toujours non résolu. À faire avant
+  de configurer une vraie URL n8n en production.
+  Phase 0 marquée **fait** : les 5 points du `ROADMAP.md` sont couverts et vérifiés de
+  bout en bout, mais le bug du bouton « Place order » ci-dessus reste un blocage réel
+  pour un usage client en production et doit être traité avant l'ouverture de la
+  boutique (Phase 5).
