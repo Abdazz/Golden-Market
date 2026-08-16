@@ -1,5 +1,5 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
-import { Modules } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 
 type PasswordResetEventData = {
   entity_id: string
@@ -19,7 +19,7 @@ export default async function passwordResetHandler({
     return
   }
 
-  const logger = container.resolve("logger")
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const notificationModuleService = container.resolve(Modules.NOTIFICATION)
   const storefrontUrl = process.env.STOREFRONT_URL ?? "http://localhost:8001"
   const email = event.data.entity_id

@@ -16,6 +16,16 @@ function formatAmount(amount: unknown, currencyCode: string) {
 const orderPlaced: EmailTemplate = (data) => {
   const displayId = data.display_id as number | string
   const total = formatAmount(data.total, data.currency_code as string)
+  const orangeMoneyNumber = data.orange_money_number as string | undefined
+  const orangeMoneyAccountName = data.orange_money_account_name as
+    | string
+    | undefined
+
+  const orangeMoneyInstructions = orangeMoneyNumber
+    ? `<p>Envoyez le montant total au numéro <strong>${orangeMoneyNumber}</strong>${
+        orangeMoneyAccountName ? ` (${orangeMoneyAccountName})` : ""
+      } puis confirmez auprès du marchand.</p>`
+    : ""
 
   return {
     subject: `Golden Market — Confirmation de votre commande #${displayId}`,
@@ -24,6 +34,7 @@ const orderPlaced: EmailTemplate = (data) => {
         <h1 style="font-size: 20px;">Merci pour votre commande !</h1>
         <p>Votre commande <strong>#${displayId}</strong> d'un montant de <strong>${total}</strong> a bien été enregistrée.</p>
         <p>Elle est en attente de confirmation du paiement Orange Money. Golden Market vous contactera dès réception du paiement.</p>
+        ${orangeMoneyInstructions}
       </div>
     `,
   }

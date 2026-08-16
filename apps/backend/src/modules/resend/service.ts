@@ -1,4 +1,7 @@
-import { AbstractNotificationProviderService } from "@medusajs/framework/utils"
+import {
+  AbstractNotificationProviderService,
+  MedusaError,
+} from "@medusajs/framework/utils"
 import type { Logger } from "@medusajs/framework/types"
 import type {
   ProviderSendNotificationDTO,
@@ -18,6 +21,22 @@ type InjectedDependencies = {
 
 class ResendNotificationProviderService extends AbstractNotificationProviderService {
   static identifier = "resend"
+
+  static validateOptions(options: Record<any, any>) {
+    if (!options.api_key) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "L'option api_key est requise pour le provider de notification resend"
+      )
+    }
+
+    if (!options.from) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "L'option from est requise pour le provider de notification resend"
+      )
+    }
+  }
 
   private resendClient: Resend
   private options: ResendOptions

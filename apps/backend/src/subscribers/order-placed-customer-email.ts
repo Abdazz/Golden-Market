@@ -1,5 +1,5 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
-import { Modules } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 
 /**
  * Email de confirmation de commande au client (distinct du subscriber
@@ -9,22 +9,22 @@ export default async function orderPlacedCustomerEmailHandler({
   event,
   container,
 }: SubscriberArgs<{ id: string }>) {
-  const logger = container.resolve("logger")
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const orderModuleService = container.resolve(Modules.ORDER)
   const notificationModuleService = container.resolve(Modules.NOTIFICATION)
 
-  const order = await orderModuleService.retrieveOrder(event.data.id, {
-    select: ["id", "display_id", "email", "currency_code", "total"],
-  })
-
-  if (!order.email) {
-    logger.info(
-      `Commande ${order.id} placée — pas d'email client, confirmation ignorée`
-    )
-    return
-  }
-
   try {
+    const order = await orderModuleService.retrieveOrder(event.data.id, {
+      select: ["id", "display_id", "email", "currency_code", "total"],
+    })
+
+    if (!order.email) {
+      logger.info(
+        `Commande ${order.id} placée — pas d'email client, confirmation ignorée`
+      )
+      return
+    }
+
     await notificationModuleService.createNotifications({
       to: order.email,
       channel: "email",
@@ -33,11 +33,13 @@ export default async function orderPlacedCustomerEmailHandler({
         display_id: order.display_id,
         total: order.total,
         currency_code: order.currency_code,
+        orange_money_number: process.env.ORANGE_MONEY_NUMBER,
+        orange_money_account_name: process.env.ORANGE_MONEY_NAME,
       },
     })
   } catch (error) {
     logger.error(
-      `Commande ${order.id} placée — échec de l'envoi de l'email de confirmation`,
+      `Commande ${event.data.id} placée — échec de l'envoi de l'email de confirmation`,
       error as Error
     )
   }

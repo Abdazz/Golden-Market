@@ -68,12 +68,13 @@ catalogue automatisé, nettoyage TODOs template).
   provider email Medusa. `ROADMAP.md` créé et validé. `HANDOFF.md` créé (ce fichier).
   Prochaine étape : plan d'implémentation détaillé de la Phase 0 via le skill
   `writing-plans`.
-- **2026-08-16 (suite)** — Plan d'implémentation Phase 0 écrit
-  (`docs/superpowers/plans/2026-08-16-phase-0-paiement-notifications.md`, 10 tâches)
-  et exécuté via `subagent-driven-development`, directement sur `main` (décision
-  utilisateur). Tasks 1 à 8 terminées et validées en review (voir le ledger
-  `.superpowers/sdd/2026-08-16-phase-0-paiement-notifications/progress.md` pour le
-  détail des rulings). En cours : Tasks 9-10. Pendant l'exécution, l'utilisateur a
+- **2026-08-16 (suite)** — Plan d'implémentation Phase 0 écrit (le plan détaillé de
+  cette phase, écrit pendant la session — fichier de travail non commité, voir
+  `docs/` et `.superpowers/` dans `.gitignore`), 11 tâches (dont une ajoutée après
+  coup) et exécuté via `subagent-driven-development`, directement sur `main`
+  (décision utilisateur). Tasks 1 à 8 terminées et validées en review (détail des
+  rulings conservé dans le ledger de session, lui aussi non commité). En cours :
+  Tasks 9-10. Pendant l'exécution, l'utilisateur a
   fourni le catalogue produits réel (`Golden Market - Catalogue des produits.xlsx`,
   racine du dépôt, non versionné) : ~29 produits sur 2 feuilles (vente express / vente
   sur commande), 29 images intégrées. Décision : import automatisé (pas de saisie
@@ -117,6 +118,12 @@ catalogue automatisé, nettoyage TODOs template).
   dépôt `n8n_automation` — signalé depuis la Task 2, toujours non résolu. À faire avant
   de configurer une vraie URL n8n en production.
   Phase 0 marquée **fait** : les 5 points du `ROADMAP.md` sont couverts et vérifiés de
-  bout en bout, mais le bug du bouton « Place order » ci-dessus reste un blocage réel
-  pour un usage client en production et doit être traité avant l'ouverture de la
-  boutique (Phase 5).
+  bout en bout ; le bug du bouton « Place order » ci-dessus a été traité en Task 11
+  (ajoutée après coup au plan, qui en compte donc 11 au lieu de 10).
+- **2026-08-16 (Task 11)** — Correction du bug « Place order » décrit ci-dessus : ajout
+  d'un `case isOrangeMoney(...)` réutilisant `ManualTestPaymentButton` dans
+  `apps/storefront/src/modules/checkout/components/payment-button/index.tsx`
+  (commit `76f4973`, « Corrige le bouton "Place order" resté désactivé pour Orange
+  Money »). Le bug ne reste donc plus un blocage réel — le paragraphe ci-dessus
+  documente son historique (découverte, cause, contournement temporaire) mais est
+  résolu depuis ce commit.

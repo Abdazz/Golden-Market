@@ -416,7 +416,7 @@ export async function resetPassword(
   const confirmPassword = formData.get("confirm_password") as string
 
   if (password !== confirmPassword) {
-    return { state: "error", error: "Passwords do not match." }
+    return { state: "error", error: "Les mots de passe ne correspondent pas." }
   }
 
   try {

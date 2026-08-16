@@ -24,7 +24,9 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
     !cart.email ||
     (cart.shipping_methods?.length ?? 0) < 1
 
-  const paymentSession = cart.payment_collection?.payment_sessions?.[0]
+  const paymentSession = cart.payment_collection?.payment_sessions?.find(
+    (s) => s.status === "pending"
+  )
 
   switch (true) {
     case isStripeLike(paymentSession?.provider_id):
@@ -35,11 +37,8 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
           data-testid={dataTestId}
         />
       )
-    case isManual(paymentSession?.provider_id):
-      return (
-        <ManualTestPaymentButton notReady={notReady} data-testid={dataTestId} />
-      )
-    case isOrangeMoney(paymentSession?.provider_id):
+    case isManual(paymentSession?.provider_id) ||
+      isOrangeMoney(paymentSession?.provider_id):
       return (
         <ManualTestPaymentButton notReady={notReady} data-testid={dataTestId} />
       )

@@ -86,6 +86,11 @@ du starter (régions `gb/de/dk/se/fr/es/it`, devises EUR/USD).
       `admin@golden-market.co` / mot de passe de dev mentionné dans `ARCHITECTURE.md`.
 - [ ] Revalider que `.env` / `.env.local` de production suivent la même hygiène qu'en dev
       (jamais commités — déjà correctement configuré dans `.gitignore`).
+- [ ] Limiter le débit (rate limiting) de l'endpoint public
+      `POST /auth/customer/emailpass/reset-password` — non authentifié, répond
+      toujours 201 (comportement Medusa voulu pour ne pas révéler l'existence d'un
+      compte), et déclenche un email sortant à chaque appel : vecteur
+      d'amplification/abus une fois une vraie clé Resend configurée.
 
 ## Phase 3 — Déploiement VPS + Docker
 
@@ -119,6 +124,10 @@ aucune CI.
       changement de statut, notification n8n reçue.
 - [ ] Vérification des emails transactionnels réels (confirmation de commande,
       réinitialisation de mot de passe) avec le provider configuré en phase 0.
+- [ ] Valider le contrat exact du payload envoyé au webhook n8n
+      (`N8N_ORDER_WEBHOOK_URL`) contre le workflow réel du dépôt `n8n_automation` —
+      actuellement seul `{ order_id, provider }` est envoyé, jamais confronté au
+      format attendu côté n8n.
 
 ## Phase différée (post-lancement)
 

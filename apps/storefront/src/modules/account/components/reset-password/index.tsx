@@ -12,6 +12,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 const ResetPassword = () => {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
+  const email = searchParams.get("email")
   const [message, formAction] = useActionState(resetPassword, null)
 
   if (!token) {
@@ -57,7 +58,14 @@ const ResetPassword = () => {
       className="max-w-sm w-full flex flex-col items-center"
       data-testid="reset-password-page"
     >
-      <h1 className="text-large-semi uppercase mb-6">Nouveau mot de passe</h1>
+      <div className="text-center mb-6">
+        <h1 className="text-large-semi uppercase">Nouveau mot de passe</h1>
+        {email && (
+          <p className="text-base-regular text-ui-fg-subtle mt-2">
+            Pour le compte {email}
+          </p>
+        )}
+      </div>
       <form className="w-full" action={formAction}>
         <input type="hidden" name="token" value={token} />
         <div className="flex flex-col w-full gap-y-2">

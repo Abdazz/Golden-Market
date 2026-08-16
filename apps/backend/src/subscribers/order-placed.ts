@@ -1,4 +1,5 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 
 /**
  * Notification marchand (webhook n8n -> WhatsApp) à chaque commande placée.
@@ -7,7 +8,7 @@ export default async function orderPlacedHandler({
   event,
   container,
 }: SubscriberArgs<{ id: string }>) {
-  const logger = container.resolve("logger")
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const webhookUrl = process.env.N8N_ORDER_WEBHOOK_URL
 
   if (!webhookUrl) {
