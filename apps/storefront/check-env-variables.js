@@ -7,6 +7,11 @@ const requiredEnvs = [
     description:
       "Learn how to create a publishable key: https://docs.medusajs.com/v2/resources/storefront-development/publishable-api-keys",
   },
+  {
+    key: "NEXT_PUBLIC_DEFAULT_REGION",
+    description:
+      'Region code the storefront falls back to when a country can\'t be resolved (e.g. "bf" for Burkina Faso). Without it, apps/storefront/src/middleware.ts silently defaults to "dk" (Denmark, EUR prices).',
+  },
 ];
 
 function checkEnvVariables() {
