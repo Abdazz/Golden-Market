@@ -1,6 +1,6 @@
 import { Container, Heading, Text } from "@modules/common/components/ui"
 
-import { isStripeLike, paymentInfoMap } from "@lib/constants"
+import { isOrangeMoney, isStripeLike, paymentInfoMap } from "@lib/constants"
 import Divider from "@modules/common/components/divider"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
@@ -42,15 +42,44 @@ const PaymentDetails = ({ order }: PaymentDetailsProps) => {
                 <Text data-testid="payment-amount">
                   {isStripeLike(payment.provider_id) && payment.data?.card_last4
                     ? `**** **** **** ${payment.data.card_last4}`
-                    : `${convertToLocale({
-                        amount: payment.amount,
-                        currency_code: order.currency_code,
-                      })} paid at ${new Date(
-                        payment.created_at ?? ""
-                      ).toLocaleString()}`}
+                    : isOrangeMoney(payment.provider_id)
+                      ? `${convertToLocale({
+                          amount: payment.amount,
+                          currency_code: order.currency_code,
+                        })} en attente de confirmation`
+                      : `${convertToLocale({
+                          amount: payment.amount,
+                          currency_code: order.currency_code,
+                        })} paid at ${new Date(
+                          payment.created_at ?? ""
+                        ).toLocaleString()}`}
                 </Text>
               </div>
             </div>
+          </div>
+        )}
+
+        {payment && isOrangeMoney(payment.provider_id) && (
+          <div
+            className="mt-4 rounded-lg border border-brand-primary p-4 bg-brand-secondary"
+            data-testid="orange-money-instructions"
+          >
+            <Text className="txt-medium-plus text-ui-fg-base mb-2">
+              Paiement par Orange Money
+            </Text>
+            <Text className="mb-2">
+              Envoyez le montant total au numéro{" "}
+              <span className="font-semibold">
+                {String(payment.data?.phone_number ?? "")}
+              </span>{" "}
+              —{" "}
+              <span className="font-semibold">
+                {String(payment.data?.account_name ?? "Golden Market")}
+              </span>
+            </Text>
+            <Text className="text-ui-fg-subtle">
+              {String(payment.data?.note ?? "")}
+            </Text>
           </div>
         )}
       </div>
