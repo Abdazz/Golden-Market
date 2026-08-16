@@ -379,3 +379,51 @@ export const updateCustomerAddress = async (
       return { success: false, error: err.toString() }
     })
 }
+
+export type RequestPasswordResetState =
+  | { state: "success" }
+  | { state: "error"; error: string }
+  | null
+
+export async function requestPasswordReset(
+  _currentState: unknown,
+  formData: FormData
+): Promise<RequestPasswordResetState> {
+  const email = formData.get("email") as string
+
+  try {
+    await sdk.auth.resetPassword("customer", "emailpass", {
+      identifier: email,
+    })
+  } catch (error) {
+    return { state: "error", error: String(error) }
+  }
+
+  return { state: "success" }
+}
+
+export type ResetPasswordState =
+  | { state: "success" }
+  | { state: "error"; error: string }
+  | null
+
+export async function resetPassword(
+  _currentState: unknown,
+  formData: FormData
+): Promise<ResetPasswordState> {
+  const token = formData.get("token") as string
+  const password = formData.get("password") as string
+  const confirmPassword = formData.get("confirm_password") as string
+
+  if (password !== confirmPassword) {
+    return { state: "error", error: "Passwords do not match." }
+  }
+
+  try {
+    await sdk.auth.updateProvider("customer", "emailpass", { password }, token)
+  } catch (error) {
+    return { state: "error", error: String(error) }
+  }
+
+  return { state: "success" }
+}
