@@ -51,8 +51,10 @@ n'est testable sans un paiement fonctionnel.
 Implémentation complétée le 2026-08-16 via deux scripts d'import idempotents :
 `apps/backend/src/scripts/seed-region-bf.ts` et `apps/backend/src/scripts/import-catalog.ts`.
 
-- [x] Créer/seed la région Burkina Faso (`bf`, devise `xof`) ; retirer ou neutraliser les
-      régions de démo Europe si elles ne servent pas.
+- [x] Créer/seed la région Burkina Faso (`bf`, devise `xof`).
+- [ ] Retirer ou neutraliser les régions/produits de démo Europe (T-Shirt, Sweatpants,
+      Shorts, Sweatshirt du scaffold initial) — actuellement toujours visibles dans le
+      catalogue storefront aux côtés des 29 produits réels.
 - [x] `apps/storefront/.env.local` : `NEXT_PUBLIC_DEFAULT_REGION=bf` (actuellement absent
       du fichier, donc le middleware retombe sur le défaut `dk`, cf.
       `apps/storefront/src/middleware.ts`).
@@ -61,15 +63,17 @@ Implémentation complétée le 2026-08-16 via deux scripts d'import idempotents 
       renvoie 0 produit).
 - [x] **Importer le catalogue réel via un script d'import** (décision révisée le
       2026-08-16 — remplace la saisie manuelle prévue initialement). Source :
-      `Golden Market - Catalogue des produits.xlsx` (racine du dépôt, non versionné) —
-      2 feuilles, ~29 produits réels, 29 images intégrées au fichier :
+      `Golden Market - Catalogue des produits.xlsx` (`apps/backend/src/scripts/catalog-import/`,
+      committé dans le dépôt) — 2 feuilles, ~29 produits réels, 29 images intégrées au fichier :
       - **« Produits en vente express »** (~22 produits) → collection Medusa
         « Vente express ».
       - **« Produits en vente sur commande »** (~7 produits) → collection Medusa
         « Vente sur commande ».
       - Chaque produit a un prix détail et un prix de gros : prix détail = prix Medusa
-        standard ; prix de gros = price list Medusa réservée à un customer group
-        « grossistes » (à créer).
+        standard ; prix de gros = règle de prix sur le variant (`rules: { "customer.groups.id":
+        ... }`), réservée au customer group « Grossistes » — **pas** une `PriceList` Medusa
+        (`GET /admin/price-lists` renvoie vide, vérifié en Task 6). Voir avertissement dans
+        `HANDOFF.md` (Phase 1) sur les dangers de ce choix côté admin.
       - Images : extraites du fichier xlsx (images intégrées, pas d'URL externe) et
         uploadées en tant que média produit.
       - À traiter comme un plan dédié après la Phase 0 (ne pas mélanger avec le paiement
@@ -139,6 +143,10 @@ Hors périmètre du lancement, à reprendre une fois la boutique ouverte :
 - Migration du catalogue de la base `golden_market.public.products` (source n8n/WhatsApp)
   vers Medusa via Admin API — distinct de l'import du fichier Excel traité en Phase 1 ;
   à évaluer si cette base contient des produits/données absents du fichier Excel.
+- Migrer le tarif de gros (actuellement une règle de prix sur le variant, voir Phase 1)
+  vers une vraie `PriceList` Medusa : gérable depuis l'admin et ne serait plus supprimée
+  silencieusement par une modification de prix faite depuis l'admin (voir avertissement
+  dans `HANDOFF.md`, Phase 1) — différé car la solution actuelle fonctionne côté storefront.
 - Nettoyage des TODOs hérités du template storefront (Toaster de notifications,
   mise à jour email/mot de passe du compte client, gestion de l'inventaire v2 dans
   `apps/storefront/src/modules/cart/components/item/index.tsx`).

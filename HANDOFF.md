@@ -43,6 +43,16 @@ Statut global : **fait**
 - [x] Import du catalogue réel via script (plus de saisie manuelle — décision révisée,
       voir journal) — fait (Task 4)
 
+**Ne jamais éditer le prix d'un produit importé depuis l'admin Medusa** : le prix de
+gros est une règle de prix sur le variant (`rules: { "customer.groups.id": ... }`),
+pas une price list, invisible dans l'admin (aucune UI Medusa pour les règles de prix
+au niveau variant), et silencieusement supprimé par toute modification de prix faite
+depuis le formulaire produit de l'admin — le module de pricing traite le tableau de
+prix reçu comme faisant autorité et supprime tout prix absent de ce tableau. Pas de
+solution automatique de restauration : il faudrait supprimer le produit et réimporter
+la ligne concernée (l'idempotence par titre du script d'import ne le restaurera pas
+tant que le produit existe toujours).
+
 ### Phase 2 — Durcissement sécurité
 Statut global : **à faire**
 
@@ -81,7 +91,8 @@ catalogue automatisé, nettoyage TODOs template).
   fourni le catalogue produits réel (`Golden Market - Catalogue des produits.xlsx`,
   racine du dépôt, non versionné) : ~29 produits sur 2 feuilles (vente express / vente
   sur commande), 29 images intégrées. Décision : import automatisé (pas de saisie
-  manuelle) via 2 collections Medusa + price list grossistes pour le prix de gros —
+  manuelle) via 2 collections Medusa + une règle de prix sur le variant pour le groupe
+  client « Grossistes » (prix de gros, pas une price list — voir plus bas) —
   détail dans `ROADMAP.md` Phase 1. Ce travail sera traité comme un plan séparé après
   la clôture de la Phase 0.
 - **2026-08-16 (clôture Phase 0)** — Task 9 (page de réinitialisation de mot de passe)
@@ -136,8 +147,9 @@ catalogue automatisé, nettoyage TODOs template).
   comme payment provider, lieu de stock et fulfillment point, tax region), 29 produits
   réels importés depuis le fichier Excel « Golden Market - Catalogue des produits.xlsx »
   avec images intégrées (22 « Vente express » + 7 « Vente sur commande »), deux collections
-  Medusa correspondantes, et customer group « Grossistes » pour le tarif de gros via
-  price list. **Point ouvert intentionnel : la livraison est tarifiée à 0 XOF** (placeholder
+  Medusa correspondantes, et customer group « Grossistes » pour le tarif de gros via une
+  règle de prix sur le variant (pas une price list — voir avertissement plus bas).
+  **Point ouvert intentionnel : la livraison est tarifiée à 0 XOF** (placeholder
   volontaire — le merchant négocie le coût réel de livraison après la commande via
   WhatsApp). Ce n'est pas un bug ; si une session future cherche à « fixer » ce prix,
   consulter d'abord l'utilisateur. Scripts ré-exécutables sans risque de doublon
