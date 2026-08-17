@@ -1,0 +1,119 @@
+# Stack de production Golden Market — VPS + Docker (voir DEPLOYMENT.md).
+#
+# Usage :
+#   docker compose --env-file deploy/.env -f docker-compose.prod.yml up -d --build
+#
+# Toutes les valeurs sensibles/spécifiques à l'environnement viennent de
+# deploy/.env (voir deploy/.env.example, jamais committé). Les URLs internes
+# (postgres, redis, backend, storefront) utilisent les noms de service Docker,
+# pas localhost : les conteneurs se joignent entre eux sur le réseau `internal`.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - medusa_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - medusa_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      STORE_CORS: https://${STOREFRONT_DOMAIN}
+      ADMIN_CORS: https://${BACKEND_DOMAIN}
+      AUTH_CORS: https://${STOREFRONT_DOMAIN},https://${BACKEND_DOMAIN}
+      STOREFRONT_URL: https://${STOREFRONT_DOMAIN}
+      ORANGE_MONEY_NUMBER: ${ORANGE_MONEY_NUMBER}
+      ORANGE_MONEY_NAME: ${ORANGE_MONEY_NAME}
+      N8N_ORDER_WEBHOOK_URL: ${N8N_ORDER_WEBHOOK_URL}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [internal]
+
+  storefront:
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile
+      args:
+        NEXT_PUBLIC_MEDUSA_BACKEND_URL: https://${BACKEND_DOMAIN}
+        NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_DEFAULT_REGION: ${NEXT_PUBLIC_DEFAULT_REGION}
+        NEXT_PUBLIC_BASE_URL: https://${STOREFRONT_DOMAIN}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_MEDUSA_BACKEND_URL: https://${BACKEND_DOMAIN}
+      NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY}
+      NEXT_PUBLIC_DEFAULT_REGION: ${NEXT_PUBLIC_DEFAULT_REGION}
+      NEXT_PUBLIC_BASE_URL: https://${STOREFRONT_DOMAIN}
+    networks: [internal]
+
+  reverse-proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      BACKEND_DOMAIN: ${BACKEND_DOMAIN}
+      STOREFRONT_DOMAIN: ${STOREFRONT_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - storefront
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  medusa_postgres_data:
+  medusa_redis_data:
+  caddy_data:
+  caddy_config:

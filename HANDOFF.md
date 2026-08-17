@@ -16,6 +16,16 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-17 (suite) — Phase 3 (déploiement VPS/Docker) écrite en entier : Dockerfiles
+backend/storefront, `docker-compose.prod.yml`, reverse proxy Caddy (TLS Let's Encrypt
+automatique), script de sauvegarde Postgres, `DEPLOYMENT.md`. **Non vérifiée par un vrai
+build** : le sandbox de cette session bloque l'accès au registre Docker Hub par
+politique réseau (`production.cloudfront.docker.com`, 403 côté proxy sortant) — un
+`docker build` réel n'a donc pas pu être lancé, malgré un démon Docker fonctionnel dans
+ce sandbox (testé, root disponible). À valider avant tout déploiement réel. Voir journal
+pour le détail des choix (basés sur la lecture du code source Medusa, pas des
+suppositions).
+
 2026-08-17 — Phase 2 démarrée : deux des cinq points sont réellement actionnables sans
 environnement de production et sont faits (rate limiting sur la réinitialisation de mot
 de passe, revalidation de l'hygiène `.env`). Les trois autres (secrets forts, CORS au
@@ -73,7 +83,9 @@ Statut global : **en cours**
 - [ ] Compte admin dédié en prod — action de déploiement, différée (Phase 3/5)
 
 ### Phase 3 — Déploiement VPS + Docker
-Statut global : **à faire**
+Statut global : **écrit, non vérifié en conditions réelles** (voir `DEPLOYMENT.md` et
+`ROADMAP.md` pour le détail — build Docker impossible à tester dans le sandbox de cette
+session, registre Docker Hub bloqué par la politique réseau)
 
 ### Phase 4 — Tests & CI minimale
 Statut global : **à faire**
@@ -270,3 +282,61 @@ catalogue automatisé, nettoyage TODOs template).
   backend rejoué : aucune nouvelle erreur/warning (les 6 warnings préexistants, sans
   rapport avec ce travail, viennent de `parse-catalog.ts` et `order-placed.ts`, déjà
   présents avant cette session).
+- **2026-08-17 (Phase 3 — Docker/VPS, écrite non vérifiée)** — Avant d'écrire quoi que ce
+  soit, lecture directe du code source de `@medusajs/framework`/`@medusajs/medusa`
+  installés (pas de MCP `medusa` connecté dans cette session, pas de skills
+  `medusa-dev` chargées) pour éviter de deviner le comportement de build/start :
+  - `medusa build` compile vers `apps/backend/.medusa/server` et y copie
+    `apps/backend/package.json` tel quel (donc les mêmes dépendances, y compris
+    `express-rate-limit` ajouté en Phase 2) — confirmé dans
+    `@medusajs/framework/dist/build-tools/compiler.js`.
+    `medusa build` compile aussi l'admin par défaut (pas seulement le serveur) — confirmé
+    dans `@medusajs/medusa/dist/commands/build.js` (`buildAppFrontend` appelé sauf
+    `--admin-only`). `medusa start` sert un unique serveur Express qui expose à la fois
+    l'API et l'admin (`@medusajs/medusa/dist/commands/start.js`) et enregistre déjà un
+    `GET /health` — utilisé comme healthcheck Docker. Bonne surprise supplémentaire :
+    `app.set("trust proxy", 1)` est déjà posé par le loader Express du framework
+    (confirmé Phase 2) — donc rien à faire côté code pour que le rate limiter de la
+    Phase 2 reste correct derrière Caddy.
+  - Sortie Next.js "standalone" activée (`apps/storefront/next.config.js`) — nécessaire
+    pour une image de production sans embarquer tout `node_modules`. Nouveau
+    `apps/storefront/.env.template` (n'existait pas du tout avant cette session) :
+    variables réellement utilisées listées par grep dans `src/`
+    (`NEXT_PUBLIC_MEDUSA_BACKEND_URL`, `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`,
+    `NEXT_PUBLIC_DEFAULT_REGION`, `NEXT_PUBLIC_BASE_URL`) — volontairement sans les
+    variables Stripe/Medusa Cloud du scaffold, jamais utilisées par Golden Market
+    (paiement manuel Orange Money uniquement, décision actée dans `ARCHITECTURE.md`).
+  - Livrables : `apps/backend/Dockerfile` (+ `docker-entrypoint.sh` : migration puis
+    démarrage à chaque boot, documenté comme sûr uniquement en mono-instance),
+    `apps/storefront/Dockerfile` (build multi-étages, args `NEXT_PUBLIC_*` injectés au
+    build ET au runtime), `.dockerignore` racine, `docker-compose.prod.yml` (Postgres,
+    Redis, backend, storefront, Caddy comme reverse proxy — TLS Let's Encrypt
+    automatique sans config `certbot` séparée), `deploy/Caddyfile`,
+    `deploy/.env.example` (sur le modèle de `.env.example` déjà existant à la racine
+    pour l'infra de dev), `deploy/backup-postgres.sh` (dump gzip + purge 14 jours,
+    pensé pour cron sur le VPS), `DEPLOYMENT.md` (procédure complète : premier
+    déploiement, création admin, import catalogue, sauvegardes, restauration).
+    `.gitignore` : ajout de `/deploy/.env`.
+  - **Tentative de vérification par un vrai build** : le sandbox dispose bien d'un
+    démon Docker fonctionnel (root disponible, `dockerd` démarré manuellement avec
+    succès — confirmé par `docker info`), mais `docker build` échoue au tout premier
+    `FROM node:20-alpine` : la politique réseau sortante de ce sandbox bloque
+    `production.cloudfront.docker.com` (le CDN de Docker Hub) avec un 403 côté proxy de
+    sortie (confirmé via `curl $HTTPS_PROXY/__agentproxy/status` :
+    `connect_rejected`, "gateway answered 403 to CONNECT (policy denial or upstream
+    failure)"). Conformément à la consigne du proxy de ce sandbox (« ne pas contourner
+    un refus de politique »), aucune tentative de contournement (registre miroir,
+    etc.) — juste consigné ici. Démon Docker arrêté proprement après ce constat.
+    Validation partielle possible sans démon : `docker compose --env-file deploy/.env
+    -f docker-compose.prod.yml config` (ne nécessite pas de démon actif) confirme que le
+    YAML est valide et que la substitution de variables produit exactement le résultat
+    attendu (`DATABASE_URL`, CORS construits depuis les domaines, args de build du
+    storefront, etc.) — donc pas d'erreur de syntaxe ou de câblage, seule la construction
+    réelle des images reste à valider.
+  - **Point non traité, signalé dans `DEPLOYMENT.md`** : l'intégration avec l'infra VPS
+    existante de `n8n_automation` (dépôt non accessible depuis cette session) — risque
+    concret de collision sur les ports 80/443 si ce VPS a déjà un reverse proxy pour
+    n8n. À vérifier avant le premier déploiement réel.
+  - Phase 3 marquée « écrit, non vérifié en conditions réelles » plutôt que « fait » —
+    cases de `ROADMAP.md` volontairement laissées non cochées tant qu'un vrai
+    `docker build`/`docker compose up` n'a pas été rejoué avec succès (Phase 5).

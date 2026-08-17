@@ -12,6 +12,10 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
+  // Bundle serveur autonome (node .next/standalone/apps/storefront/server.js) :
+  // utilisé par apps/storefront/Dockerfile pour une image de production sans
+  // avoir à embarquer node_modules en entier.
+  output: "standalone",
   reactStrictMode: true,
   logging: {
     fetches: {

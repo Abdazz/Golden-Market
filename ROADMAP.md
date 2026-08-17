@@ -121,15 +121,43 @@ faits pour de vrai lors du déploiement (Phase 3/5).
 
 ## Phase 3 — Déploiement VPS + Docker
 
-- [ ] Dockerfile production pour `apps/backend` (`medusa build` puis `medusa start`).
-- [ ] Dockerfile production pour `apps/storefront` (`next build` puis `next start`).
-- [ ] `docker-compose` de production (ou intégration au VPS existant aux côtés de
-      `n8n_automation`) — Postgres/Redis managés ou conteneurisés selon ce que l'infra
-      VPS supporte déjà.
-- [ ] Reverse proxy + TLS (Let's Encrypt) devant backend et storefront.
+Statut : **écrit, non vérifié en conditions réelles**. Tous les livrables ci-dessous
+existent dans le dépôt (voir `DEPLOYMENT.md` pour la procédure complète et le détail des
+choix), mais **aucun `docker build` réel n'a pu être lancé** pendant cette session : le
+sandbox où ce travail a été fait bloque par politique réseau l'accès à
+`production.cloudfront.docker.com` (registre Docker Hub), donc impossible de tirer
+`node:20-alpine`. Écrit avec un soin particulier (comportement réel de `medusa build`
+— sortie `.medusa/server`, package.json copié tel quel, `medusa start` sert aussi
+l'admin — vérifié en lisant le code source de `@medusajs/framework` et
+`@medusajs/medusa`, pas supposé), mais **à valider par un vrai build/`docker compose up`
+avant tout déploiement réel** (Phase 5). Cases volontairement non cochées jusqu'à cette
+vérification.
+
+- [ ] Dockerfile production pour `apps/backend` (`medusa build` puis `medusa start`) —
+      `apps/backend/Dockerfile` (build multi-étages) + `apps/backend/docker-entrypoint.sh`
+      (migrations puis démarrage, sûr en mono-instance).
+- [ ] Dockerfile production pour `apps/storefront` (`next build` puis serveur autonome) —
+      `apps/storefront/Dockerfile`, sortie Next.js `output: "standalone"` ajoutée à
+      `apps/storefront/next.config.js`. Nouveau `apps/storefront/.env.template`
+      (n'existait pas encore) documentant les variables `NEXT_PUBLIC_*` requises.
+- [ ] `docker-compose` de production — `docker-compose.prod.yml` (racine) : Postgres,
+      Redis, backend, storefront et reverse proxy conteneurisés, réseau interne dédié,
+      aucun port applicatif exposé directement à l'hôte (seul Caddy expose 80/443).
+      **Intégration à l'infra VPS existante de `n8n_automation` non traitée** — pas
+      d'accès à ce dépôt pendant cette session ; risque de collision de ports 80/443 si
+      ce VPS a déjà un reverse proxy, signalé dans `DEPLOYMENT.md` (section Prérequis) à
+      vérifier avant le premier déploiement réel.
+- [ ] Reverse proxy + TLS (Let's Encrypt) devant backend et storefront — `deploy/Caddyfile`
+      (Caddy, TLS automatique, pas de config `certbot` manuelle à maintenir).
 - [ ] Procédure de déploiement : migrations (`medusa db:migrate`), création du user admin,
-      variables d'environnement de prod.
-- [ ] Sauvegardes Postgres (dump périodique automatisé, a minima un cron).
+      variables d'environnement de prod — documentée dans `DEPLOYMENT.md` ; migrations
+      automatisées à chaque démarrage du conteneur backend (voir `docker-entrypoint.sh`
+      ci-dessus) ; création du user admin et variables listées dans
+      `deploy/.env.example` (nouveau, sur le modèle de `.env.example` existant à la
+      racine pour l'infra de dev).
+- [ ] Sauvegardes Postgres (dump périodique automatisé, a minima un cron) —
+      `deploy/backup-postgres.sh` (dump gzippé + purge à 14 jours), exemple de cron et
+      procédure de restauration dans `DEPLOYMENT.md`.
 
 ## Phase 4 — Tests & CI minimale
 

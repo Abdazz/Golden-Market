@@ -1,0 +1,20 @@
+# Reverse proxy + TLS automatique (Let's Encrypt) pour la stack de production.
+# Variables substituées depuis deploy/.env (voir docker-compose.prod.yml,
+# service reverse-proxy) : BACKEND_DOMAIN, STOREFRONT_DOMAIN, ACME_EMAIL.
+#
+# Suppose que ces deux domaines pointent (DNS A/AAAA) vers ce VPS, et que les
+# ports 80/443 de l'hôte ne sont pas déjà utilisés par un autre reverse proxy
+# (ex. celui de n8n_automation, s'il tourne sur le même VPS — à vérifier avant
+# le premier déploiement réel, voir DEPLOYMENT.md).
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$BACKEND_DOMAIN} {
+	reverse_proxy backend:9000
+}
+
+{$STOREFRONT_DOMAIN} {
+	reverse_proxy storefront:8000
+}

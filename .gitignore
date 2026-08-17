@@ -39,6 +39,9 @@ yarn-error.log*
 **/.env.test.local
 **/.env.production.local
 
+# Secrets de déploiement production (docker-compose.prod.yml) — voir deploy/.env.example
+/deploy/.env
+
 # Turbo
 .turbo
 .vscode
