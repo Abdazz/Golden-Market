@@ -81,20 +81,43 @@ Implémentation complétée le 2026-08-16 via deux scripts d'import idempotents 
 
 ## Phase 2 — Durcissement sécurité
 
+Statut : **en cours**. Deux points sont réellement actionnables dans le dépôt et sont
+faits ; les trois autres sont des actions qui ne peuvent s'exécuter que sur un vrai
+environnement de production (secrets, domaine réel, compte admin) — préparés (documentés
+dans `.env.template`) mais volontairement laissés non cochés tant qu'ils n'ont pas été
+faits pour de vrai lors du déploiement (Phase 3/5).
+
 - [ ] Secrets de production distincts des valeurs de `.env.template`
       (`JWT_SECRET=supersecret`, `COOKIE_SECRET=supersecret` sont des valeurs de dev à ne
-      jamais réutiliser en prod) — générer des secrets aléatoires forts.
+      jamais réutiliser en prod) — générer des secrets aléatoires forts. Préparé : commentaire
+      d'avertissement ajouté dans `.env.template` avec la commande de génération
+      (`openssl rand -base64 32`) ; la génération réelle se fait au déploiement (Phase 3).
 - [ ] `STORE_CORS` / `ADMIN_CORS` / `AUTH_CORS` restreints aux domaines réels de
-      production (actuellement `localhost` + domaines Medusa dans le template).
+      production (actuellement `localhost` + domaines Medusa dans le template). Préparé :
+      commentaire ajouté dans `.env.template` ; la valeur réelle dépend du nom de domaine
+      choisi en Phase 3, pas encore connu.
 - [ ] Compte admin dédié en prod, mot de passe fort — ne pas réutiliser
       `admin@golden-market.co` / mot de passe de dev mentionné dans `ARCHITECTURE.md`.
-- [ ] Revalider que `.env` / `.env.local` de production suivent la même hygiène qu'en dev
-      (jamais commités — déjà correctement configuré dans `.gitignore`).
-- [ ] Limiter le débit (rate limiting) de l'endpoint public
+      Action pure de déploiement, à faire en Phase 3/5 (pas de compte prod à créer avant
+      qu'un vrai serveur existe).
+- [x] Revalider que `.env` / `.env.local` de production suivent la même hygiène qu'en dev
+      (jamais commités). Revalidé le 2026-08-17 : `.gitignore` racine couvre `**/.env` et
+      `**/.env.local` (toutes apps), `apps/backend/.gitignore` couvre `.env` explicitement
+      en plus — aucun fichier `.env*` suivi par git dans le dépôt.
+- [x] Limiter le débit (rate limiting) de l'endpoint public
       `POST /auth/customer/emailpass/reset-password` — non authentifié, répond
       toujours 201 (comportement Medusa voulu pour ne pas révéler l'existence d'un
       compte), et déclenche un email sortant à chaque appel : vecteur
-      d'amplification/abus une fois une vraie clé Resend configurée.
+      d'amplification/abus une fois une vraie clé Resend configurée. Fait le 2026-08-17 :
+      `apps/backend/src/api/middlewares.ts` (nouveau), limiteur `express-rate-limit`
+      (5 requêtes / 15 min par IP, 429 au-delà) posé sur cette route précise via
+      `defineMiddlewares`. Vérifié par test unitaire avec un vrai serveur Express
+      (`src/api/__tests__/middlewares.unit.spec.ts`) : 5 requêtes acceptées (201), la 6ᵉ
+      rejetée (429). Bonne surprise vérifiée en lisant le code de Medusa : le loader Express
+      du framework pose déjà `app.set("trust proxy", 1)` par défaut
+      (`@medusajs/framework/dist/http/express-loader.js`) — donc `req.ip` restera correct
+      derrière le futur reverse proxy Nginx de la Phase 3 (un seul saut), aucune
+      configuration supplémentaire à prévoir pour ce point.
 
 ## Phase 3 — Déploiement VPS + Docker
 

@@ -16,6 +16,14 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-17 — Phase 2 démarrée : deux des cinq points sont réellement actionnables sans
+environnement de production et sont faits (rate limiting sur la réinitialisation de mot
+de passe, revalidation de l'hygiène `.env`). Les trois autres (secrets forts, CORS au
+domaine réel, compte admin dédié) sont des actions qui n'ont de sens qu'une fois un vrai
+serveur de production ouvert — préparées côté documentation mais volontairement laissées
+non cochées ; à finaliser pendant la Phase 3 (déploiement) / Phase 5 (vérification
+pré-lancement). Voir journal ci-dessous pour le détail.
+
 2026-08-16 — Phase 1 clôturée : vérification bout en bout du storefront sur la région
 Burkina Faso effectuée (Task 6 du plan « catalogue-region-bf »), commande réelle passée
 avec succès en XOF (panier → checkout → livraison 0 FCFA → Orange Money → confirmation).
@@ -54,7 +62,15 @@ la ligne concernée (l'idempotence par titre du script d'import ne le restaurera
 tant que le produit existe toujours).
 
 ### Phase 2 — Durcissement sécurité
-Statut global : **à faire**
+Statut global : **en cours**
+
+- [x] Rate limiting sur `POST /auth/customer/emailpass/reset-password` — fait
+- [x] Hygiène `.env`/`.env.local` (jamais commités) — revalidé
+- [ ] Secrets de production forts — préparé (doc `.env.template`), génération réelle
+      différée au déploiement (Phase 3)
+- [ ] CORS restreints au domaine réel de production — préparé (doc `.env.template`),
+      valeur réelle différée au déploiement (Phase 3)
+- [ ] Compte admin dédié en prod — action de déploiement, différée (Phase 3/5)
 
 ### Phase 3 — Déploiement VPS + Docker
 Statut global : **à faire**
@@ -226,3 +242,31 @@ catalogue automatisé, nettoyage TODOs template).
   pendant un moment après une réécriture d'historique — c'est un cache d'affichage
   asynchrone côté GitHub, indépendant des données réelles (déjà vérifiées propres via
   l'API `/commits` et `/contributors`), pas un signe d'échec de la correction.
+- **2026-08-17 (Phase 2 — rate limiting + revalidation `.env`)** — Sur les cinq points de
+  la Phase 2, deux sont réellement actionnables dans ce dépôt (pas d'environnement de
+  production réel accessible dans cette session, ni Docker fonctionnel pour rejouer un
+  test E2E live — daemon Docker absent du sandbox) :
+  - **Rate limiting** sur `POST /auth/customer/emailpass/reset-password` : nouveau fichier
+    `apps/backend/src/api/middlewares.ts` avec `defineMiddlewares` (idiome documenté dans
+    `apps/backend/src/api/README.md`), limiteur `express-rate-limit` (nouvelle dépendance,
+    5 requêtes / 15 min par IP, 429 au-delà) posé uniquement sur cette route précise.
+    Vérifié par un vrai serveur Express dans un test unitaire
+    (`src/api/__tests__/middlewares.unit.spec.ts`, ajouté `express`/`@types/express` en
+    devDependencies pour ce test) : 5 requêtes → 201, 6ᵉ → 429. En lisant
+    `@medusajs/framework/dist/http/express-loader.js` : le framework pose déjà
+    `app.set("trust proxy", 1)` par défaut, donc `req.ip` (utilisé par le limiteur) restera
+    correct derrière le futur reverse proxy Nginx de la Phase 3 — pas de configuration
+    supplémentaire à prévoir sur ce point précis quand la Phase 3 sera traitée.
+  - **Hygiène `.env`/`.env.local`** : revalidée, déjà correcte (`.gitignore` racine +
+    `apps/backend/.gitignore`), aucune action nécessaire.
+  Les trois points restants (secrets de prod forts, CORS restreints au domaine réel,
+  compte admin dédié) ne peuvent pas être complétés pour de vrai sans un environnement de
+  production existant — ce sont des actions de déploiement, pas du code. Préparés côté
+  documentation (`apps/backend/.env.template` : avertissement sur `JWT_SECRET`/
+  `COOKIE_SECRET` avec commande `openssl rand -base64 32`, avertissement sur les CORS à
+  restreindre au domaine réel) et laissés non cochés dans `ROADMAP.md` volontairement,
+  pour ne pas prétendre à un état qui ne sera vrai qu'après la Phase 3. Suite de tests
+  unitaires complète rejouée après ce changement : 7 suites / 19 tests, tous verts. Lint
+  backend rejoué : aucune nouvelle erreur/warning (les 6 warnings préexistants, sans
+  rapport avec ce travail, viennent de `parse-catalog.ts` et `order-placed.ts`, déjà
+  présents avant cette session).
