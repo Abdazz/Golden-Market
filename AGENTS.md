@@ -139,6 +139,7 @@ claude mcp add --transport http medusa https://docs.medusajs.com/mcp # or agent 
 - No semicolons. Double quotes, 2-space indent.
 - Files: kebab-case. Types/classes: PascalCase. Functions/variables: camelCase. DB columns: snake_case.
 - No emojis in code, comments, or commit messages.
+- **Never add a `Co-Authored-By: Claude...` (or any AI) trailer to a commit message** — explicit owner preference. This applies to commits made directly and to instructions given to any subagent that commits.
 
 ## Conventions
 

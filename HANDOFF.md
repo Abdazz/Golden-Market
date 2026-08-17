@@ -194,3 +194,35 @@ catalogue automatisé, nettoyage TODOs template).
   identifiants permanents) : admin `task6-verify@golden-market.co`, client
   `task6-grossiste@golden-market.co`. Aucun code applicatif modifié (conforme au
   périmètre de la tâche) ; seule modification de fichier suivi par git : ce journal.
+- **2026-08-16/17 (revue finale Phase 1 + correctif)** — La revue finale sur l'ensemble
+  de la branche du plan « catalogue-region-bf » a trouvé un bug réel non détecté par la
+  vérification E2E de la Task 6 : les 29 produits importés n'avaient pas de
+  `shipping_profile_id`, donc Medusa les traitait silencieusement comme ne nécessitant
+  pas de livraison (`requires_shipping: false`) — la commande de test avait donc réussi
+  sans jamais réellement valider le flux de livraison. Corrigé : `import-catalog.ts`
+  résout désormais le shipping profile par défaut et le passe à chaque produit créé ;
+  les 29 produits déjà en base ont été réparés en direct (lien ajouté, vérifié 29/29).
+  Autres correctifs du même lot : dédoublonnage de la devise XOF en cas de relance
+  partielle de `seed-region-bf.ts`, `apps/backend/static/` ajouté au `.gitignore`
+  (images uploadées, 7.5 Mo, non versionné), `NEXT_PUBLIC_DEFAULT_REGION` documenté
+  dans `AGENTS.md` et rendu obligatoire au démarrage du storefront
+  (`check-env-variables.js`), et durcissements sur `parse-catalog.ts` (association
+  image/ligne par `Math.floor` au lieu de `Math.round`, vérification prix non-finis).
+  `ROADMAP.md` corrigé : la case « retirer les régions de démo Europe » a été décochée
+  (jamais fait, contrairement à ce qu'elle affirmait) et scindée en un item séparé.
+  Revue ciblée du correctif : propre, aucun point bloquant résiduel.
+- **2026-08-17 (réécriture d'historique git)** — L'utilisateur a signalé que Claude ne
+  doit **jamais** être ajouté comme co-auteur dans les commits (préférence déjà énoncée
+  avant cette session mais non documentée). Les 27 commits de la session portant la
+  ligne `Co-Authored-By: Claude...` ont été réécrits via `git filter-repo` (hashes
+  changés, contenu des fichiers inchangé) puis poussés en force
+  (`git push --force-with-lease`) sur `origin/main`
+  (`git@github.com:Abdazz/Golden-Market.git`, ajouté par l'utilisateur pendant la
+  session). Vérifié après coup via l'API GitHub : aucune trace de Claude comme auteur
+  ou co-auteur sur aucun commit. **Convention pour la suite : ne jamais inclure de
+  trailer `Co-Authored-By: Claude...` dans un commit de ce dépôt, y compris dans les
+  instructions données à un sous-agent qui committe.** Note : le panneau
+  « Contributors » de la page d'accueil GitHub peut continuer à afficher « claude »
+  pendant un moment après une réécriture d'historique — c'est un cache d'affichage
+  asynchrone côté GitHub, indépendant des données réelles (déjà vérifiées propres via
+  l'API `/commits` et `/contributors`), pas un signe d'échec de la correction.
