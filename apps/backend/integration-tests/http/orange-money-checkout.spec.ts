@@ -1,3 +1,5 @@
+import http from "http"
+import type { AddressInfo } from "net"
 import { medusaIntegrationTestRunner } from "@medusajs/test-utils"
 import {
   ContainerRegistrationKeys,
@@ -115,7 +117,11 @@ medusaIntegrationTestRunner({
         })
       })
 
-      it("crée une commande avec le paiement autorisé via Orange Money", async () => {
+      // Rejoue tout le parcours (panier -> ... -> complete) et renvoie la commande créée.
+      // Partagé par les deux tests ci-dessous : le premier vérifie le statut de paiement,
+      // le second le contrat du webhook n8n envoyé sur order.placed — chacun a besoin de
+      // sa propre commande (un panier ne se complète qu'une fois).
+      async function placeOrder(email: string) {
         const headers = { "x-publishable-api-key": publishableKey }
 
         const { data: cartData } = await api.post(
@@ -123,7 +129,7 @@ medusaIntegrationTestRunner({
           {
             region_id: regionId,
             sales_channel_id: salesChannelId,
-            email: "client-test@golden-market.co",
+            email,
             items: [{ variant_id: variantId, quantity: 1 }],
             shipping_address: {
               country_code: "bf",
@@ -167,23 +173,73 @@ medusaIntegrationTestRunner({
           {},
           { headers }
         )
-
         expect(completeData.type).toBe("order")
-        expect(completeData.order.email).toBe("client-test@golden-market.co")
+        return completeData.order as { id: string; email: string }
+      }
 
+      it("crée une commande avec le paiement autorisé via Orange Money", async () => {
+        const order = await placeOrder("client-test@golden-market.co")
+        expect(order.email).toBe("client-test@golden-market.co")
+
+        const headers = { "x-publishable-api-key": publishableKey }
         // payment_status n'est pas un champ persisté sur order (donc absent de la
         // réponse de /complete, qui fait un query.graph brut) : c'est une valeur
         // calculée par getOrderDetailWorkflow à partir des payment_collections,
         // exposée via GET /store/orders/:id — exactement l'appel que fait la page
         // de confirmation du storefront (voir order/components/payment-details).
         const { data: orderData } = await api.get(
-          `/store/orders/${completeData.order.id}?fields=%2Bpayment_status`,
+          `/store/orders/${order.id}?fields=%2Bpayment_status`,
           { headers }
         )
         // orange-money-manual autorise immédiatement (voir
         // src/modules/orange-money-manual.ts) : la confirmation humaine du
         // paiement réel se fait ensuite manuellement dans l'admin (capture).
         expect(orderData.order.payment_status).toBe("authorized")
+      })
+
+      it("notifie le webhook n8n avec le détail de la commande (order.placed)", async () => {
+        // Pas de vrai n8n disponible (voir HANDOFF.md/ROADMAP.md — aucun workflow
+        // récepteur n'existe encore côté n8n_automation) : un petit serveur HTTP local
+        // tient lieu de récepteur pour valider le contrat réellement envoyé par le
+        // subscriber order-placed.ts contre une vraie commande.
+        let received: any = null
+        const server = http.createServer((req, res) => {
+          const chunks: Buffer[] = []
+          req.on("data", (chunk) => chunks.push(chunk))
+          req.on("end", () => {
+            received = JSON.parse(Buffer.concat(chunks).toString("utf-8"))
+            res.writeHead(200)
+            res.end()
+          })
+        })
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+        const port = (server.address() as AddressInfo).port
+        const previousWebhookUrl = process.env.N8N_ORDER_WEBHOOK_URL
+        process.env.N8N_ORDER_WEBHOOK_URL = `http://127.0.0.1:${port}/webhook`
+
+        try {
+          const order = await placeOrder("webhook-test@golden-market.co")
+
+          // order.placed est traité par le subscriber avant que la réponse HTTP de
+          // /complete ne revienne (event bus local synchrone), mais on tolère un court
+          // délai pour éviter toute fragilité si ça changeait.
+          for (let i = 0; i < 20 && received === null; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 100))
+          }
+
+          expect(received).toMatchObject({
+            order_id: order.id,
+            provider: "orange-money-manual",
+            email: "webhook-test@golden-market.co",
+            currency_code: "xof",
+            items: [{ title: "Produit de test — parcours Orange Money", quantity: 1 }],
+          })
+          expect(typeof received.display_id).toBe("number")
+          expect(typeof received.total).toBe("number")
+        } finally {
+          process.env.N8N_ORDER_WEBHOOK_URL = previousWebhookUrl
+          await new Promise<void>((resolve) => server.close(() => resolve()))
+        }
       })
     })
   },

@@ -13,7 +13,7 @@ Décisions prises le 2026-08-16 :
   et le bouton "Commander via WhatsApp" (voir `ARCHITECTURE.md`) sont **différés en
   post-lancement**, pas requis pour ouvrir la boutique.
 - **Hébergement production : VPS + Docker**, auto-hébergé (cohérent avec l'infra
-  existante de `n8n_automation`), pas de Medusa Cloud / Vercel.
+  existante de `n8n`), pas de Medusa Cloud / Vercel.
 - **Pas de date de lancement fixe** — la qualité prime sur la vitesse ; les phases 4
   (tests/CI) et 5 (vérification) ne sont pas sacrifiées.
 - **Notification marchand** (nouvelle commande) : webhook n8n → WhatsApp, pas d'email.
@@ -143,7 +143,7 @@ vérification.
 - [ ] `docker-compose` de production — `docker-compose.prod.yml` (racine) : Postgres,
       Redis, backend, storefront et reverse proxy conteneurisés, réseau interne dédié,
       aucun port applicatif exposé directement à l'hôte (seul Caddy expose 80/443).
-      **Intégration à l'infra VPS existante de `n8n_automation` non traitée** — pas
+      **Intégration à l'infra VPS existante de `n8n` non traitée** — pas
       d'accès à ce dépôt pendant cette session ; risque de collision de ports 80/443 si
       ce VPS a déjà un reverse proxy, signalé dans `DEPLOYMENT.md` (section Prérequis) à
       vérifier avant le premier déploiement réel.
@@ -202,16 +202,49 @@ session (scope `workflow` manquant), voir le détail au dernier point ci-dessous
 
 ## Phase 5 — Vérification pré-lancement
 
+Statut : **partiellement fait**. Le point sur le contrat webhook n8n est traité et
+vérifié (voir ci-dessous). Les trois autres restent bloqués par l'absence d'un vrai
+environnement de production/staging et d'une vraie clé Resend, non disponibles dans le
+sandbox de cette session (cohérent avec le constat déjà fait en Phase 3 : accès Docker
+Hub bloqué par politique réseau).
+
 - [ ] Parcours client complet rejoué en environnement proche de la production (staging ou
-      VPS avant bascule DNS finale).
-- [ ] Vérification du traitement de commande côté admin : capture manuelle du paiement,
-      changement de statut, notification n8n reçue.
+      VPS avant bascule DNS finale). Déjà rejoué une fois en environnement de dev local
+      lors de la Phase 1 (Task 6, checkout complet réel via navigateur) — rien côté
+      parcours client n'a changé depuis. Un vrai rejeu en staging/VPS nécessite d'abord
+      la Phase 3 (bloquée, voir plus haut).
+- [x] Vérification du traitement de commande côté admin : capture manuelle du paiement,
+      changement de statut — déjà vérifié en Phase 0 (`POST /admin/payments/.../capture`
+      → 200, statut `Captured`/`paid` confirmé). **Notification n8n reçue** :
+      vérifiée pour la première fois dans cette session (voir point suivant).
 - [ ] Vérification des emails transactionnels réels (confirmation de commande,
-      réinitialisation de mot de passe) avec le provider configuré en phase 0.
-- [ ] Valider le contrat exact du payload envoyé au webhook n8n
-      (`N8N_ORDER_WEBHOOK_URL`) contre le workflow réel du dépôt `n8n_automation` —
-      actuellement seul `{ order_id, provider }` est envoyé, jamais confronté au
-      format attendu côté n8n.
+      réinitialisation de mot de passe) avec le provider configuré en phase 0. Toujours
+      bloquée : aucune vraie clé `RESEND_API_KEY` disponible dans ce sandbox (déjà
+      signalé comme lacune connue depuis la Task 10 de la Phase 0).
+- [x] Valider le contrat exact du payload envoyé au webhook n8n
+      (`N8N_ORDER_WEBHOOK_URL`). Fait le 2026-08-22 — constat plus profond que prévu :
+      le dépôt réel s'appelle `Abdazz/n8n` (pas `n8n_automation`, nom historique
+      inexact dans ce document et dans `ARCHITECTURE.md`, à corriger), cloné et lu en
+      entier dans cette session. **Aucun workflow n8n ne reçoit ce webhook** — le dépôt
+      ne contient qu'un seul webhook, `/webhook/whatsapp`, propre à l'agent
+      conversationnel WhatsApp (vérifié dans `guide-golden-market-agent.md`, `README.md`
+      et `AGENTS.md` de ce dépôt : aucune mention de Medusa, d'e-commerce ou de
+      webhook de commande). Il n'y avait donc aucun contrat existant à respecter.
+      Plutôt que de se contenter de documenter cette absence, le payload envoyé par
+      `apps/backend/src/subscribers/order-placed.ts` a été enrichi (`display_id`,
+      `email`, `currency_code`, `total`, `items[].{title,quantity}` — un humain ne peut
+      rien faire d'un simple `{order_id, provider}` dans un futur message WhatsApp) et
+      vérifié contre une vraie commande via un nouveau test d'intégration
+      (`orange-money-checkout.spec.ts`, deuxième cas de test, avec un petit serveur HTTP
+      local en guise de récepteur n8n). Un vrai bug a été trouvé et corrigé au passage :
+      `items.quantity` renvoyait systématiquement `undefined` (silencieusement absent du
+      JSON envoyé) — le champ existe en réalité sous `items.detail.quantity` dans le
+      modèle Order de Medusa v2 (`OrderLineItemDTO.detail: OrderItemDTO`, c'est
+      `OrderItemDTO` qui porte `quantity`). **Reste à faire, hors périmètre de cette
+      session** : construire le workflow n8n qui reçoit effectivement ce webhook (accès
+      en lecture seule à `Abdazz/n8n` dans cette session, pas d'instance n8n vivante
+      accessible, et les workflows n8n eux-mêmes ne sont pas versionnés dans ce dépôt
+      git — voir `ARCHITECTURE.md`).
 
 ## Phase différée (post-lancement)
 

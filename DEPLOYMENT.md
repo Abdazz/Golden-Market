@@ -1,7 +1,7 @@
 # Déploiement production — VPS + Docker
 
 Procédure de déploiement de Golden Market sur un VPS auto-hébergé, à côté de
-l'infra `n8n_automation` existante (voir `ARCHITECTURE.md`). Complète
+l'infra `n8n` existante (voir `ARCHITECTURE.md`). Complète
 `ROADMAP.md` (Phase 3) — ce document décrit le *comment*, `ROADMAP.md` garde
 la case à cocher.
 
@@ -22,12 +22,12 @@ déploiement réel** (Phase 5).
   `boutique.golden-market.co` (storefront) et `api.golden-market.co` (backend +
   admin Medusa, servis sur le même port par `medusa start`).
 - **Vérifier qu'aucun autre service n'occupe déjà les ports 80/443 du VPS**
-  avant le premier déploiement — si `n8n_automation` tourne sur le même VPS
+  avant le premier déploiement — si `n8n` tourne sur le même VPS
   avec son propre reverse proxy (Nginx, Traefik, ou n8n lui-même), il y aura
   collision avec le service `reverse-proxy` (Caddy) de ce dépôt. Deux options
   si c'est le cas : donner un VPS/IP dédié à Golden Market, ou remplacer le
   service Caddy par une intégration au reverse proxy existant (non fait ici,
-  pas d'accès au dépôt `n8n_automation` pour ce travail).
+  pas d'accès au dépôt `n8n` pour ce travail).
 
 ## Premier déploiement
 

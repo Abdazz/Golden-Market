@@ -168,7 +168,7 @@ claude mcp add --transport http medusa https://docs.medusajs.com/mcp # or agent 
 
 ## Conventions Golden Market
 
-- Tout commentaire, message de commit et documentation se rédigent en **français** (convention du propriétaire, identique au dépôt `n8n_automation`).
+- Tout commentaire, message de commit et documentation se rédigent en **français** (convention du propriétaire, identique au dépôt `n8n`).
 - Ports de dev déviants : backend `9001`, storefront `8001` (les 9000/8000 par défaut sont occupés par d'autres conteneurs de la machine hôte). Infra de dev (Postgres `5433`, Redis `6379`) dans `docker-compose.yml` à la racine.
-- Le catalogue Medusa est la nouvelle source de vérité, mais l'agent n8n (dépôt `n8n_automation`) lit toujours `public.products` : toute évolution du modèle produit doit préserver la synchronisation (voir `ARCHITECTURE.md`).
+- Le catalogue Medusa est la nouvelle source de vérité, mais l'agent n8n (dépôt `n8n`) lit toujours `public.products` : toute évolution du modèle produit doit préserver la synchronisation (voir `ARCHITECTURE.md`).
 - Aucun payment provider Mobile Money sans décision explicite : le flux de paiement est **manuel** (instructions Orange Money + confirmation humaine).

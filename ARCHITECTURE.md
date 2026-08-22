@@ -5,7 +5,7 @@ Document d'architecture — à mettre à jour à chaque décision structurante.
 ## Contexte
 
 Golden Market vend au Burkina Faso (FCFA/XOF). Canal historique : WhatsApp via un agent n8n
-(voir le dépôt `n8n_automation` — workflows dans le volume Docker de n8n, source de vérité :
+(voir le dépôt `n8n` — workflows dans le volume Docker de n8n, source de vérité :
 `guide-golden-market-agent.md`). Ce dépôt ajoute la **plateforme e-commerce** :
 
 - **Medusa v2 (backend)** : produits, régions, paniers, commandes, promotions — API Store/Admin.
@@ -14,7 +14,7 @@ Golden Market vend au Burkina Faso (FCFA/XOF). Canal historique : WhatsApp via u
 
 Décisions actées (à ne pas reprendre sans discussion) :
 
-1. **Nouveau dépôt dédié** — ce dépôt est applicatif (Medusa), `n8n_automation` reste l'infra seule.
+1. **Nouveau dépôt dédié** — ce dépôt est applicatif (Medusa), `n8n` reste l'infra seule.
 2. **Base dédiée** `medusa-backend` pour Medusa ; le catalogue existant (`public.products` /
    `product_images` dans la base n8n) sera **migré une seule fois** (script d'import ci-dessous).
 3. **Agent n8n WhatsApp conservé tel quel** pour l'instant : il continue de lire/écrire
@@ -74,7 +74,7 @@ Medusa est la nouvelle source de vérité du catalogue. Il faut donc **écrire e
 - Colonnes cibles : `name` ← title, `description`, `price` ← montant XOF ajusté (Medusa stocke
   l'unité monétaire en 1/100 ; diviser par 100), `stock_qty` ← inventaire du canal par défaut.
 - Alternative si n8n tombe : job Medusa (`src/jobs/`) qui appelle un webhook n8n. **A construire**
-  dans le dépôt n8n_automation ; le guide doit alors être mis à jour (source de vérité).
+  dans le dépôt `n8n` ; le guide doit alors être mis à jour (source de vérité).
 
 ## Migration du catalogue existant (one-shot)
 
@@ -101,4 +101,4 @@ Aucun payment provider Mobile Money (décision actée). Comportement cible :
 
 - `AGENTS.md` (racine) : conventions du scaffold Medusa (commandes, off-limits : ne pas committer
   `.env*`, ne pas réécrire les migrations existantes, lint `@medusajs/*` obligatoire).
-- Dépôt `n8n_automation` : infra de prod, base `golden_market`, agent WhatsApp.
+- Dépôt `n8n` : infra de prod, base `golden_market`, agent WhatsApp.

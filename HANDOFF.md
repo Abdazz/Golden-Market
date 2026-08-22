@@ -35,6 +35,17 @@ poussé — à ajouter manuellement (interface GitHub, ou un accès avec le scop
 pour que la CI soit effectivement active. Tout le reste de la Phase 4 (tests, corrections
 de lint, documentation) a bien été poussé.
 
+2026-08-22 (suite) — Phase 5 démarrée : le point sur le contrat du webhook n8n est fait
+et vérifié. Dépôt n8n cloné en lecture seule (nom réel `Abdazz/n8n`, pas
+`n8n_automation` comme documenté jusqu'ici — corrigé dans `ARCHITECTURE.md`/`AGENTS.md`/
+`ROADMAP.md`/`DEPLOYMENT.md`) : aucun workflow n'y reçoit de notification de commande
+Medusa, seul un webhook `/webhook/whatsapp` existe (agent conversationnel, sans rapport).
+Payload du subscriber `order-placed.ts` enrichi en conséquence et vérifié contre une
+vraie commande ; un vrai bug trouvé et corrigé au passage (`items.quantity` →
+`items.detail.quantity`). Les deux autres points de la Phase 5 (parcours en
+environnement proche de la prod, emails transactionnels réels) restent bloqués par
+l'absence de VPS/staging et de vraie clé Resend — voir journal détaillé plus bas.
+
 2026-08-17 (suite) — Phase 3 (déploiement VPS/Docker) écrite en entier : Dockerfiles
 backend/storefront, `docker-compose.prod.yml`, reverse proxy Caddy (TLS Let's Encrypt
 automatique), script de sauvegarde Postgres, `DEPLOYMENT.md`. **Non vérifiée par un vrai
@@ -111,7 +122,15 @@ Statut global : **fait** — vérifié en exécutant réellement chaque commande
 journal), pas seulement écrit
 
 ### Phase 5 — Vérification pré-lancement
-Statut global : **à faire**
+Statut global : **partiellement fait**
+
+- [x] Contrat webhook n8n validé (aucun récepteur n'existe côté n8n — payload enrichi et
+      vérifié contre une vraie commande, un vrai bug trouvé et corrigé)
+- [x] Notification n8n reçue lors de la capture admin — vérifiée (capture elle-même déjà
+      faite en Phase 0)
+- [ ] Parcours client complet en environnement proche de la production — bloqué (pas de
+      VPS/staging, cf. Phase 3)
+- [ ] Emails transactionnels réels — bloqué (pas de vraie clé Resend dans ce sandbox)
 
 ### Phase différée (post-lancement)
 Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
@@ -447,3 +466,52 @@ catalogue automatisé, nettoyage TODOs template).
     préexistants et non touchés — changer les dépendances d'un `useEffect` sans en
     comprendre l'intention peut introduire une boucle de rendu, laissés tels quels
     volontairement).
+- **2026-08-22 (Phase 5 — contrat webhook n8n)** — Le dépôt n8n a été attaché à cette
+  session (`add_repo`, accès lecture) puis cloné et lu en entier
+  (`/home/user/n8n`, hors du dépôt Golden Market — rien commité là-bas, accès lecture
+  seule). Premier constat : son vrai nom GitHub est `Abdazz/n8n`, pas `n8n_automation`
+  comme l'affirmaient `ARCHITECTURE.md`/`AGENTS.md`/`ROADMAP.md`/`DEPLOYMENT.md` depuis
+  le début du projet — corrigé dans ces quatre fichiers (recherche/remplacement global,
+  seule cette session-ci journal non touchée par convention pour ne pas réécrire
+  l'historique).
+  Contenu réel de ce dépôt : uniquement l'infra (`docker-compose.yml`, `schema.sql`,
+  config Apache) et `guide-golden-market-agent.md`, qui documente en détail l'agent
+  conversationnel WhatsApp (recherche produit, création de commande, confirmation de
+  paiement — tout côté agent IA + Postgres `orders`/`conversations`/`messages`). Recherche
+  exhaustive (`grep -i "medusa\|webhook\|order_id"` sur tout le dépôt) : **aucune mention
+  de Medusa, d'e-commerce, ni de webhook de réception de commande** — le seul webhook qui
+  existe est `/webhook/whatsapp` (réception des messages WhatsApp entrants, sans rapport
+  avec le paiement Medusa). Confirmé aussi dans `AGENTS.md` de ce dépôt : "Path prod
+  `/webhook/whatsapp`" est le seul chemin mentionné.
+  **Conclusion concrète** : il n'existe donc, à ce jour, aucun contrat à "valider" côté
+  n8n pour `N8N_ORDER_WEBHOOK_URL` — il n'y a tout simplement rien qui le reçoive. Ce
+  n'est plus seulement "non validé" (comme documenté depuis la Phase 0) mais "pas encore
+  construit côté n8n". Construire ce workflow n8n reste hors périmètre de cette session :
+  accès en lecture seule à ce dépôt, pas d'instance n8n vivante accessible, et les
+  workflows n8n eux-mêmes ne sont de toute façon pas versionnés dans ce dépôt (vivent dans
+  le volume Docker de n8n, cf. `ARCHITECTURE.md`).
+  Plutôt que de s'arrêter à ce constat, le payload envoyé par
+  `apps/backend/src/subscribers/order-placed.ts` a été enrichi : en l'état
+  (`{order_id, provider}`), un futur workflow n8n ne pourrait rien construire d'utile
+  pour un message WhatsApp lisible par un humain. Ajouté : `display_id`, `email`,
+  `currency_code`, `total`, `items[].{title, quantity}` (récupérés via
+  `query.graph({ entity: "order", ... })`, resolu depuis `ContainerRegistrationKeys.QUERY`
+  dans le container, pas depuis `event.data` qui ne porte que l'id). Test unitaire
+  (`order-placed.unit.spec.ts`) mis à jour en conséquence (mock du container distinguant
+  `LOGGER` et `QUERY`).
+  **Vérifié contre une vraie commande, pas seulement en unitaire** : deuxième cas de test
+  ajouté à `orange-money-checkout.spec.ts` — un petit serveur HTTP local (`http.createServer`,
+  port éphémère) tient lieu de récepteur n8n, `N8N_ORDER_WEBHOOK_URL` pointé dessus juste
+  avant de passer une vraie commande via le parcours HTTP complet, payload reçu comparé à
+  la commande réellement créée. **Un vrai bug trouvé à cette occasion** : la clé `quantity`
+  de chaque item était systématiquement absente du JSON envoyé (silencieusement supprimée
+  par `JSON.stringify` sur une valeur `undefined`) — `items.quantity` n'est pas le bon
+  chemin de champ pour `query.graph` sur l'entité `order` en Medusa v2 : `quantity` vit sur
+  `OrderItemDTO` (la relation `detail`), pas directement sur `OrderLineItemDTO`. Corrigé en
+  demandant `items.detail.quantity` et en lisant `item.detail?.quantity`. Sans ce test
+  contre une vraie commande, ce bug serait passé inaperçu (le test unitaire avec des
+  données mockées ne l'aurait jamais révélé) et chaque notification WhatsApp au marchand
+  aurait silencieusement affiché des commandes sans quantités.
+  Suite complète rejouée après ces changements : 7 suites / 19 tests unitaires verts,
+  2/2 tests d'intégration HTTP verts (le nouveau vient s'ajouter à celui de la Phase 4),
+  lint backend sans nouvelle erreur/warning.
