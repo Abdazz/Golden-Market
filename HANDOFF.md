@@ -515,3 +515,21 @@ catalogue automatisé, nettoyage TODOs template).
   Suite complète rejouée après ces changements : 7 suites / 19 tests unitaires verts,
   2/2 tests d'intégration HTTP verts (le nouveau vient s'ajouter à celui de la Phase 4),
   lint backend sans nouvelle erreur/warning.
+- **2026-08-22 (Phase 1 — nettoyage des produits de démo, item resté ouvert depuis
+  cette phase)** — Nouveau script idempotent
+  `apps/backend/src/scripts/cleanup-demo-catalog.ts` (`npm run cleanup:demo-catalog`),
+  supprime les 4 produits de démo du scaffold (« Medusa T-Shirt », « Medusa Sweatshirt »,
+  « Medusa Sweatpants », « Medusa Shorts », créés par
+  `migration-scripts/initial-data-seed.ts`) via `deleteProductsWorkflow`, sur le même
+  modèle de vérification par titre avant action que les autres scripts. **Testé pour de
+  vrai** : base Postgres jetable créée dans ce sandbox
+  (`golden_market_cleanup_check`), `medusa db:migrate` rejoué dessus (fait apparaître les
+  4 produits de démo comme en dev/prod réel), script exécuté → les 4 confirmés
+  soft-supprimés en base (`deleted_at` renseigné, vérifié par `psql` direct), script
+  ré-exécuté → « Aucun produit de démo trouvé, rien à faire » (idempotence confirmée).
+  Base et `.env` jetables supprimés après vérification. **Ce script n'a pas été exécuté
+  contre une vraie base de dev/prod** (aucune accessible depuis cette session) — à lancer
+  par l'utilisateur sur son propre environnement. La région de démo « Europe » (EUR)
+  elle-même n'a volontairement pas été touchée (voir `ROADMAP.md`) : sans produit, elle
+  n'affecte plus le parcours client BF, et la supprimer complètement est une action plus
+  risquée (regions liées à d'éventuelles données historiques) pour un bénéfice marginal.

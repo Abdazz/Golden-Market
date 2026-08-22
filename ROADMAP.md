@@ -52,9 +52,18 @@ Implémentation complétée le 2026-08-16 via deux scripts d'import idempotents 
 `apps/backend/src/scripts/seed-region-bf.ts` et `apps/backend/src/scripts/import-catalog.ts`.
 
 - [x] Créer/seed la région Burkina Faso (`bf`, devise `xof`).
-- [ ] Retirer ou neutraliser les régions/produits de démo Europe (T-Shirt, Sweatpants,
-      Shorts, Sweatshirt du scaffold initial) — actuellement toujours visibles dans le
-      catalogue storefront aux côtés des 29 produits réels.
+- [x] Retirer les produits de démo Europe (T-Shirt, Sweatpants, Shorts, Sweatshirt du
+      scaffold initial) — jusqu'ici toujours visibles dans le catalogue storefront aux
+      côtés des 29 produits réels. Fait le 2026-08-22 : nouveau script idempotent
+      `apps/backend/src/scripts/cleanup-demo-catalog.ts` (`npm run cleanup:demo-catalog`),
+      suppression par titre exact via `deleteProductsWorkflow`. Testé pour de vrai contre
+      une base fraîchement migrée+seedée (suppression des 4 produits confirmée en base —
+      soft-delete, `deleted_at` renseigné —, puis re-exécution confirmée sans effet).
+      **Non exécuté contre une vraie base de dev/prod** (script à lancer par
+      l'utilisateur sur son propre environnement, cette session n'y a pas accès). La
+      région « Europe » (EUR) elle-même n'a pas été supprimée — laissée intacte à
+      dessein (déjà neutralisée en Phase 1 : le geo_zone `bf` orphelin retiré de son
+      fulfillment set) ; sans produit, elle n'a plus d'impact visible pour un client BF.
 - [x] `apps/storefront/.env.local` : `NEXT_PUBLIC_DEFAULT_REGION=bf` (actuellement absent
       du fichier, donc le middleware retombe sur le défaut `dk`, cf.
       `apps/storefront/src/middleware.ts`).

@@ -103,6 +103,7 @@ cd apps/backend
 cd apps/backend
 <pm> run seed:region-bf   # région BF/XOF, taxe, livraison (medusa exec ./src/scripts/seed-region-bf.ts)
 <pm> run import:catalog   # 29 produits depuis le fichier Excel (medusa exec ./src/scripts/import-catalog.ts)
+<pm> run cleanup:demo-catalog   # supprime les 4 produits de démo du scaffold (medusa exec ./src/scripts/cleanup-demo-catalog.ts)
 ```
 
 Les deux scripts sont ré-exécutables sans risque de doublon (vérification par nom/titre avant création).
