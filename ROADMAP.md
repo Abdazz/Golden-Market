@@ -161,15 +161,44 @@ vérification.
 
 ## Phase 4 — Tests & CI minimale
 
-Actuellement : aucun test métier écrit (seul `integration-tests/setup.js` boilerplate),
-aucune CI.
+Statut : **tests faits et vérifiés** (Postgres/Redis natifs installés dans le sandbox de
+cette session, pas de Docker Hub nécessaire pour ce point — contrairement à la Phase 3) ;
+**CI écrite mais pas encore poussée** — bloquée par une restriction OAuth de cette
+session (scope `workflow` manquant), voir le détail au dernier point ci-dessous et dans
+`HANDOFF.md`.
 
-- [ ] Test d'intégration HTTP sur le parcours critique : panier → checkout → session de
-      paiement Orange Money → commande créée (`apps/backend/integration-tests/http/`).
-- [ ] Test unitaire sur `OrangeMoneyManualService`
-      (`apps/backend/src/modules/__tests__/` ou équivalent — vérifier la convention Jest
-      du projet, cf. `test:unit` dans `AGENTS.md`).
-- [ ] CI GitHub Actions : lint + test sur chaque pull request.
+- [x] Test d'intégration HTTP sur le parcours critique : panier → checkout → session de
+      paiement Orange Money → commande créée
+      (`apps/backend/integration-tests/http/orange-money-checkout.spec.ts`). Utilise
+      `medusaIntegrationTestRunner` (`@medusajs/test-utils`, déjà en devDependency) : base
+      de données éphémère créée/migrée/détruite automatiquement, vraies requêtes HTTP
+      (`POST /store/carts`, `/shipping-methods`, `/payment-collections`,
+      `/payment-sessions`, `/complete`, puis `GET /store/orders/:id` pour le
+      `payment_status`, calculé par `getOrderDetailWorkflow` et absent de la réponse de
+      `/complete` — détail non documenté ailleurs, découvert en lisant le code de
+      `@medusajs/core-flows`). Réutilise le script réel `seed-region-bf.ts` (Phase 1)
+      pour les fixtures plutôt que de dupliquer sa logique. Nouveau
+      `apps/backend/.env.test` (committé, valeurs factices) pour les variables lues par
+      Medusa/le test runner. Exécuté avec succès à plusieurs reprises pendant cette
+      session (pas de flakiness observée).
+- [x] Test unitaire sur `OrangeMoneyManualService` — existait déjà depuis la Phase 0
+      (`src/modules/__tests__/orange-money-manual.unit.spec.ts`), case cochée
+      rétroactivement.
+- [ ] CI GitHub Actions : lint + test sur chaque pull request — `.github/workflows/ci.yml`
+      écrit (deux jobs : `backend` avec services Postgres/Redis, lint + test:unit +
+      test:integration:http ; `storefront`, lint seul — pas de suite de tests côté
+      storefront, cf. `AGENTS.md`) mais **pas encore poussé** : GitHub refuse la
+      création/modification de fichiers sous `.github/workflows/` par le token OAuth de
+      cette session, qui n'a pas le scope `workflow`. Case laissée non cochée tant que
+      ce fichier n'est pas effectivement sur `origin` — voir `HANDOFF.md` pour le
+      contenu exact et la marche à suivre. En écrivant ce workflow, découvert que
+      `next lint` échouait déjà sur `main` avant cette session (indépendamment de tout
+      changement Golden Market) : 3 fonctions mortes jamais appelées dans
+      `src/lib/data/cart.ts` (gestion des gift cards, entièrement commentée, héritée du
+      template) et deux `@ts-ignore` à remplacer par `@ts-expect-error` dans
+      `language-select/index.tsx` — corrigés dans cette même session (voir journal
+      `HANDOFF.md`) pour que la CI parte verte plutôt que rouge dès son premier run. Ces
+      deux corrections, elles, sont bien commitées et poussées.
 
 ## Phase 5 — Vérification pré-lancement
 

@@ -16,6 +16,25 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-22 — Phase 4 (tests & CI) faite et vérifiée en exécutant réellement chaque
+commande : Postgres/Redis natifs démarrés dans le sandbox (`service postgresql start`,
+`redis-server --daemonize yes` — installés nativement, pas besoin de Docker Hub pour
+ça), nouveau test d'intégration HTTP sur le parcours critique
+(`apps/backend/integration-tests/http/orange-money-checkout.spec.ts`, passé plusieurs
+fois de suite sans flakiness), CI GitHub Actions (`.github/workflows/ci.yml`). En
+écrivant la CI, découvert que `next lint` du storefront échouait déjà sur `main`
+(indépendamment de cette session) — corrigé (voir journal) pour que la CI ne parte pas
+rouge dès son premier run.
+**Blocage de session à connaître** : `.github/workflows/ci.yml` n'a pas pu être poussé —
+GitHub refuse la création/modification de fichiers sous `.github/workflows/` par un
+token OAuth sans le scope `workflow` (message exact :
+« refusing to allow an OAuth App to create or update workflow `.github/workflows/ci.yml`
+without `workflow` scope »). Le fichier existe bien dans le dépôt de travail de cette
+session (contenu détaillé dans le journal ci-dessous) mais reste non commité/non
+poussé — à ajouter manuellement (interface GitHub, ou un accès avec le scope `workflow`)
+pour que la CI soit effectivement active. Tout le reste de la Phase 4 (tests, corrections
+de lint, documentation) a bien été poussé.
+
 2026-08-17 (suite) — Phase 3 (déploiement VPS/Docker) écrite en entier : Dockerfiles
 backend/storefront, `docker-compose.prod.yml`, reverse proxy Caddy (TLS Let's Encrypt
 automatique), script de sauvegarde Postgres, `DEPLOYMENT.md`. **Non vérifiée par un vrai
@@ -88,7 +107,8 @@ Statut global : **écrit, non vérifié en conditions réelles** (voir `DEPLOYME
 session, registre Docker Hub bloqué par la politique réseau)
 
 ### Phase 4 — Tests & CI minimale
-Statut global : **à faire**
+Statut global : **fait** — vérifié en exécutant réellement chaque commande (voir
+journal), pas seulement écrit
 
 ### Phase 5 — Vérification pré-lancement
 Statut global : **à faire**
@@ -340,3 +360,90 @@ catalogue automatisé, nettoyage TODOs template).
   - Phase 3 marquée « écrit, non vérifié en conditions réelles » plutôt que « fait » —
     cases de `ROADMAP.md` volontairement laissées non cochées tant qu'un vrai
     `docker build`/`docker compose up` n'a pas été rejoué avec succès (Phase 5).
+- **2026-08-22 (Phase 4 — tests & CI, faite et vérifiée)** — Contrairement à la Phase 3
+  (bloquée par l'accès Docker Hub), Postgres 16 et Redis sont installés **nativement**
+  dans ce sandbox (`postgresql-16`, paquets système, pas de conteneur) : démarrés
+  (`service postgresql start`, `redis-server --daemonize yes`), mot de passe du rôle
+  `postgres` positionné pour l'auth par mot de passe en TCP (`ALTER USER postgres
+  PASSWORD 'postgres'` — le péer-auth par défaut ne suffit pas pour une connexion
+  applicative Node). Tout ce qui suit a donc pu être **réellement exécuté**, pas
+  seulement écrit.
+  - **Test d'intégration HTTP** (`apps/backend/integration-tests/http/orange-money-checkout.spec.ts`) :
+    utilise `medusaIntegrationTestRunner` de `@medusajs/test-utils` (déjà en
+    devDependency, jamais utilisé jusqu'ici dans ce dépôt) — crée une base éphémère,
+    la migre, démarre une vraie instance Medusa sur un port aléatoire, expose un
+    client HTTP (`api`, axios). Plusieurs obstacles réels rencontrés et résolus en
+    lisant le code source plutôt qu'en devinant :
+    - Sur une base fraîche (migrations seules, pas de seed initial), aucun profil de
+      livraison par défaut n'existe alors que `seed-region-bf.ts` (réutilisé tel quel
+      pour les fixtures) suppose qu'il en existe un — corrigé en le créant explicitement
+      dans le test (`fulfillmentModuleService.createShippingProfiles(...)`) avant
+      d'appeler le script.
+    - Toute route `/store/*` exige une clé publishable liée au sales channel (piège déjà
+      documenté dans `ARCHITECTURE.md`, revérifié ici en conditions de test) : créée
+      via `createApiKeysWorkflow` + `linkSalesChannelsToApiKeyWorkflow`.
+    - `completeData.order.payment_status` est resté `undefined` dans un premier temps :
+      en lisant `@medusajs/core-flows/dist/order/workflows/get-order-detail.js`, découvert
+      que `payment_status` n'est **pas** un champ persisté sur `order` mais une valeur
+      calculée à la volée par `getOrderDetailWorkflow` (via `getLastPaymentStatus`) —
+      absente de la réponse de `POST /store/carts/:id/complete` (qui fait un
+      `query.graph` brut sans passer par ce workflow), quel que soit le `fields` demandé.
+      Corrigé en ajoutant un second appel `GET /store/orders/:id?fields=+payment_status`
+      après la complétion du panier — exactement ce que fait la page de confirmation du
+      storefront en production. Ce point n'était documenté nulle part avant cette
+      session.
+    - Le hook `beforeAll` du test runner dépasse le timeout Jest par défaut (5s) le temps
+      de migrer + démarrer l'app : `jest.setTimeout(60000)` ajouté en tête de fichier.
+    - Test rejoué à plusieurs reprises dans la même session : stable, aucune base de
+      données éphémère résiduelle après coup (`\l` sur `postgres` vérifié vide de toute
+      base `medusa-*`).
+    - Bruit de log attendu et sans impact sur le résultat du test : `RESEND_API_KEY`
+      factice (`.env.test`) fait échouer l'appel Resend réel avec un 403, intercepté
+      proprement par le try/catch du provider (comportement voulu depuis la Phase 0) ;
+      un warning Knex "Connection ended unexpectedly" apparaît parfois à la toute fin
+      (subscriber d'email encore en vol au moment où le test ferme la connexion DB),
+      sans faire échouer le test.
+  - **`apps/backend/.env.test`** (nouveau, committé — volontairement non gitignored,
+    aucun secret réel) : valeurs lues par `loadEnv("test", ...)` de Medusa
+    (`DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD` pour `@medusajs/test-utils`,
+    `JWT_SECRET`/`COOKIE_SECRET`/CORS/`RESEND_API_KEY`/etc. pour l'app elle-même).
+    Conçu pour correspondre exactement aux services Postgres/Redis par défaut de GitHub
+    Actions (port 5432/6379, user/password `postgres`), donc réutilisable tel quel en CI
+    sans variables supplémentaires à déclarer dans le workflow.
+  - **CI GitHub Actions** (`.github/workflows/ci.yml`, déclenché sur `pull_request`) :
+    job `backend` (services Postgres 16 + Redis 7, `npm run lint`/`test:unit`/
+    `test:integration:http` sur le workspace `@dtc/backend`) et job `storefront`
+    (`npm run lint` sur `@dtc/storefront`, avec `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`/
+    `NEXT_PUBLIC_DEFAULT_REGION` factices en env — `next lint` charge `next.config.js`,
+    qui exige ces variables au chargement via `check-env-variables.js`). Volontairement
+    pas de job `test:integration:modules` : la commande existe déjà dans
+    `package.json` mais ne correspond à aucun fichier actuellement (testMatch
+    `**/src/modules/*/__tests__/**` — les tests existants sont un niveau au-dessus,
+    `src/modules/__tests__/`, donc couverts par `test:unit`) ; pré-existant, hors
+    périmètre de cette session, non modifié.
+  - **Bug de CI-readiness découvert et corrigé avant même le premier run réel** : en
+    testant localement le job `storefront` avant de committer, `next lint` échouait
+    déjà sur `main` (donc indépendamment de tout travail de cette session) avec 10
+    erreurs ESLint réelles (pas des warnings) dans deux fichiers du template jamais
+    nettoyés :
+    - `src/lib/data/cart.ts` : trois fonctions mortes (`applyGiftCard`, `removeDiscount`,
+      `removeGiftCard`) entièrement commentées, aucun appelant nulle part dans le
+      dépôt (vérifié par recherche) — supprimées entièrement plutôt que rustinées
+      (paramètres inutilisés, `any`), conformément à la consigne du projet de supprimer
+      le code mort plutôt que de le complexifier. Correspond au point déjà identifié dans
+      `ROADMAP.md` (Phase différée : « Nettoyage des TODOs hérités du template
+      storefront »). Par ailleurs, deux vrais blocs `catch (e: any)` (actifs, pas morts :
+      `submitPromotionForm`, `setAddresses`) corrigés proprement (`catch (e)` +
+      cast `Error`/`HttpTypes.StoreUpdateCart` déjà importé, sans `any`).
+    - `src/modules/layout/components/language-select/index.tsx` : deux `@ts-ignore`
+      remplacés par `@ts-expect-error` (recommandation directe du linter, aucun
+      changement de comportement).
+    Sans cette correction, la CI ajoutée dans cette même session serait partie rouge dès
+    son premier déclenchement sur la prochaine pull request, sur du code sans rapport
+    avec Golden Market — corrigé avant de committer pour livrer une CI réellement verte.
+  - Suite complète rejouée après tous ces changements : lint backend (6 warnings
+    préexistants, aucune erreur), 7 suites / 19 tests unitaires verts, 1 test
+    d'intégration HTTP vert, lint storefront vert (3 warnings `react-hooks/exhaustive-deps`
+    préexistants et non touchés — changer les dépendances d'un `useEffect` sans en
+    comprendre l'intention peut introduire une boucle de rendu, laissés tels quels
+    volontairement).
