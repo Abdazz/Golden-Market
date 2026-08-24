@@ -110,15 +110,16 @@ non visuellement critiques, ex. `Toaster`, restent tels quels) :
 
 ## Pages
 
-Chaque page ci-dessous a eu une maquette Artifact de référence, approuvée
-par l'utilisateur le 2026-08-24. **Ces liens sont morts** : publiés sous un
-compte Claude différent de celui utilisé plus tard dans la même session
-(changement de compte via `/login` en cours de session), ils ne sont plus
-accessibles (vérifié le 2026-08-24 : `action: "list"` ne les retrouve pas,
-`action: "read"` retourne "artifact not found"). Ils sont laissés ci-dessous
-pour mémoire de leur existence passée, mais **la description texte de
-chaque page est la seule source de vérité désormais** ; ne pas tenter de
-les rouvrir.
+Chaque page ci-dessous a une maquette Artifact de référence, approuvée par
+l'utilisateur le 2026-08-24. **Ces liens sont propres au compte Claude qui
+les a publiés** (l'utilisateur a changé de compte via `/login` plus tard
+dans la même session, ce qui les a rendus temporairement inaccessibles
+depuis cette session-là : `action: "list"` ne les retrouvait pas,
+`action: "read"` retournait "artifact not found"). Ils redeviennent
+accessibles dès que la session active est reconnectée au compte qui les a
+publiés. Si une session ne peut pas les ouvrir (mauvais compte, ou
+suppression volontaire), la description texte de chaque page ci-dessous
+reste la source de vérité de secours.
 
 ### Accueil
 
