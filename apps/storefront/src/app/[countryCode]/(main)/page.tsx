@@ -38,11 +38,13 @@ export default async function Home(props: {
       <TrustBand />
       <CategoryGrid />
       {promoCollection && (
-        <FeaturedProducts
-          collections={[promoCollection]}
-          region={region}
-          tone="promo"
-        />
+        <ul className="flex flex-col">
+          <FeaturedProducts
+            collections={[promoCollection]}
+            region={region}
+            tone="promo"
+          />
+        </ul>
       )}
       {restCollections.length > 0 && (
         <ul className="flex flex-col">
