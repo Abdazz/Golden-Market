@@ -31,9 +31,9 @@ const CategoryGrid = async () => {
           <LocalizedClientLink
             key={category.id}
             href={`/categories/${category.handle}`}
-            className="flex flex-col items-center gap-2.5 rounded-2xl border border-gm-border bg-white px-2 py-4.5 text-center hover:border-gm-gold hover:-translate-y-0.5 transition-transform"
+            className="flex flex-col items-center gap-2.5 rounded-2xl border border-gm-border bg-white px-2 py-[1.125rem] text-center hover:border-gm-gold hover:-translate-y-0.5 transition-transform"
           >
-            <span className="flex h-13 w-13 items-center justify-center rounded-full bg-gm-violet text-gm-gold text-lg font-bold">
+            <span className="flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-full bg-gm-violet text-gm-gold text-lg font-bold">
               {category.name.charAt(0).toUpperCase()}
             </span>
             <span className="text-xs font-semibold text-gm-ink leading-tight">
