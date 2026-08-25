@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import Image from "next/image"
 
 import { listLocales } from "@lib/data/locales"
 import { getLocale } from "@lib/data/locale-actions"
@@ -17,10 +18,10 @@ export default async function Nav() {
 
   return (
     <div className="sticky top-0 inset-x-0 z-50 group">
-      <header className="relative h-16 mx-auto border-b duration-200 bg-white border-ui-border-base">
-        <nav className="content-container txt-xsmall-plus text-ui-fg-subtle flex items-center justify-between w-full h-full text-small-regular">
+      <header className="relative h-16 mx-auto bg-gm-violet text-gm-on-violet">
+        <nav className="content-container flex items-center justify-between w-full h-full text-sm">
           <div className="flex-1 basis-0 h-full flex items-center">
-            <div className="h-full">
+            <div className="h-full text-gm-on-violet-muted [&_button]:!text-gm-on-violet-muted [&_button:hover]:!text-gm-on-violet">
               <SideMenu regions={regions} locales={locales} currentLocale={currentLocale} />
             </div>
           </div>
@@ -28,31 +29,38 @@ export default async function Nav() {
           <div className="flex items-center h-full">
             <LocalizedClientLink
               href="/"
-              className="txt-compact-xlarge-plus hover:text-ui-fg-base uppercase"
+              className="flex items-center h-full py-3"
               data-testid="nav-store-link"
             >
-              Medusa Store
+              <Image
+                src="/logo/logo-white.png"
+                alt="Golden Market"
+                width={140}
+                height={44}
+                className="h-9 w-auto"
+                priority
+              />
             </LocalizedClientLink>
           </div>
 
           <div className="flex items-center gap-x-6 h-full flex-1 basis-0 justify-end">
             <div className="hidden small:flex items-center gap-x-6 h-full">
               <LocalizedClientLink
-                className="hover:text-ui-fg-base"
+                className="text-gm-on-violet-muted hover:text-gm-on-violet transition-colors"
                 href="/account"
                 data-testid="nav-account-link"
               >
-                Account
+                Mon compte
               </LocalizedClientLink>
             </div>
             <Suspense
               fallback={
                 <LocalizedClientLink
-                  className="hover:text-ui-fg-base flex gap-2"
+                  className="text-gm-on-violet-muted hover:text-gm-on-violet flex gap-2 transition-colors"
                   href="/cart"
                   data-testid="nav-cart-link"
                 >
-                  Cart (0)
+                  Panier (0)
                 </LocalizedClientLink>
               }
             >
