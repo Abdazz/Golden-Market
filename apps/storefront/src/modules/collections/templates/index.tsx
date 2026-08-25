@@ -24,7 +24,7 @@ export default function CollectionTemplate({
   const sort = sortBy || "created_at"
 
   return (
-    <div className="flex flex-col small:flex-row small:items-start py-6 content-container">
+    <div className="flex flex-col small:flex-row small:items-start py-6 content-container gap-8">
       <RefinementList sortBy={sort} hideOptionsPicker />
       <div className="w-full">
         <div className="mb-8 text-2xl-semi">
