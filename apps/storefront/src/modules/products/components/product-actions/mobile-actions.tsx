@@ -70,12 +70,16 @@ const MobileActions: React.FC<MobileActionsProps> = ({
           leaveTo="opacity-0"
         >
           <div
-            className="bg-white flex flex-col gap-y-3 justify-center items-center text-large-regular p-4 h-full w-full border-t border-gray-200"
+            className="bg-white flex flex-col gap-y-3 justify-center items-center p-4 h-full w-full border-t border-gm-border shadow-[0_-8px_24px_-12px_rgba(33,27,61,0.2)]"
             data-testid="mobile-actions"
           >
-            <div className="flex items-center gap-x-2">
-              <span data-testid="mobile-title">{product.title}</span>
-              <span>—</span>
+            <div className="flex flex-col items-center gap-y-1">
+              <span
+                data-testid="mobile-title"
+                className="text-sm font-semibold text-gm-ink line-clamp-1"
+              >
+                {product.title}
+              </span>
               {selectedPrice ? (
                 <div className="flex items-end gap-x-2 text-ui-fg-base">
                   {selectedPrice.price_type === "sale" && (
