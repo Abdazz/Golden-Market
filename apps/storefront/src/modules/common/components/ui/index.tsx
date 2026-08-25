@@ -42,7 +42,7 @@ export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
       <Component
         ref={ref}
         className={clsx(
-          "font-semibold",
+          "font-display font-semibold text-gm-ink",
           Component === "h1" && "text-3xl",
           Component === "h2" && "text-2xl",
           Component === "h3" && "text-xl",
