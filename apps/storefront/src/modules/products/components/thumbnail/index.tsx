@@ -26,7 +26,7 @@ const Thumbnail: React.FC<ThumbnailProps> = ({
   return (
     <Container
       className={clx(
-        "relative w-full overflow-hidden p-0 bg-gm-ivoire-2 rounded-2xl transition-transform ease-in-out duration-150 group-hover:-translate-y-1",
+        "relative w-full overflow-hidden p-0 bg-gm-ivoire-2 rounded-2xl transition-transform ease-in-out duration-150",
         className,
         {
           "aspect-square": true,

@@ -21,7 +21,7 @@ export default async function ProductPreview({
   return (
     <LocalizedClientLink
       href={`/products/${product.handle}`}
-      className="group block rounded-2xl border border-gm-border bg-white overflow-hidden transition-shadow hover:shadow-md"
+      className="group block rounded-2xl border border-gm-border bg-white overflow-hidden transition-all hover:shadow-md hover:-translate-y-1"
       data-testid="product-wrapper"
     >
       <div className="relative">
