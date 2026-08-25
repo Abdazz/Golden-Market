@@ -59,7 +59,7 @@ Heading.displayName = "Heading"
 
 // Button Component
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "transparent"
+  variant?: "primary" | "secondary" | "transparent" | "outline-onviolet"
   size?: "small" | "medium" | "large"
   isLoading?: boolean
 }
@@ -82,11 +82,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || isLoading}
         className={clsx(
-          "inline-flex gap-2 items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-          variant === "primary" && "bg-black text-white hover:bg-gray-800",
+          "inline-flex gap-2 items-center justify-center rounded-full font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gm-gold focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+          variant === "primary" &&
+            "bg-gm-gold text-gm-ink hover:bg-gm-gold-strong shadow-sm",
           variant === "secondary" &&
-            "bg-white text-black border border-gray-200 hover:bg-gray-50",
-          variant === "transparent" && "bg-transparent hover:bg-gray-100",
+            "bg-transparent text-gm-violet border border-gm-violet hover:bg-gm-violet hover:text-gm-on-violet",
+          variant === "transparent" &&
+            "bg-transparent text-gm-amethyst underline-offset-4 hover:underline",
+          variant === "outline-onviolet" &&
+            "bg-transparent text-gm-on-violet border border-white/40 hover:border-gm-on-violet hover:bg-white/10",
           size === "small" && "h-8 px-3 text-sm",
           size === "medium" && "h-10 px-4",
           size === "large" && "h-12 px-6 text-lg",
