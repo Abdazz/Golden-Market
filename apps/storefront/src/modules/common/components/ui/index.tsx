@@ -125,7 +125,16 @@ Container.displayName = "Container"
 
 // Badge Component
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
-  color?: "green" | "red" | "blue" | "orange" | "grey" | "purple"
+  color?:
+    | "green"
+    | "red"
+    | "blue"
+    | "orange"
+    | "grey"
+    | "purple"
+    | "gold"
+    | "terracotta"
+    | "amethyst"
 }
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
@@ -134,13 +143,16 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
       <span
         ref={ref}
         className={clsx(
-          "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
+          "inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold",
           color === "green" && "bg-green-100 text-green-700",
           color === "red" && "bg-red-100 text-red-700",
           color === "blue" && "bg-blue-100 text-blue-700",
           color === "orange" && "bg-orange-100 text-orange-700",
-          color === "grey" && "bg-gray-100 text-gray-700",
+          color === "grey" && "bg-gm-ivoire-2 text-gm-ink-muted",
           color === "purple" && "bg-purple-100 text-purple-700",
+          color === "gold" && "bg-gm-gold-soft text-gm-gold-strong",
+          color === "terracotta" && "bg-gm-terracotta text-white",
+          color === "amethyst" && "bg-gm-amethyst/10 text-gm-amethyst",
           className
         )}
         {...props}
