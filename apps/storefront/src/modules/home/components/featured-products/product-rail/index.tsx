@@ -1,16 +1,18 @@
 import { listProducts } from "@lib/data/products"
 import { HttpTypes } from "@medusajs/types"
-import { Text } from "@modules/common/components/ui"
+import { Heading, clx } from "@modules/common/components/ui"
 
-import InteractiveLink from "@modules/common/components/interactive-link"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ProductPreview from "@modules/products/components/product-preview"
 
 export default async function ProductRail({
   collection,
   region,
+  tone = "default",
 }: {
   collection: HttpTypes.StoreCollection
   region: HttpTypes.StoreRegion
+  tone?: "default" | "promo"
 }) {
   const {
     response: { products: pricedProducts },
@@ -27,21 +29,39 @@ export default async function ProductRail({
   }
 
   return (
-    <div className="content-container py-12 small:py-24">
-      <div className="flex justify-between mb-8">
-        <Text className="txt-xlarge">{collection.title}</Text>
-        <InteractiveLink href={`/collections/${collection.handle}`}>
-          View all
-        </InteractiveLink>
+    <div
+      className={clx("py-10 small:py-16", {
+        "bg-gm-terracotta/[0.06]": tone === "promo",
+      })}
+    >
+      <div className="content-container">
+        <div className="flex items-baseline justify-between mb-6">
+          <Heading level="h2" className="text-2xl">
+            {tone === "promo" ? (
+              <span className="text-gm-terracotta">{collection.title}</span>
+            ) : (
+              collection.title
+            )}
+          </Heading>
+          <LocalizedClientLink
+            href={`/collections/${collection.handle}`}
+            className={clx("text-sm font-semibold hover:underline", {
+              "text-gm-terracotta": tone === "promo",
+              "text-gm-amethyst": tone !== "promo",
+            })}
+          >
+            Voir tout
+          </LocalizedClientLink>
+        </div>
+        <ul className="grid grid-cols-2 small:grid-cols-4 gap-4">
+          {pricedProducts &&
+            pricedProducts.map((product) => (
+              <li key={product.id}>
+                <ProductPreview product={product} region={region} />
+              </li>
+            ))}
+        </ul>
       </div>
-      <ul className="grid grid-cols-2 small:grid-cols-3 gap-x-6 gap-y-24 small:gap-y-36">
-        {pricedProducts &&
-          pricedProducts.map((product) => (
-            <li key={product.id}>
-              <ProductPreview product={product} region={region} isFeatured />
-            </li>
-          ))}
-      </ul>
     </div>
   )
 }

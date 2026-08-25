@@ -2,13 +2,15 @@ import { Metadata } from "next"
 
 import FeaturedProducts from "@modules/home/components/featured-products"
 import Hero from "@modules/home/components/hero"
+import TrustBand from "@modules/home/components/trust-band"
+import CategoryGrid from "@modules/home/components/category-grid"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 
 export const metadata: Metadata = {
-  title: "Medusa Next.js Starter Template",
+  title: "Golden Market",
   description:
-    "A performant frontend ecommerce starter template with Next.js 15 and Medusa.",
+    "Golden Market : la marketplace des bonnes affaires au Burkina Faso.",
 }
 
 export default async function Home(props: {
@@ -28,14 +30,25 @@ export default async function Home(props: {
     return null
   }
 
+  const [promoCollection, ...restCollections] = collections
+
   return (
     <>
       <Hero />
-      <div className="py-12">
-        <ul className="flex flex-col gap-x-6">
-          <FeaturedProducts collections={collections} region={region} />
+      <TrustBand />
+      <CategoryGrid />
+      {promoCollection && (
+        <FeaturedProducts
+          collections={[promoCollection]}
+          region={region}
+          tone="promo"
+        />
+      )}
+      {restCollections.length > 0 && (
+        <ul className="flex flex-col">
+          <FeaturedProducts collections={restCollections} region={region} />
         </ul>
-      </div>
+      )}
     </>
   )
 }
