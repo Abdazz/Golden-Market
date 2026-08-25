@@ -1,0 +1,25 @@
+:root {
+  --gm-violet: #332871;
+  --gm-violet-hover: #241c52;
+  --gm-amethyst: #6e5cc4;
+
+  --gm-gold: #e7a92e;
+  --gm-gold-strong: #b9821d;
+  --gm-gold-soft: #f6dfa0;
+
+  --gm-terracotta: #c85a1d;
+
+  --gm-ivoire: #faf6ee;
+  --gm-ivoire-2: #f3ecdd;
+  --gm-ink: #211b3d;
+  --gm-ink-muted: #5b5480;
+  --gm-border: #e6dcc6;
+
+  --gm-on-violet: #fbf7ec;
+  --gm-on-violet-muted: rgba(251, 247, 236, 0.72);
+}
+
+body {
+  background-color: var(--gm-ivoire);
+  color: var(--gm-ink);
+}
