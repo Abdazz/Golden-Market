@@ -211,7 +211,7 @@ function FreeShippingPopup({
     >
       <div>
         <Button
-          className="rounded-full bg-neutral-900 shadow-none outline-none border-none text-[15px] p-2"
+          className="rounded-full bg-neutral-900 shadow-none outline-none border-none text-[15px] p-2 text-white"
           onClick={() => setIsClosed(true)}
         >
           <XMark />
