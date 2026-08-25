@@ -1,31 +1,40 @@
-import { Github } from "@medusajs/icons";
-import { Button, Heading } from "@modules/common/components/ui";
+import { Button, Heading } from "@modules/common/components/ui"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
+
 const Hero = () => {
   return (
-    <div className="h-[75vh] w-full border-b border-ui-border-base relative bg-ui-bg-subtle">
-      <div className="absolute inset-0 z-10 flex flex-col justify-center items-center text-center small:p-32 gap-6">
-        <span>
-          <Heading
-            level="h1"
-            className="text-3xl leading-10 text-ui-fg-base font-normal"
-          >
-            Ecommerce Starter Template
-          </Heading>
-          <Heading
-            level="h2"
-            className="text-3xl leading-10 text-ui-fg-subtle font-normal"
-          >
-            Powered by Medusa and Next.js
-          </Heading>
+    <div className="w-full bg-gm-violet relative overflow-hidden">
+      <div className="content-container py-14 small:py-24 relative z-10 flex flex-col items-start gap-6 max-w-2xl">
+        <span className="inline-flex items-center rounded-full border border-gm-gold/35 bg-gm-gold/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-gm-gold-strong">
+          Marketplace du Burkina Faso
         </span>
-        <a href="https://github.com/medusajs/dtc-starter" target="_blank">
-          <Button variant="secondary">
-            View on GitHub <Github />
-          </Button>
-        </a>
+        <Heading
+          level="h1"
+          className="text-4xl small:text-5xl leading-tight text-gm-on-violet"
+        >
+          Les occasions en <span className="text-gm-gold">or</span> à ne pas
+          manquer
+        </Heading>
+        <p className="text-gm-on-violet-muted text-base leading-relaxed max-w-md">
+          Golden Market rassemble le meilleur du bon plan : électronique,
+          maison, mode et bien plus, livré partout au Burkina Faso, payable
+          par Orange Money.
+        </p>
+        <div className="flex flex-wrap gap-3.5">
+          <LocalizedClientLink href="/store">
+            <Button variant="primary" size="large">
+              Découvrir la boutique
+            </Button>
+          </LocalizedClientLink>
+          <LocalizedClientLink href="/store">
+            <Button variant="outline-onviolet" size="large">
+              Voir les promotions
+            </Button>
+          </LocalizedClientLink>
+        </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Hero;
+export default Hero
