@@ -33,6 +33,22 @@ module.exports = {
           80: "#1F2937",
           90: "#111827",
         },
+        gm: {
+          violet: "var(--gm-violet)",
+          "violet-hover": "var(--gm-violet-hover)",
+          amethyst: "var(--gm-amethyst)",
+          gold: "var(--gm-gold)",
+          "gold-strong": "var(--gm-gold-strong)",
+          "gold-soft": "var(--gm-gold-soft)",
+          terracotta: "var(--gm-terracotta)",
+          ivoire: "var(--gm-ivoire)",
+          "ivoire-2": "var(--gm-ivoire-2)",
+          ink: "var(--gm-ink)",
+          "ink-muted": "var(--gm-ink-muted)",
+          border: "var(--gm-border)",
+          "on-violet": "var(--gm-on-violet)",
+          "on-violet-muted": "var(--gm-on-violet-muted)",
+        },
       },
       borderRadius: {
         none: "0px",
@@ -59,7 +75,7 @@ module.exports = {
       },
       fontFamily: {
         sans: [
-          "Inter",
+          "var(--font-inter)",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
@@ -68,6 +84,7 @@ module.exports = {
           "Ubuntu",
           "sans-serif",
         ],
+        display: ["var(--font-baloo)", "var(--font-inter)", "sans-serif"],
       },
       keyframes: {
         ring: {
