@@ -11,12 +11,7 @@ const OrderOverview = ({ orders }: { orders: HttpTypes.StoreOrder[] }) => {
     return (
       <div className="flex flex-col gap-y-8 w-full">
         {orders.map((o) => (
-          <div
-            key={o.id}
-            className="border-b border-gray-200 pb-6 last:pb-0 last:border-none"
-          >
-            <OrderCard order={o} />
-          </div>
+          <OrderCard key={o.id} order={o} />
         ))}
       </div>
     )

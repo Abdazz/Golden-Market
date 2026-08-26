@@ -38,9 +38,9 @@ const Overview = ({ customer, orders }: OverviewProps) => {
       </div>
 
       <div>
-        <Heading level="h3" className="text-lg mb-4">
+        <h3 className="font-display font-semibold text-gm-ink text-lg mb-4">
           Commandes récentes
-        </Heading>
+        </h3>
         <ul className="flex flex-col gap-y-4" data-testid="orders-wrapper">
           {orders && orders.length > 0 ? (
             orders.slice(0, 5).map((order) => (
@@ -60,9 +60,9 @@ const Overview = ({ customer, orders }: OverviewProps) => {
 
       <div className="rounded-2xl border border-gm-border bg-white p-5 flex items-center justify-between gap-4">
         <div>
-          <Heading level="h3" className="text-base">
+          <h3 className="font-display font-semibold text-gm-ink text-base">
             Adresse par défaut
-          </Heading>
+          </h3>
           {defaultAddress ? (
             <p className="text-sm text-gm-ink-muted mt-1">
               {defaultAddress.address_1}, {defaultAddress.city}

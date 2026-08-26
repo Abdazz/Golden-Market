@@ -38,9 +38,6 @@ const AccountNav = ({
           </LocalizedClientLink>
         ) : (
           <>
-            <div className="font-display font-bold text-xl text-gm-ink mb-4 px-1">
-              Bonjour {customer?.first_name}
-            </div>
             <div className="text-sm text-gm-ink">
               <ul>
                 <li>

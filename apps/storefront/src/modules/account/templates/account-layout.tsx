@@ -1,5 +1,6 @@
 import React from "react"
 
+import { clx } from "@modules/common/components/ui"
 import UnderlineLink from "@modules/common/components/interactive-link"
 
 import AccountNav from "../components/account-nav"
@@ -14,7 +15,12 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({ customer, children }) => 
   return (
     <div className="flex-1 py-8 small:py-12" data-testid="account-page">
       <div className="content-container max-w-5xl mx-auto flex flex-col gap-y-8">
-        <div className="grid grid-cols-1 small:grid-cols-[240px_1fr] gap-8 items-start">
+        <div
+          className={clx("grid gap-8 items-start", {
+            "grid-cols-1 small:grid-cols-[240px_1fr]": customer,
+            "grid-cols-1": !customer,
+          })}
+        >
           <div>{customer && <AccountNav customer={customer} />}</div>
           <div className="flex-1 min-w-0">{children}</div>
         </div>
