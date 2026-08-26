@@ -5,6 +5,7 @@ import Input from "@modules/common/components/input"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
+import { Heading } from "@modules/common/components/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { signup } from "@lib/data/customer"
 
@@ -17,36 +18,37 @@ const Register = ({ setCurrentView }: Props) => {
 
   return (
     <div
-      className="max-w-sm flex flex-col items-center"
+      className="max-w-sm w-full flex flex-col items-center rounded-2xl border border-gm-border bg-white p-6 small:p-8"
       data-testid="register-page"
     >
-      <h1 className="text-large-semi uppercase mb-6">
-        Become a Medusa Store Member
-      </h1>
-      <p className="text-center text-base-regular text-ui-fg-base mb-4">
-        Create your Medusa Store Member profile, and get access to an enhanced
-        shopping experience.
+      <Heading level="h1" className="text-xl mb-2 text-center">
+        Créer un compte Golden Market
+      </Heading>
+      <p className="text-center text-sm text-gm-ink-muted mb-6">
+        Créez votre profil pour profiter d&apos;une meilleure expérience
+        d&apos;achat.
       </p>
       {message?.state === "verification_required" && (
         <div
-          className="w-full mb-4 text-center text-base-regular text-ui-fg-base bg-ui-bg-subtle border border-ui-border-base rounded-rounded p-4"
+          className="w-full mb-6 text-center text-sm text-gm-ink bg-gm-ivoire-2 border border-gm-border rounded-lg p-4"
           data-testid="register-verification-message"
         >
-          We sent a verification link to <strong>{message.email}</strong>.
-          Please check your inbox to verify your email, then sign in.
+          Nous avons envoyé un lien de vérification à{" "}
+          <strong>{message.email}</strong>. Vérifiez votre boîte de
+          réception, puis connectez-vous.
         </div>
       )}
       <form className="w-full flex flex-col" action={formAction}>
         <div className="flex flex-col w-full gap-y-2">
           <Input
-            label="First name"
+            label="Prénom"
             name="first_name"
             required
             autoComplete="given-name"
             data-testid="first-name-input"
           />
           <Input
-            label="Last name"
+            label="Nom"
             name="last_name"
             required
             autoComplete="family-name"
@@ -61,14 +63,14 @@ const Register = ({ setCurrentView }: Props) => {
             data-testid="email-input"
           />
           <Input
-            label="Phone"
+            label="Téléphone"
             name="phone"
             type="tel"
             autoComplete="tel"
             data-testid="phone-input"
           />
           <Input
-            label="Password"
+            label="Mot de passe"
             name="password"
             required
             type="password"
@@ -80,34 +82,34 @@ const Register = ({ setCurrentView }: Props) => {
           error={message?.state === "error" ? message.error : null}
           data-testid="register-error"
         />
-        <span className="text-center text-ui-fg-base text-small-regular mt-6">
-          By creating an account, you agree to Medusa Store&apos;s{" "}
+        <span className="text-center text-sm text-gm-ink-muted mt-6">
+          En créant un compte, vous acceptez la{" "}
           <LocalizedClientLink
             href="/content/privacy-policy"
-            className="underline"
+            className="text-gm-amethyst hover:underline"
           >
-            Privacy Policy
+            politique de confidentialité
           </LocalizedClientLink>{" "}
-          and{" "}
+          et les{" "}
           <LocalizedClientLink
             href="/content/terms-of-use"
-            className="underline"
+            className="text-gm-amethyst hover:underline"
           >
-            Terms of Use
-          </LocalizedClientLink>
-          .
+            conditions d&apos;utilisation
+          </LocalizedClientLink>{" "}
+          de Golden Market.
         </span>
         <SubmitButton className="w-full mt-6" data-testid="register-button">
-          Join
+          Créer mon compte
         </SubmitButton>
       </form>
-      <span className="text-center text-ui-fg-base text-small-regular mt-6">
-        Already a member?{" "}
+      <span className="text-center text-sm text-gm-ink-muted mt-6">
+        Déjà membre ?{" "}
         <button
           onClick={() => setCurrentView(LOGIN_VIEW.SIGN_IN)}
-          className="underline"
+          className="text-gm-amethyst font-semibold hover:underline"
         >
-          Sign in
+          Se connecter
         </button>
         .
       </span>

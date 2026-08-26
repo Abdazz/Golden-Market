@@ -16,18 +16,18 @@ const ForgotPassword = ({ setCurrentView }: Props) => {
 
   return (
     <div
-      className="max-w-sm w-full flex flex-col items-center"
+      className="max-w-sm w-full flex flex-col items-center rounded-2xl border border-gm-border bg-white p-6 small:p-8"
       data-testid="forgot-password-page"
     >
-      <h1 className="text-large-semi uppercase mb-6">Mot de passe oublié</h1>
-      <p className="text-center text-base-regular text-ui-fg-base mb-8">
+      <h1 className="font-display font-bold text-xl text-gm-ink mb-2">Mot de passe oublié</h1>
+      <p className="text-center text-sm text-gm-ink-muted mb-6">
         Indiquez votre email, nous vous enverrons un lien pour réinitialiser
         votre mot de passe.
       </p>
 
       {message?.state === "success" ? (
         <div
-          className="w-full mb-6 text-center text-base-regular text-ui-fg-base bg-ui-bg-subtle border border-ui-border-base rounded-rounded p-4"
+          className="w-full mb-6 text-center text-sm text-gm-ink bg-gm-ivoire-2 border border-gm-border rounded-lg p-4"
           data-testid="forgot-password-success-message"
         >
           Si un compte existe pour cet email, un lien de réinitialisation
@@ -59,10 +59,10 @@ const ForgotPassword = ({ setCurrentView }: Props) => {
         </form>
       )}
 
-      <span className="text-center text-ui-fg-base text-small-regular mt-6">
+      <span className="text-center text-sm text-gm-ink-muted mt-6">
         <button
           onClick={() => setCurrentView(LOGIN_VIEW.SIGN_IN)}
-          className="underline"
+          className="text-gm-amethyst font-semibold hover:underline"
           data-testid="back-to-sign-in-button"
         >
           Retour à la connexion
