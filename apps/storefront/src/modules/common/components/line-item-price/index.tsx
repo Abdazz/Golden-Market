@@ -9,54 +9,33 @@ type LineItemPriceProps = {
   currencyCode: string
 }
 
-const LineItemPrice = ({
-  item,
-  style = "default",
-  currencyCode,
-}: LineItemPriceProps) => {
+const LineItemPrice = ({ item, style = "default", currencyCode }: LineItemPriceProps) => {
   const { total, original_total } = item
   const originalPrice = original_total ?? 0
   const currentPrice = total ?? 0
   const hasReducedPrice = currentPrice < originalPrice
 
   return (
-    <div className="flex flex-col gap-x-2 text-ui-fg-subtle items-end">
-      <div className="text-left">
-        {hasReducedPrice && (
-          <>
-            <p>
-              {style === "default" && (
-                <span className="text-ui-fg-subtle">Original: </span>
-              )}
-              <span
-                className="line-through text-ui-fg-muted"
-                data-testid="product-original-price"
-              >
-                {convertToLocale({
-                  amount: originalPrice,
-                  currency_code: currencyCode,
-                })}
-              </span>
-            </p>
-            {style === "default" && (
-              <span className="text-ui-fg-interactive">
-                -{getPercentageDiff(originalPrice, currentPrice || 0)}%
-              </span>
-            )}
-          </>
-        )}
-        <span
-          className={clx("text-base-regular", {
-            "text-ui-fg-interactive": hasReducedPrice,
-          })}
-          data-testid="product-price"
-        >
-          {convertToLocale({
-            amount: currentPrice,
-            currency_code: currencyCode,
-          })}
+    <div className="flex flex-col items-end gap-0.5 shrink-0">
+      {hasReducedPrice && (
+        <span className="text-xs line-through text-gm-ink-muted" data-testid="product-original-price">
+          {convertToLocale({ amount: originalPrice, currency_code: currencyCode })}
         </span>
-      </div>
+      )}
+      <span
+        className={clx("font-display font-bold text-sm", {
+          "text-gm-violet": hasReducedPrice,
+          "text-gm-ink": !hasReducedPrice,
+        })}
+        data-testid="product-price"
+      >
+        {convertToLocale({ amount: currentPrice, currency_code: currencyCode })}
+      </span>
+      {hasReducedPrice && style === "default" && (
+        <span className="text-xs text-gm-terracotta font-semibold">
+          -{getPercentageDiff(originalPrice, currentPrice || 0)}%
+        </span>
+      )}
     </div>
   )
 }
