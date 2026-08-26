@@ -1,4 +1,4 @@
-import { Button } from "@modules/common/components/ui"
+import { Badge, Button } from "@modules/common/components/ui"
 import { useMemo } from "react"
 
 import Thumbnail from "@modules/products/components/thumbnail"
@@ -8,6 +8,23 @@ import { HttpTypes } from "@medusajs/types"
 
 type OrderCardProps = {
   order: HttpTypes.StoreOrder
+}
+
+type OrderStatus = {
+  label: string
+  color: "green" | "gold" | "amethyst"
+}
+
+const getOrderStatus = (order: HttpTypes.StoreOrder): OrderStatus => {
+  if (order.fulfillment_status === "delivered") {
+    return { label: "Livrée", color: "green" }
+  }
+
+  if (order.payment_status === "captured" || order.payment_status === "partially_captured") {
+    return { label: "Paiement reçu", color: "amethyst" }
+  }
+
+  return { label: "En cours", color: "gold" }
 }
 
 const OrderCard = ({ order }: OrderCardProps) => {
@@ -23,63 +40,51 @@ const OrderCard = ({ order }: OrderCardProps) => {
     return order.items?.length ?? 0
   }, [order])
 
+  const status = getOrderStatus(order)
+
   return (
-    <div className="bg-white flex flex-col" data-testid="order-card">
-      <div className="uppercase text-large-semi mb-1">
-        #<span data-testid="order-display-id">{order.display_id}</span>
-      </div>
-      <div className="flex items-center divide-x divide-gray-200 text-small-regular text-ui-fg-base">
-        <span className="pr-2" data-testid="order-created-at">
-          {new Date(order.created_at).toDateString()}
+    <div
+      className="rounded-2xl border border-gm-border bg-white p-4 small:p-5 flex flex-col gap-y-4"
+      data-testid="order-card"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="font-display font-bold text-gm-ink" data-testid="order-display-id">
+            #{order.display_id}
+          </span>
+          <Badge color={status.color}>{status.label}</Badge>
+        </div>
+        <span className="font-display font-bold text-gm-ink" data-testid="order-amount">
+          {convertToLocale({ amount: order.total, currency_code: order.currency_code })}
         </span>
-        <span className="px-2" data-testid="order-amount">
-          {convertToLocale({
-            amount: order.total,
-            currency_code: order.currency_code,
-          })}
-        </span>
-        <span className="pl-2">{`${numberOfLines} ${
-          numberOfLines > 1 ? "items" : "item"
-        }`}</span>
       </div>
-      <div className="grid grid-cols-2 small:grid-cols-4 gap-4 my-4">
+      <div className="text-sm text-gm-ink-muted">
+        <span data-testid="order-created-at">{new Date(order.created_at).toDateString()}</span>
+        <span className="mx-1.5">-</span>
+        <span>{`${numberOfLines} ${numberOfLines > 1 ? "articles" : "article"}`}</span>
+      </div>
+      <div className="grid grid-cols-3 small:grid-cols-4 gap-3">
         {order.items?.slice(0, 3).map((i) => {
           return (
-            <div
-              key={i.id}
-              className="flex flex-col gap-y-2"
-              data-testid="order-item"
-            >
-              <Thumbnail thumbnail={i.thumbnail} images={[]} size="full" />
-              <div className="flex items-center text-small-regular text-ui-fg-base">
-                <span
-                  className="text-ui-fg-base font-semibold"
-                  data-testid="item-title"
-                >
-                  {i.title}
-                </span>
-                <span className="ml-2">x</span>
-                <span data-testid="item-quantity">{i.quantity}</span>
-              </div>
+            <div key={i.id} className="flex flex-col gap-y-1.5" data-testid="order-item">
+              <Thumbnail thumbnail={i.thumbnail} images={[]} size="square" />
+              <span className="text-xs text-gm-ink-muted line-clamp-1" data-testid="item-title">
+                {i.title} <span className="text-gm-ink" data-testid="item-quantity">x{i.quantity}</span>
+              </span>
             </div>
           )
         })}
-        {numberOfProducts > 4 && (
-          <div className="w-full h-full flex flex-col items-center justify-center">
-            <span className="text-small-regular text-ui-fg-base">
-              + {numberOfLines - 4}
-            </span>
-            <span className="text-small-regular text-ui-fg-base">more</span>
+        {numberOfProducts > 3 && (
+          <div className="flex flex-col items-center justify-center rounded-2xl bg-gm-ivoire-2 aspect-square">
+            <span className="text-sm font-semibold text-gm-ink-muted">+{numberOfProducts - 3}</span>
           </div>
         )}
       </div>
-      <div className="flex justify-end">
-        <LocalizedClientLink href={`/account/orders/details/${order.id}`}>
-          <Button data-testid="order-details-link" variant="secondary">
-            See details
-          </Button>
-        </LocalizedClientLink>
-      </div>
+      <LocalizedClientLink href={`/account/orders/details/${order.id}`}>
+        <Button data-testid="order-details-link" variant="secondary" size="small" className="w-full">
+          Voir les détails
+        </Button>
+      </LocalizedClientLink>
     </div>
   )
 }
