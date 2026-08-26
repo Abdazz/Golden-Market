@@ -17,7 +17,7 @@ const LineItemUnitPrice = ({ item, style = "default", currencyCode }: LineItemUn
   return (
     <span className="inline-flex items-center gap-1">
       {hasReducedPrice && style === "default" && (
-        <span className="text-gm-ink-muted line-through text-xs">
+        <span className="text-gm-ink-muted line-through text-xs" data-testid="product-unit-original-price">
           {convertToLocale({
             amount: original_total / item.quantity,
             currency_code: currencyCode,
