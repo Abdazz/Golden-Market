@@ -3,19 +3,10 @@ import { RadioGroup } from "@headlessui/react"
 import { isOrangeMoney, isStripeLike, paymentInfoMap } from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
 import { convertToLocale } from "@lib/util/money"
-import { CheckCircleSolid, CreditCard } from "@medusajs/icons"
 import ErrorMessage from "@modules/checkout/components/error-message"
-import PaymentContainer, {
-  StripeCardContainer,
-} from "@modules/checkout/components/payment-container"
-import Divider from "@modules/common/components/divider"
-import {
-  Button,
-  Container,
-  Heading,
-  Text,
-  clx,
-} from "@modules/common/components/ui"
+import PaymentContainer, { StripeCardContainer } from "@modules/checkout/components/payment-container"
+import StepHeader from "@modules/checkout/components/step-header"
+import { Button, Heading } from "@modules/common/components/ui"
 import { HttpTypes } from "@medusajs/types"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
@@ -35,9 +26,7 @@ const Payment = ({
   const [error, setError] = useState<string | null>(null)
   const [cardBrand, setCardBrand] = useState<string | null>(null)
   const [cardComplete, setCardComplete] = useState(false)
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
-    activeSession?.provider_id ?? ""
-  )
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(activeSession?.provider_id ?? "")
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -56,11 +45,12 @@ const Payment = ({
   }
 
   const paidByGiftcard = !!(
-    (cart as unknown as Record<string, unknown>)?.gift_cards && ((cart as unknown as Record<string, unknown>)?.gift_cards as unknown[])?.length > 0 && cart?.total === 0
+    (cart as unknown as Record<string, unknown>)?.gift_cards &&
+    ((cart as unknown as Record<string, unknown>)?.gift_cards as unknown[])?.length > 0 &&
+    cart?.total === 0
   )
 
-  const paymentReady =
-    (activeSession && (cart?.shipping_methods?.length ?? 0) !== 0) || paidByGiftcard
+  const paymentReady = (activeSession && (cart?.shipping_methods?.length ?? 0) !== 0) || paidByGiftcard
 
   const createQueryString = useCallback(
     (name: string, value: string) => {
@@ -73,19 +63,15 @@ const Payment = ({
   )
 
   const handleEdit = () => {
-    router.push(pathname + "?" + createQueryString("step", "payment"), {
-      scroll: false,
-    })
+    router.push(pathname + "?" + createQueryString("step", "payment"), { scroll: false })
   }
 
   const handleSubmit = async () => {
     setIsLoading(true)
     try {
-      const shouldInputCard =
-        isStripeLike(selectedPaymentMethod) && !activeSession
+      const shouldInputCard = isStripeLike(selectedPaymentMethod) && !activeSession
 
-      const checkActiveSession =
-        activeSession?.provider_id === selectedPaymentMethod
+      const checkActiveSession = activeSession?.provider_id === selectedPaymentMethod
 
       if (!checkActiveSession) {
         await initiatePaymentSession(cart, {
@@ -94,12 +80,9 @@ const Payment = ({
       }
 
       if (!shouldInputCard) {
-        return router.push(
-          pathname + "?" + createQueryString("step", "review"),
-          {
-            scroll: false,
-          }
-        )
+        return router.push(pathname + "?" + createQueryString("step", "review"), {
+          scroll: false,
+        })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -112,117 +95,92 @@ const Payment = ({
     setError(null)
   }, [isOpen])
 
+  const summary =
+    !isOpen && paymentReady && activeSession
+      ? `${paymentInfoMap[activeSession.provider_id]?.title || activeSession.provider_id} - ${
+          isOrangeMoney(selectedPaymentMethod)
+            ? String(activeSession?.data?.phone_number ?? "Orange Money")
+            : isStripeLike(selectedPaymentMethod) && cardBrand
+              ? cardBrand
+              : "Détails à l'étape suivante"
+        }`
+      : !isOpen && paidByGiftcard
+        ? "Carte cadeau"
+        : undefined
+
   return (
-    <div className="bg-white">
-      <div className="flex flex-row items-center justify-between mb-6">
-        <Heading
-          level="h2"
-          className={clx(
-            "flex flex-row text-3xl-regular gap-x-2 items-baseline",
-            {
-              "opacity-50 pointer-events-none select-none":
-                !isOpen && !paymentReady,
-            }
-          )}
-        >
-          Payment
-          {!isOpen && paymentReady && <CheckCircleSolid />}
-        </Heading>
-        {!isOpen && paymentReady && (
-          <Text>
-            <button
-              onClick={handleEdit}
-              className="text-ui-fg-interactive hover:text-ui-fg-interactive-hover"
-              data-testid="edit-payment-button"
-            >
-              Edit
-            </button>
-          </Text>
-        )}
-      </div>
-      <div>
-        <div className={isOpen ? "block" : "hidden"}>
+    <div className="rounded-2xl border border-gm-border bg-white p-5 small:p-6">
+      <StepHeader
+        step={3}
+        title="Paiement"
+        status={isOpen ? "active" : paymentReady ? "completed" : "disabled"}
+        summary={summary}
+        onEdit={!isOpen && paymentReady ? handleEdit : undefined}
+        editTestId="edit-payment-button"
+      />
+      {isOpen && (
+        <div className="mt-6">
           {!paidByGiftcard && availablePaymentMethods?.length && (
-            <>
-              <RadioGroup
-                value={selectedPaymentMethod}
-                onChange={(value: string) => setPaymentMethod(value)}
-              >
-                {availablePaymentMethods.map((paymentMethod) => (
-                  <div key={paymentMethod.id}>
-                    {isStripeLike(paymentMethod.id) ? (
-                      <StripeCardContainer
-                        paymentProviderId={paymentMethod.id}
-                        selectedPaymentOptionId={selectedPaymentMethod}
-                        paymentInfoMap={paymentInfoMap}
-                        setCardBrand={setCardBrand}
-                        setError={setError}
-                        setCardComplete={setCardComplete}
-                      />
-                    ) : (
-                      <PaymentContainer
-                        paymentInfoMap={paymentInfoMap}
-                        paymentProviderId={paymentMethod.id}
-                        selectedPaymentOptionId={selectedPaymentMethod}
-                      />
-                    )}
-                  </div>
-                ))}
-              </RadioGroup>
-            </>
+            <RadioGroup value={selectedPaymentMethod} onChange={(value: string) => setPaymentMethod(value)}>
+              {availablePaymentMethods.map((paymentMethod) => (
+                <div key={paymentMethod.id}>
+                  {isStripeLike(paymentMethod.id) ? (
+                    <StripeCardContainer
+                      paymentProviderId={paymentMethod.id}
+                      selectedPaymentOptionId={selectedPaymentMethod}
+                      paymentInfoMap={paymentInfoMap}
+                      setCardBrand={setCardBrand}
+                      setError={setError}
+                      setCardComplete={setCardComplete}
+                    />
+                  ) : (
+                    <PaymentContainer
+                      paymentInfoMap={paymentInfoMap}
+                      paymentProviderId={paymentMethod.id}
+                      selectedPaymentOptionId={selectedPaymentMethod}
+                    />
+                  )}
+                </div>
+              ))}
+            </RadioGroup>
           )}
 
           {paidByGiftcard && (
-            <div className="flex flex-col w-1/3">
-              <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                Payment method
-              </Text>
-              <Text
-                className="txt-medium text-ui-fg-subtle"
-                data-testid="payment-method-summary"
-              >
-                Gift card
-              </Text>
-            </div>
+            <p className="text-sm text-gm-ink-muted">Méthode de paiement : carte cadeau</p>
           )}
 
           {isOrangeMoney(selectedPaymentMethod) && activeSession && (
             <div
-              className="mt-4 rounded-lg border border-brand-primary p-4 bg-brand-secondary"
+              className="mt-4 rounded-xl border-l-4 border-gm-violet bg-gm-ivoire-2 p-4 small:p-5"
               data-testid="orange-money-instructions"
             >
-              <Heading level="h3" className="text-lg mb-2">
-                Paiement par Orange Money
+              <Heading level="h3" className="text-base mb-3">
+                Instructions de paiement Orange Money
               </Heading>
-              <Text className="mb-2">
-                Envoyez le montant total au numéro{" "}
-                <span className="font-semibold">
-                  {String(activeSession.data?.phone_number ?? "")}
-                </span>{" "}
-                —{" "}
-                <span className="font-semibold">
-                  {String(activeSession.data?.account_name ?? "Golden Market")}
-                </span>
-              </Text>
-              <Text className="mb-2">
-                Montant à envoyer :{" "}
-                <span className="font-semibold">
-                  {convertToLocale({
-                    amount: cart.total ?? 0,
-                    currency_code: cart.currency_code ?? "XOF",
-                  })}
-                </span>
-              </Text>
-              <Text className="text-ui-fg-subtle">
-                {String(activeSession.data?.note ?? "")}
-              </Text>
+              <div className="flex flex-col gap-1.5 text-sm text-gm-ink">
+                <p>
+                  Envoyez le montant total au numéro{" "}
+                  <span className="font-semibold">{String(activeSession.data?.phone_number ?? "")}</span>,
+                  titulaire{" "}
+                  <span className="font-semibold">
+                    {String(activeSession.data?.account_name ?? "Golden Market")}
+                  </span>
+                </p>
+                <p>
+                  Montant à envoyer :{" "}
+                  <span className="font-display font-bold text-base text-gm-violet">
+                    {convertToLocale({
+                      amount: cart.total ?? 0,
+                      currency_code: cart.currency_code ?? "XOF",
+                    })}
+                  </span>
+                </p>
+                <p className="text-gm-ink-muted">{String(activeSession.data?.note ?? "")}</p>
+              </div>
             </div>
           )}
 
-          <ErrorMessage
-            error={error}
-            data-testid="payment-method-error-message"
-          />
+          <ErrorMessage error={error} data-testid="payment-method-error-message" />
 
           <Button
             size="large"
@@ -236,65 +194,11 @@ const Payment = ({
             data-testid="submit-payment-button"
           >
             {!activeSession && isStripeLike(selectedPaymentMethod)
-              ? " Enter card details"
-              : "Continue to review"}
+              ? "Saisir les détails de la carte"
+              : "Continuer vers le récapitulatif"}
           </Button>
         </div>
-
-        <div className={isOpen ? "hidden" : "block"}>
-          {cart && paymentReady && activeSession ? (
-            <div className="flex items-start gap-x-1 w-full">
-              <div className="flex flex-col w-1/3">
-                <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                  Payment method
-                </Text>
-                <Text
-                  className="txt-medium text-ui-fg-subtle"
-                  data-testid="payment-method-summary"
-                >
-                  {paymentInfoMap[activeSession?.provider_id]?.title ||
-                    activeSession?.provider_id}
-                </Text>
-              </div>
-              <div className="flex flex-col w-1/3">
-                <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                  Payment details
-                </Text>
-                <div
-                  className="flex gap-2 txt-medium text-ui-fg-subtle items-center"
-                  data-testid="payment-details-summary"
-                >
-                  <Container className="flex items-center h-7 w-fit p-2 bg-ui-button-neutral-hover">
-                    {paymentInfoMap[selectedPaymentMethod]?.icon || (
-                      <CreditCard />
-                    )}
-                  </Container>
-                  <Text>
-                    {isOrangeMoney(selectedPaymentMethod)
-                      ? String(activeSession?.data?.phone_number ?? "Orange Money")
-                      : isStripeLike(selectedPaymentMethod) && cardBrand
-                        ? cardBrand
-                        : "Another step will appear"}
-                  </Text>
-                </div>
-              </div>
-            </div>
-          ) : paidByGiftcard ? (
-            <div className="flex flex-col w-1/3">
-              <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                Payment method
-              </Text>
-              <Text
-                className="txt-medium text-ui-fg-subtle"
-                data-testid="payment-method-summary"
-              >
-                Gift card
-              </Text>
-            </div>
-          ) : null}
-        </div>
-      </div>
-      <Divider className="mt-8" />
+      )}
     </div>
   )
 }
