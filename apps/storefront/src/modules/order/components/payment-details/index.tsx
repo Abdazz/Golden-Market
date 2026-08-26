@@ -71,8 +71,8 @@ const PaymentDetails = ({ order }: PaymentDetailsProps) => {
               Envoyez le montant total au numéro{" "}
               <span className="font-semibold">
                 {String(payment.data?.phone_number ?? "")}
-              </span>{" "}
-              —{" "}
+              </span>
+              , titulaire{" "}
               <span className="font-semibold">
                 {String(payment.data?.account_name ?? "Golden Market")}
               </span>

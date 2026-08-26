@@ -30,7 +30,7 @@ const Summary = ({ cart }: SummaryProps) => {
         Récapitulatif
       </Heading>
       <DiscountCode cart={cart} />
-      <CartTotals totals={cart} shippingCalculatedLater />
+      <CartTotals totals={cart} shippingCalculatedLater={!cart.shipping_methods?.length} />
       <LocalizedClientLink href={"/checkout?step=" + step} data-testid="checkout-button">
         <Button className="w-full" size="large">
           Passer la commande

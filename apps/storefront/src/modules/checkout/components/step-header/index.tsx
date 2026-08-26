@@ -9,6 +9,7 @@ type StepHeaderProps = {
   summary?: string
   onEdit?: () => void
   editTestId?: string
+  summaryTestId?: string
 }
 
 const StepHeader = ({
@@ -18,6 +19,7 @@ const StepHeader = ({
   summary,
   onEdit,
   editTestId,
+  summaryTestId,
 }: StepHeaderProps) => {
   return (
     <div className="flex items-center justify-between gap-4">
@@ -51,7 +53,11 @@ const StepHeader = ({
           >
             {title}
           </Heading>
-          {summary && <p className="text-sm text-gm-ink-muted truncate">{summary}</p>}
+          {summary && (
+            <p className="text-sm text-gm-ink-muted truncate" data-testid={summaryTestId}>
+              {summary}
+            </p>
+          )}
         </div>
       </div>
       {onEdit && (

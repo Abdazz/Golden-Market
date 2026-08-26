@@ -52,6 +52,7 @@ const Addresses = ({
         summary={summary}
         onEdit={!isOpen && cart?.shipping_address ? handleEdit : undefined}
         editTestId="edit-address-button"
+        summaryTestId="shipping-address-summary"
       />
       {isOpen && (
         <form action={formAction} className="mt-6">

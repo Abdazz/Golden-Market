@@ -31,7 +31,7 @@ const ItemsTemplate = ({ cart }: ItemsTemplateProps) => {
                 return <Item key={item.id} item={item} currencyCode={cart?.currency_code} />
               })
           : repeat(5).map((i) => {
-              return <SkeletonLineItem key={i} />
+              return <SkeletonLineItem key={i} variant="card" />
             })}
       </div>
     </div>

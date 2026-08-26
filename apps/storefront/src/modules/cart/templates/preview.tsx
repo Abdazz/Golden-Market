@@ -33,7 +33,7 @@ const ItemsPreviewTemplate = ({ cart }: ItemsTemplateProps) => {
               )
             })
         : repeat(5).map((i) => {
-            return <SkeletonLineItem key={i} />
+            return <SkeletonLineItem key={i} variant="card" />
           })}
     </div>
   )

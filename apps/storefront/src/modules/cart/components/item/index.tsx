@@ -49,12 +49,11 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
         className="flex items-center gap-3 py-3 border-b border-gm-border last:border-0"
         data-testid="product-row"
       >
-        <LocalizedClientLink href={`/products/${item.product_handle}`} className="shrink-0">
+        <LocalizedClientLink href={`/products/${item.product_handle}`} className="shrink-0 w-14">
           <Thumbnail
             thumbnail={item.thumbnail}
             images={item.variant?.product?.images}
             size="square"
-            className="w-14"
           />
         </LocalizedClientLink>
         <div className="flex flex-1 flex-col min-w-0">
@@ -74,12 +73,11 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
 
   return (
     <div className="flex gap-4 py-4 border-b border-gm-border last:border-0" data-testid="product-row">
-      <LocalizedClientLink href={`/products/${item.product_handle}`} className="shrink-0">
+      <LocalizedClientLink href={`/products/${item.product_handle}`} className="shrink-0 w-20 small:w-24">
         <Thumbnail
           thumbnail={item.thumbnail}
           images={item.variant?.product?.images}
           size="square"
-          className="w-20 small:w-24"
         />
       </LocalizedClientLink>
 
