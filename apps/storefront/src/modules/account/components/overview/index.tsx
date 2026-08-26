@@ -1,8 +1,7 @@
-import { Container } from "@modules/common/components/ui"
+import { Heading } from "@modules/common/components/ui"
 
-import ChevronDown from "@modules/common/icons/chevron-down"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import { convertToLocale } from "@lib/util/money"
+import OrderCard from "@modules/account/components/order-card"
 import { HttpTypes } from "@medusajs/types"
 
 type OverviewProps = {
@@ -11,158 +10,76 @@ type OverviewProps = {
 }
 
 const Overview = ({ customer, orders }: OverviewProps) => {
+  const defaultAddress =
+    customer?.addresses?.find((a) => a.is_default_shipping) ??
+    customer?.addresses?.find((a) => a.is_default_billing)
+
   return (
-    <div data-testid="overview-page-wrapper">
-      <div className="hidden small:block">
-        <div className="text-xl-semi flex justify-between items-center mb-4">
-          <span data-testid="welcome-message" data-value={customer?.first_name}>
-            Hello {customer?.first_name}
-          </span>
-          <span className="text-small-regular text-ui-fg-base">
-            Signed in as:{" "}
-            <span
-              className="font-semibold"
-              data-testid="customer-email"
-              data-value={customer?.email}
-            >
-              {customer?.email}
-            </span>
-          </span>
+    <div className="flex flex-col gap-y-8" data-testid="overview-page-wrapper">
+      <div className="rounded-2xl bg-gm-violet p-6 small:p-8 flex flex-col small:flex-row small:items-center small:justify-between gap-4">
+        <div>
+          <Heading level="h2" className="text-gm-on-violet text-2xl">
+            Bonjour {customer?.first_name}
+          </Heading>
+          <p
+            className="text-gm-on-violet-muted text-sm mt-1"
+            data-testid="customer-email"
+            data-value={customer?.email}
+          >
+            Connecté en tant que {customer?.email}
+          </p>
         </div>
-        <div className="flex flex-col py-8 border-t border-gray-200">
-          <div className="flex flex-col gap-y-4 h-full col-span-1 row-span-2 flex-1">
-            <div className="flex items-start gap-x-16 mb-6">
-              <div className="flex flex-col gap-y-4">
-                <h3 className="text-large-semi">Profile</h3>
-                <div className="flex items-end gap-x-2">
-                  <span
-                    className="text-3xl-semi leading-none"
-                    data-testid="customer-profile-completion"
-                    data-value={getProfileCompletion(customer)}
-                  >
-                    {getProfileCompletion(customer)}%
-                  </span>
-                  <span className="uppercase text-base-regular text-ui-fg-subtle">
-                    Completed
-                  </span>
-                </div>
-              </div>
+        <LocalizedClientLink
+          href="/account/profile"
+          className="shrink-0 text-sm font-semibold text-gm-on-violet border border-white/40 rounded-full px-4 py-2 hover:bg-white/10 transition-colors"
+        >
+          Voir mon profil
+        </LocalizedClientLink>
+      </div>
 
-              <div className="flex flex-col gap-y-4">
-                <h3 className="text-large-semi">Addresses</h3>
-                <div className="flex items-end gap-x-2">
-                  <span
-                    className="text-3xl-semi leading-none"
-                    data-testid="addresses-count"
-                    data-value={customer?.addresses?.length || 0}
-                  >
-                    {customer?.addresses?.length || 0}
-                  </span>
-                  <span className="uppercase text-base-regular text-ui-fg-subtle">
-                    Saved
-                  </span>
-                </div>
-              </div>
-            </div>
+      <div>
+        <Heading level="h3" className="text-lg mb-4">
+          Commandes récentes
+        </Heading>
+        <ul className="flex flex-col gap-y-4" data-testid="orders-wrapper">
+          {orders && orders.length > 0 ? (
+            orders.slice(0, 5).map((order) => (
+              <li key={order.id} data-testid="order-wrapper" data-value={order.id}>
+                <OrderCard order={order} />
+              </li>
+            ))
+          ) : (
+            <li>
+              <p className="text-sm text-gm-ink-muted" data-testid="no-orders-message">
+                Aucune commande pour le moment.
+              </p>
+            </li>
+          )}
+        </ul>
+      </div>
 
-            <div className="flex flex-col gap-y-4">
-              <div className="flex items-center gap-x-2">
-                <h3 className="text-large-semi">Recent orders</h3>
-              </div>
-              <ul
-                className="flex flex-col gap-y-4"
-                data-testid="orders-wrapper"
-              >
-                {orders && orders.length > 0 ? (
-                  orders.slice(0, 5).map((order) => {
-                    return (
-                      <li
-                        key={order.id}
-                        data-testid="order-wrapper"
-                        data-value={order.id}
-                      >
-                        <LocalizedClientLink
-                          href={`/account/orders/details/${order.id}`}
-                        >
-                          <Container className="bg-gray-50 flex justify-between items-center p-4">
-                            <div className="grid grid-cols-3 grid-rows-2 text-small-regular gap-x-4 flex-1">
-                              <span className="font-semibold">Date placed</span>
-                              <span className="font-semibold">
-                                Order number
-                              </span>
-                              <span className="font-semibold">
-                                Total amount
-                              </span>
-                              <span data-testid="order-created-date">
-                                {new Date(order.created_at).toDateString()}
-                              </span>
-                              <span
-                                data-testid="order-id"
-                                data-value={order.display_id}
-                              >
-                                #{order.display_id}
-                              </span>
-                              <span data-testid="order-amount">
-                                {convertToLocale({
-                                  amount: order.total,
-                                  currency_code: order.currency_code,
-                                })}
-                              </span>
-                            </div>
-                            <button
-                              className="flex items-center justify-between"
-                              data-testid="open-order-button"
-                            >
-                              <span className="sr-only">
-                                Go to order #{order.display_id}
-                              </span>
-                              <ChevronDown className="-rotate-90" />
-                            </button>
-                          </Container>
-                        </LocalizedClientLink>
-                      </li>
-                    )
-                  })
-                ) : (
-                  <span data-testid="no-orders-message">No recent orders</span>
-                )}
-              </ul>
-            </div>
-          </div>
+      <div className="rounded-2xl border border-gm-border bg-white p-5 flex items-center justify-between gap-4">
+        <div>
+          <Heading level="h3" className="text-base">
+            Adresse par défaut
+          </Heading>
+          {defaultAddress ? (
+            <p className="text-sm text-gm-ink-muted mt-1">
+              {defaultAddress.address_1}, {defaultAddress.city}
+            </p>
+          ) : (
+            <p className="text-sm text-gm-ink-muted mt-1">Aucune adresse enregistrée.</p>
+          )}
         </div>
+        <LocalizedClientLink
+          href="/account/addresses"
+          className="shrink-0 text-sm font-semibold text-gm-amethyst hover:underline"
+        >
+          Gérer mes adresses
+        </LocalizedClientLink>
       </div>
     </div>
   )
-}
-
-const getProfileCompletion = (customer: HttpTypes.StoreCustomer | null) => {
-  let count = 0
-
-  if (!customer) {
-    return 0
-  }
-
-  if (customer.email) {
-    count++
-  }
-
-  if (customer.first_name && customer.last_name) {
-    count++
-  }
-
-  if (customer.phone) {
-    count++
-  }
-
-  const billingAddress = customer.addresses?.find(
-    (addr) => addr.is_default_billing
-  )
-
-  if (billingAddress) {
-    count++
-  }
-
-  return (count / 4) * 100
 }
 
 export default Overview
