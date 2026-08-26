@@ -443,17 +443,18 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
 Checkbox.displayName = "Checkbox"
 
 // Chip Component
-type ChipProps = HTMLAttributes<HTMLSpanElement> & {
+type ChipProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   active?: boolean
 }
 
-export const Chip = forwardRef<HTMLSpanElement, ChipProps>(
-  ({ className, active, children, ...props }, ref) => {
+export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
+  ({ className, active, children, type = "button", ...props }, ref) => {
     return (
-      <span
+      <button
         ref={ref}
+        type={type}
         className={clsx(
-          "inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition-colors cursor-pointer",
+          "inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gm-gold focus-visible:ring-offset-2",
           active
             ? "border-gm-violet bg-gm-violet text-gm-on-violet"
             : "border-gm-border bg-white text-gm-ink hover:border-gm-gold",
@@ -462,7 +463,7 @@ export const Chip = forwardRef<HTMLSpanElement, ChipProps>(
         {...props}
       >
         {children}
-      </span>
+      </button>
     )
   }
 )

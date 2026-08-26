@@ -137,7 +137,6 @@ const OptionsPicker = ({
                         active={isSelected}
                         onClick={() => toggleValue(value.id)}
                         aria-pressed={isSelected}
-                        className="cursor-pointer"
                       >
                         {value.label}
                       </Chip>
