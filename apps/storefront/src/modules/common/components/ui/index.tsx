@@ -36,16 +36,27 @@ type HeadingProps = HTMLAttributes<HTMLHeadingElement> & {
   level?: "h1" | "h2" | "h3"
 }
 
+// Matches an existing Tailwind font-size utility (e.g. "text-lg",
+// "!text-sm", "text-3xl-regular") in a className string, including any
+// responsive/state prefix. Used below to skip Heading's own default size
+// class when the caller already supplies one: className is appended after
+// the default in the same clsx() call, so without this guard the winner
+// depends on which utility the Tailwind build happens to emit later in the
+// generated stylesheet, not on source order - silently dropping the
+// caller's intended size roughly half the time.
+const HAS_TEXT_SIZE_CLASS = /(?:^|\s)!?(?:[a-z-]+:)*text-(?:xs|sm|base|md|lg|xl|\d+xl)(?=[\s-]|$)/
+
 export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
   ({ className, level: Component = "h2", children, ...props }, ref) => {
+    const hasOwnSize = !!className && HAS_TEXT_SIZE_CLASS.test(className)
     return (
       <Component
         ref={ref}
         className={clsx(
           "font-display font-semibold text-gm-ink",
-          Component === "h1" && "text-3xl",
-          Component === "h2" && "text-2xl",
-          Component === "h3" && "text-xl",
+          !hasOwnSize && Component === "h1" && "text-3xl",
+          !hasOwnSize && Component === "h2" && "text-2xl",
+          !hasOwnSize && Component === "h3" && "text-xl",
           className
         )}
         {...props}
@@ -64,6 +75,15 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   isLoading?: boolean
 }
 
+// Matches an existing Tailwind box-shadow utility (e.g. "shadow-none",
+// "shadow-lg") in a className string, same rationale as HAS_TEXT_SIZE_CLASS
+// above: without this guard, a caller's own shadow class and the primary
+// variant's default "shadow-sm" both land in the same clsx() call, and
+// which one wins depends on Tailwind's generated stylesheet order, not on
+// source order - confirmed live on the free-shipping nudge's close button,
+// which passes "shadow-none" and depends on it beating the default.
+const HAS_SHADOW_CLASS = /(?:^|\s)!?(?:[a-z-]+:)*shadow(?:-\S+)?(?=\s|$)/
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
@@ -77,6 +97,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
+    const hasOwnShadow = !!className && HAS_SHADOW_CLASS.test(className)
     return (
       <button
         ref={ref}
@@ -84,7 +105,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={clsx(
           "inline-flex gap-2 items-center justify-center rounded-full font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gm-gold focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
           variant === "primary" &&
-            "bg-gm-gold text-gm-ink hover:bg-gm-gold-strong shadow-sm",
+            "bg-gm-gold text-gm-ink hover:bg-gm-gold-strong",
+          variant === "primary" && !hasOwnShadow && "shadow-sm",
           variant === "secondary" &&
             "bg-transparent text-gm-violet border border-gm-violet hover:bg-gm-violet hover:text-gm-on-violet",
           variant === "transparent" &&

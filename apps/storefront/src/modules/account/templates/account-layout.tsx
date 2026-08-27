@@ -1,6 +1,6 @@
 import React from "react"
 
-import { clx } from "@modules/common/components/ui"
+import { clx, Heading } from "@modules/common/components/ui"
 import UnderlineLink from "@modules/common/components/interactive-link"
 
 import AccountNav from "../components/account-nav"
@@ -21,14 +21,18 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({ customer, children }) => 
             "grid-cols-1": !customer,
           })}
         >
-          <div>{customer && <AccountNav customer={customer} />}</div>
+          {customer && (
+            <div>
+              <AccountNav customer={customer} />
+            </div>
+          )}
           <div className="flex-1 min-w-0">{children}</div>
         </div>
         <div className="rounded-2xl border border-gm-border bg-white p-6 flex flex-col small:flex-row items-start small:items-center justify-between gap-4">
           <div>
-            <h3 className="font-display font-bold text-lg text-gm-ink mb-1">
+            <Heading level="h3" className="text-lg mb-1">
               Des questions ?
-            </h3>
+            </Heading>
             <span className="text-sm text-gm-ink-muted">
               Retrouvez les réponses aux questions fréquentes sur notre page service client.
             </span>

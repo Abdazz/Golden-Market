@@ -7,11 +7,9 @@ import PreviewPrice from "./price"
 
 export default async function ProductPreview({
   product,
-  isFeatured,
   region: _region,
 }: {
   product: HttpTypes.StoreProduct
-  isFeatured?: boolean
   region: HttpTypes.StoreRegion
 }) {
   const { cheapestPrice } = getProductPrice({
@@ -37,7 +35,6 @@ export default async function ProductPreview({
           thumbnail={product.thumbnail}
           images={product.images}
           size="full"
-          isFeatured={isFeatured}
           className="rounded-none"
         />
       </div>

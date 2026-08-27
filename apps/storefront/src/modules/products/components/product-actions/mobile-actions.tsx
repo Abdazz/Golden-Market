@@ -81,17 +81,17 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                 {product.title}
               </span>
               {selectedPrice ? (
-                <div className="flex items-end gap-x-2 text-ui-fg-base">
+                <div className="flex items-end gap-x-2 text-gm-ink">
                   {selectedPrice.price_type === "sale" && (
                     <p>
-                      <span className="line-through text-small-regular">
+                      <span className="line-through text-small-regular text-gm-ink-muted">
                         {selectedPrice.original_price}
                       </span>
                     </p>
                   )}
                   <span
                     className={clx({
-                      "text-ui-fg-interactive":
+                      "text-gm-violet":
                         selectedPrice.price_type === "sale",
                     })}
                   >

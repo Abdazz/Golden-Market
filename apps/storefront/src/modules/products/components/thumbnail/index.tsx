@@ -8,7 +8,6 @@ type ThumbnailProps = {
   thumbnail?: string | null
   images?: { url?: string }[] | null
   size?: "small" | "medium" | "large" | "full" | "square"
-  isFeatured?: boolean
   className?: string
   "data-testid"?: string
 }
@@ -17,7 +16,6 @@ const Thumbnail: React.FC<ThumbnailProps> = ({
   thumbnail,
   images,
   size = "small",
-  isFeatured,
   className,
   "data-testid": dataTestid,
 }) => {

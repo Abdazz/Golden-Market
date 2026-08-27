@@ -53,7 +53,7 @@ export default async function ProductRail({
             Voir tout
           </LocalizedClientLink>
         </div>
-        <ul className="grid grid-cols-2 small:grid-cols-4 gap-4">
+        <ul className="grid grid-cols-2 small:grid-cols-3 medium:grid-cols-4 gap-4">
           {pricedProducts &&
             pricedProducts.map((product) => (
               <li key={product.id}>

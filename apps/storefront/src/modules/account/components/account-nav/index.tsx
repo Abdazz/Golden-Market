@@ -160,8 +160,10 @@ const AccountNavLink = ({
     <LocalizedClientLink
       href={href}
       className={clx(
-        "block rounded-lg px-3 py-2.5 text-sm font-medium text-gm-ink-muted hover:bg-gm-ivoire-2 hover:text-gm-ink transition-colors",
-        { "bg-gm-ivoire-2 text-gm-violet font-semibold": active }
+        "block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+        active
+          ? "bg-gm-ivoire-2 text-gm-violet font-semibold"
+          : "text-gm-ink-muted hover:bg-gm-ivoire-2 hover:text-gm-ink"
       )}
       data-testid={dataTestId}
     >

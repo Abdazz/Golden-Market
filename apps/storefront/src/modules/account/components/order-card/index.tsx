@@ -12,10 +12,14 @@ type OrderCardProps = {
 
 type OrderStatus = {
   label: string
-  color: "green" | "gold" | "amethyst"
+  color: "green" | "gold" | "amethyst" | "grey"
 }
 
 const getOrderStatus = (order: HttpTypes.StoreOrder): OrderStatus => {
+  if (order.fulfillment_status === "canceled") {
+    return { label: "Annulée", color: "grey" }
+  }
+
   if (order.fulfillment_status === "delivered") {
     return { label: "Livrée", color: "green" }
   }
@@ -59,11 +63,17 @@ const OrderCard = ({ order }: OrderCardProps) => {
         </span>
       </div>
       <div className="text-sm text-gm-ink-muted">
-        <span data-testid="order-created-at">{new Date(order.created_at).toDateString()}</span>
+        <span data-testid="order-created-at">
+          {new Date(order.created_at).toLocaleDateString("fr-FR", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </span>
         <span className="mx-1.5">-</span>
         <span>{`${numberOfLines} ${numberOfLines > 1 ? "articles" : "article"}`}</span>
       </div>
-      <div className="grid grid-cols-3 small:grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {order.items?.slice(0, 3).map((i) => {
           return (
             <div key={i.id} className="flex flex-col gap-y-1.5" data-testid="order-item">

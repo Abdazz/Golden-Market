@@ -173,11 +173,7 @@ const Shipping: React.FC<ShippingProps> = ({ cart, availableShippingMethods }) =
         title="Livraison"
         status={isOpen ? "active" : hasMethod ? "completed" : "disabled"}
         summary={summary}
-        onEdit={
-          !isOpen && cart?.shipping_address && cart?.billing_address && cart?.email
-            ? handleEdit
-            : undefined
-        }
+        onEdit={!isOpen && hasMethod ? handleEdit : undefined}
         editTestId="edit-delivery-button"
       />
       {isOpen && (
@@ -212,6 +208,7 @@ const Shipping: React.FC<ShippingProps> = ({ cart, availableShippingMethods }) =
                     <MedusaRadio checked={showPickupOptions === PICKUP_OPTION_ON} />
                     <span className="text-sm text-gm-ink">Retrait en magasin</span>
                   </div>
+                  <span className="text-sm font-semibold text-gm-ink">-</span>
                 </Radio>
               </RadioGroup>
             )}

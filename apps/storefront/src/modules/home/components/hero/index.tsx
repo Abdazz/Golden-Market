@@ -3,8 +3,8 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 
 const Hero = () => {
   return (
-    <div className="w-full bg-gm-violet relative overflow-hidden">
-      <div className="content-container py-14 small:py-24 relative z-10">
+    <div className="w-full bg-gm-violet">
+      <div className="content-container py-14 small:py-24">
         <div className="flex flex-col items-start gap-6 max-w-2xl">
           <span className="inline-flex items-center rounded-full border border-gm-gold/35 bg-gm-gold/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-gm-gold-strong">
             Marketplace du Burkina Faso

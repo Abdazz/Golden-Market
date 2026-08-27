@@ -31,7 +31,11 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals, shippingCalculatedLater
       <div className="flex items-center justify-between">
         <span>Livraison</span>
         {shippingCalculatedLater ? (
-          <span className="italic text-right" data-testid="cart-shipping">
+          <span
+            className="italic text-right"
+            data-testid="cart-shipping"
+            data-value={shipping_subtotal || 0}
+          >
             Calculée à l&apos;étape suivante
           </span>
         ) : (

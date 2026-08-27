@@ -18,7 +18,7 @@ export default async function Nav() {
 
   return (
     <div className="sticky top-0 inset-x-0 z-50 group">
-      <header className="relative h-16 mx-auto bg-gm-violet text-gm-on-violet">
+      <header className="relative h-16 mx-auto bg-gm-violet text-gm-on-violet shadow-sm">
         <nav className="content-container flex items-center justify-between w-full h-full text-sm">
           <div className="flex-1 basis-0 h-full flex items-center">
             <div className="h-full text-gm-on-violet-muted [&_button]:!text-gm-on-violet-muted [&_button:hover]:!text-gm-on-violet">

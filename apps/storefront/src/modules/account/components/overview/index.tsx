@@ -18,7 +18,12 @@ const Overview = ({ customer, orders }: OverviewProps) => {
     <div className="flex flex-col gap-y-8" data-testid="overview-page-wrapper">
       <div className="rounded-2xl bg-gm-violet p-6 small:p-8 flex flex-col small:flex-row small:items-center small:justify-between gap-4">
         <div>
-          <Heading level="h2" className="text-gm-on-violet text-2xl">
+          <Heading
+            level="h2"
+            className="text-gm-on-violet text-2xl"
+            data-testid="welcome-message"
+            data-value={customer?.first_name}
+          >
             Bonjour {customer?.first_name}
           </Heading>
           <p
@@ -38,9 +43,9 @@ const Overview = ({ customer, orders }: OverviewProps) => {
       </div>
 
       <div>
-        <h3 className="font-display font-semibold text-gm-ink text-lg mb-4">
+        <Heading level="h3" className="text-lg mb-4">
           Commandes récentes
-        </h3>
+        </Heading>
         <ul className="flex flex-col gap-y-4" data-testid="orders-wrapper">
           {orders && orders.length > 0 ? (
             orders.slice(0, 5).map((order) => (
@@ -60,9 +65,9 @@ const Overview = ({ customer, orders }: OverviewProps) => {
 
       <div className="rounded-2xl border border-gm-border bg-white p-5 flex items-center justify-between gap-4">
         <div>
-          <h3 className="font-display font-semibold text-gm-ink text-base">
+          <Heading level="h3" className="text-base">
             Adresse par défaut
-          </h3>
+          </Heading>
           {defaultAddress ? (
             <p className="text-sm text-gm-ink-muted mt-1">
               {defaultAddress.address_1}, {defaultAddress.city}
