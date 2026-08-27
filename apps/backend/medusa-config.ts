@@ -1,6 +1,9 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
+import { assertProductionConfig } from './src/lib/assert-production-config'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
+
+assertProductionConfig(process.env)
 
 module.exports = defineConfig({
   projectConfig: {
