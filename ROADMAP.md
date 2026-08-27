@@ -79,6 +79,33 @@ Implémentation complétée le 2026-08-16 via deux scripts d'import idempotents 
       - À traiter comme un plan dédié après la Phase 0 (ne pas mélanger avec le paiement
         Orange Money / notifications).
 
+## Phase 1.5 — Refonte visuelle du storefront
+
+Réalisée le 2026-08-24/27, hors périmètre initial de ce document (les phases 0-5 ci-dessus
+ciblaient le lancement fonctionnel, pas l'identité visuelle). Statut global : **fait**.
+
+- [x] Spec de design validée par brainstorming (palette violet/or, typographie Baloo 2 + Inter,
+      bibliothèque de composants, description page par page) :
+      `docs/superpowers/specs/2026-08-24-storefront-redesign-design.md`.
+- [x] 4 plans exécutés via `subagent-driven-development`, chacun revu puis mergé sur `main` :
+      Fondation (tokens/composants partagés), Accueil/Catalogue/Fiche produit, Panier/Paiement,
+      Compte. Plans détaillés dans `docs/superpowers/plans/2026-08-24-storefront-redesign-*.md`.
+- [x] Branding Medusa résiduel retiré (footer, composant `MedusaCTA`, icône), storefront traduit
+      intégralement en français (hors Profil/Adresses/Commandes, hors périmètre des 4 plans).
+- [x] Accessibilité clavier du composant `Chip` (converti `span` → `button`).
+- [x] Vraie taxonomie de catégories : les 4 catégories de démo Medusa (Shirts/Sweatshirts/
+      Merch/Pants, vides) remplacées par 6 catégories construites à partir du vrai catalogue
+      (script idempotent `seed:categories-bf`, voir section Catalogue ci-dessus).
+- [x] 3 bugs réels trouvés par vérification visuelle sur un backend réel (jamais détectables par
+      `npm run build` seul) : ordre d'import CSS cassant le dev Turbopack, 500 sur un handle
+      produit accentué (non décodé), chevauchement de texte dans le footer mobile.
+
+**Point ouvert non résolu** : le contenu de l'onglet « Livraison et retours » de la fiche
+produit (délais, politique d'échange/retour) est une traduction du texte de démo Medusa
+d'origine, pas une politique vérifiée auprès du propriétaire — à relire avant lancement si les
+délais/conditions réels diffèrent. Ce texte est codé en dur côté storefront (pas éditable
+depuis l'admin Medusa, comme la quasi-totalité du texte de marque/UI du site).
+
 ## Phase 2 — Durcissement sécurité
 
 - [ ] Secrets de production distincts des valeurs de `.env.template`
@@ -153,5 +180,6 @@ Hors périmètre du lancement, à reprendre une fois la boutique ouverte :
 
 ## Prochaine étape
 
-Passer la Phase 0 dans le skill `writing-plans` pour produire un plan d'implémentation
-détaillé (fichiers exacts, ordre des changements, critères de vérification).
+Phases 0, 1 et 1.5 terminées. Passer la Phase 2 (durcissement sécurité) dans le skill
+`writing-plans` pour produire un plan d'implémentation détaillé (fichiers exacts, ordre des
+changements, critères de vérification).

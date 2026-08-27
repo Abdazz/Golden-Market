@@ -16,6 +16,12 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-27 — Phase 1.5 (refonte visuelle du storefront) clôturée : spec de design validée,
+4 plans exécutés (Fondation, Accueil/Catalogue/Fiche produit, Panier/Paiement, Compte),
+branding Medusa retiré, storefront traduit en français, vraie taxonomie de catégories créée,
+3 bugs réels corrigés via vérification visuelle sur backend réel. Voir `ROADMAP.md` Phase 1.5
+et le journal ci-dessous pour le détail.
+
 2026-08-16 — Phase 1 clôturée : vérification bout en bout du storefront sur la région
 Burkina Faso effectuée (Task 6 du plan « catalogue-region-bf »), commande réelle passée
 avec succès en XOF (panier → checkout → livraison 0 FCFA → Orange Money → confirmation).
@@ -53,6 +59,19 @@ solution automatique de restauration : il faudrait supprimer le produit et réim
 la ligne concernée (l'idempotence par titre du script d'import ne le restaurera pas
 tant que le produit existe toujours).
 
+### Phase 1.5 — Refonte visuelle du storefront
+Statut global : **fait**
+
+- [x] Spec de design validée, 4 plans exécutés et mergés — fait, voir `ROADMAP.md` Phase 1.5
+- [x] Branding Medusa retiré, traduction française du storefront — fait
+- [x] Accessibilité clavier du `Chip`, 3 bugs réels corrigés en vérification visuelle — fait
+- [x] Vraie taxonomie de catégories (`seed:categories-bf`) — fait
+
+**Point ouvert** : le contenu de l'onglet « Livraison et retours » de la fiche produit reste
+une traduction du texte de démo Medusa, pas une politique vérifiée — à relire avant lancement.
+Codé en dur côté storefront, non éditable depuis l'admin (comme tout le texte de marque/UI du
+site — seules les données produit/catalogue le sont).
+
 ### Phase 2 — Durcissement sécurité
 Statut global : **à faire**
 
@@ -71,6 +90,42 @@ catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
 
+- **2026-08-24/27 (refonte visuelle du storefront, Phase 1.5)** — Spec de design créée et
+  validée par brainstorming (`docs/superpowers/specs/2026-08-24-storefront-redesign-design.md`) :
+  palette violet/or extraite de la charte existante, typographie Baloo 2 + Inter, bibliothèque
+  de composants partagés. 4 plans d'implémentation écrits puis exécutés via
+  `subagent-driven-development`, chacun revu et mergé séparément sur `main` : Fondation (tokens
+  Tailwind, `Button`/`Badge`/`Chip`/`Heading`), Accueil/Catalogue/Fiche produit, Panier/Paiement,
+  Compte. Détail des tâches et rulings dans `docs/superpowers/plans/2026-08-24-storefront-redesign-*.md`.
+  Après les 4 merges, session de finition autonome (accord explicite du propriétaire pour
+  continuer sans reconfirmation à chaque étape) :
+  - Accessibilité clavier du `Chip` (`span` → `button`, focus ring).
+  - Vérification visuelle avec un vrai backend (jamais fait avant dans ce dépôt — voir mémoire
+    session `feedback_visual_verification_required`) : a trouvé 3 bugs invisibles à `npm run
+    build` seul — ordre d'import CSS cassant `next dev --turbopack` (mais pas le build webpack
+    de prod), 500 sur un handle produit accentué (`params.handle` arrive percent-encodé, jamais
+    décodé), chevauchement de texte dans le footer en mobile.
+  - Branding Medusa résiduel retiré (composant `MedusaCTA`, icône, mentions footer), storefront
+    traduit intégralement en français (nav, boutons, fiche produit, sélecteur de pays, panier,
+    checkout, compte) — hors Profil/Adresses/Commandes et labels de champs individuels, hors
+    périmètre explicite des 4 plans.
+  - ~20 constats mineurs parqués dans les ledgers des 4 plans traités en un lot dédié (revu par
+    le propriétaire avant traitement).
+  - Vraie taxonomie de catégories créée (`apps/backend/src/scripts/seed-categories-bf.ts`,
+    idempotent) : les 4 catégories de démo Medusa (Shirts/Sweatshirts/Merch/Pants, restées vides
+    depuis l'import du vrai catalogue) remplacées par 6 catégories construites à partir des 29
+    produits réels (Électronique et Gadgets, Maison et Cuisine, Beauté et Bien-être, Mode et
+    Bagagerie, Jouets et Enfants, Équipement commercial et Boucherie). Bug Medusa découvert au
+    passage : un `&` dans le nom d'une catégorie est conservé tel quel dans le handle généré
+    (`maison-&-cuisine`), ce qui fait 404 sur la route catégorie du storefront — noms choisis
+    avec « et » pour l'éviter (voir mémoire session `project_golden_market_category_handle_ampersand_bug`).
+  - Fond du menu mobile retinté aux couleurs `gm-*` (était resté aux tokens Medusa génériques,
+    seul point de la refonte non couvert par un plan explicite).
+  **Point ouvert** : le contenu de l'onglet « Livraison et retours » (délais, politique
+  d'échange/retour) reste une traduction du texte de démo Medusa d'origine, jamais confronté à
+  la vraie politique du propriétaire — à vérifier avant lancement. Voir aussi Phase différée
+  ci-dessus pour les TODOs hérités du template (Toaster, gestion email/mot de passe du compte)
+  restés hors périmètre de cette refonte.
 - **2026-08-16** — Analyse approfondie du dépôt effectuée. Constat clé : un seul
   commit d'initialisation (scaffold quasi intact) + travail non commité sur le
   provider `orange-money-manual` (bug bloquant : deux `export default` dans le même
