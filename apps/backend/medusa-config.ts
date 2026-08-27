@@ -9,7 +9,10 @@ module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     http: {
-      port: Number(process.env.PORT) || 9000,
+      // `port` a été retiré : cette propriété n'existe plus dans le type
+      // ProjectConfigOptions.http de @medusajs/framework 2.18.0 (échec de
+      // `medusa build`, TS2769) - `medusa start` lit déjà process.env.PORT
+      // directement, sans passer par ce fichier de config.
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
       authCors: process.env.AUTH_CORS!,

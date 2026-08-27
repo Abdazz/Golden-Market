@@ -146,9 +146,16 @@ export default async function importCatalog({ container }: ExecArgs) {
                   manage_inventory: false,
                   prices: [
                     { amount: product.retailPrice, currency_code: "xof" },
+                    // rules n'apparaît plus dans le type CreateMoneyAmountDTO exposé par ce
+                    // workflow (@medusajs/framework 2.18.0) mais reste bien appliqué à
+                    // l'exécution par le module pricing - comportement vérifié en Phase 1
+                    // (prix de gros effectif pour le groupe "Grossistes", voir HANDOFF.md).
+                    // Ne pas retirer : c'est le seul mécanisme de tarification de gros du
+                    // catalogue.
                     {
                       amount: product.wholesalePrice,
                       currency_code: "xof",
+                      // @ts-expect-error voir commentaire ci-dessus
                       rules: { "customer.groups.id": wholesaleGroup.id },
                     },
                   ],
