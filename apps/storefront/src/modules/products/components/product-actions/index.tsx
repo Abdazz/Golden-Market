@@ -177,10 +177,10 @@ export default function ProductActions({
           data-testid="add-product-button"
         >
           {!selectedVariant && !options
-            ? "Select variant"
+            ? "Sélectionnez une variante"
             : !inStock || !isValidVariant
-            ? "Out of stock"
-            : "Add to cart"}
+            ? "Rupture de stock"
+            : "Ajouter au panier"}
         </Button>
         <MobileActions
           product={product}
