@@ -101,11 +101,12 @@ cd apps/backend
 
 ```bash
 cd apps/backend
-<pm> run seed:region-bf   # région BF/XOF, taxe, livraison (medusa exec ./src/scripts/seed-region-bf.ts)
-<pm> run import:catalog   # 29 produits depuis le fichier Excel (medusa exec ./src/scripts/import-catalog.ts)
+<pm> run seed:region-bf       # région BF/XOF, taxe, livraison (medusa exec ./src/scripts/seed-region-bf.ts)
+<pm> run import:catalog       # 29 produits depuis le fichier Excel (medusa exec ./src/scripts/import-catalog.ts)
+<pm> run seed:categories-bf   # 6 catégories réelles + rattachement des 29 produits (medusa exec ./src/scripts/seed-categories-bf.ts)
 ```
 
-Les deux scripts sont ré-exécutables sans risque de doublon (vérification par nom/titre avant création).
+Les trois scripts sont ré-exécutables sans risque de doublon (vérification par nom/titre avant création). `seed:categories-bf` doit tourner après `import:catalog` (il rattache les produits par handle) ; il supprime aussi les catégories de démo Medusa (Shirts/Sweatshirts/Merch/Pants) si elles sont encore vides.
 
 `apps/storefront/.env.local` (gitignored, jamais commité) doit définir `NEXT_PUBLIC_DEFAULT_REGION=bf` pour que le storefront serve la région Burkina Faso par défaut — sans cette variable, il retombe silencieusement sur la région de démo `dk` (Danemark, prix EUR). Voir `apps/storefront/check-env-variables.js`, qui échoue désormais au démarrage si elle est absente.
 
