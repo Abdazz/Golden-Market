@@ -72,4 +72,19 @@ describe("checkRateLimit", () => {
 
     expect(otherKey.allowed).toBe(true)
   })
+
+  it("lance une erreur si le cache échoue", async () => {
+    const cache = {
+      get: jest.fn(async () => {
+        throw new Error("Cache indisponible")
+      }),
+      set: jest.fn(async () => {}),
+      invalidate: jest.fn(async () => {}),
+    }
+    const now = 1_000_000
+
+    await expect(checkRateLimit(cache as any, "rl:test", options, now)).rejects.toThrow(
+      "Cache indisponible"
+    )
+  })
 })
