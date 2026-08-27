@@ -1,7 +1,7 @@
+@import "./tokens.css";
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
-@import "./tokens.css";
 
 @layer utilities {
   /* Chrome, Safari and Opera */

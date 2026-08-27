@@ -71,7 +71,13 @@ function getImagesForVariant(
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params
-  const { handle } = params
+  // Next.js leaves this dynamic segment percent-encoded rather than
+  // decoding it (observed directly: params.handle === "cong%C3%A9lateur-commercial"
+  // for a request to /products/congélateur-commercial), so any handle with
+  // non-ASCII characters gets double-encoded by the store API's query
+  // builder and never matches. decodeURIComponent is a no-op on an
+  // already-decoded handle, so this is safe either way.
+  const handle = decodeURIComponent(params.handle)
   const region = await getRegion(params.countryCode)
 
   if (!region) {
@@ -100,6 +106,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function ProductPage(props: Props) {
   const params = await props.params
+  const handle = decodeURIComponent(params.handle)
   const region = await getRegion(params.countryCode)
   const searchParams = await props.searchParams
 
@@ -111,7 +118,7 @@ export default async function ProductPage(props: Props) {
 
   const pricedProduct = await listProducts({
     countryCode: params.countryCode,
-    queryParams: { handle: params.handle },
+    queryParams: { handle },
   }).then(({ response }) => response.products[0])
 
   const images = getImagesForVariant(pricedProduct, selectedVariantId)
