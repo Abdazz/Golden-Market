@@ -81,11 +81,11 @@ site — seules les données produit/catalogue le sont).
 ### Phase 2 — Durcissement sécurité
 Statut global : **fait**
 
-- [x] Secrets de production distincts des valeurs de `.env.template` - vérifié sans
-      changement de code requis, désormais imposé par le garde-fou de démarrage
-      `assertProductionConfig` (voir plan lié ci-dessous)
-- [x] `STORE_CORS` / `ADMIN_CORS` / `AUTH_CORS` restreints en production - vérifié sans
-      changement de code requis, désormais imposé par le même garde-fou de démarrage
+- [x] Secrets de production distincts des valeurs de `.env.template` - désormais imposé au
+      démarrage par le garde-fou de code `assertProductionConfig`, pas seulement documenté
+      (voir journal ci-dessous)
+- [x] `STORE_CORS` / `ADMIN_CORS` / `AUTH_CORS` restreints en production - désormais imposé
+      par le même garde-fou de démarrage, pas seulement documenté
 - [x] Compte admin dédié en prod - déjà satisfait sans action de code, documenté dans
       `ARCHITECTURE.md` ligne 64
 - [x] Hygiène `.env` / `.env.local` de production - déjà satisfait sans action de code,
@@ -137,8 +137,10 @@ catalogue automatisé, nettoyage TODOs template).
     fait partie de la procédure de déploiement listée en Phase 3 du `ROADMAP.md`) et
     l'hygiène des fichiers `.env` / `.env.local` (déjà correctement ignorés par git dans les
     `.gitignore` respectifs).
-  Phase 2 marquée **fait** dans `ROADMAP.md` et ci-dessus : les 5 points sont couverts, les
-  3 premiers par vérification sans changement de code, les 2 derniers par implémentation.
+  Phase 2 marquée **fait** dans `ROADMAP.md` et ci-dessus : les 5 points sont couverts, 3 par
+  du code réel (secrets forts et CORS via `assertProductionConfig`, rate limiting via le
+  middleware Redis) et 2 par vérification sans changement de code (compte admin, hygiène
+  `.env`).
 - **2026-08-24/27 (refonte visuelle du storefront, Phase 1.5)** — Spec de design créée et
   validée par brainstorming (`docs/superpowers/specs/2026-08-24-storefront-redesign-design.md`) :
   palette violet/or extraite de la charte existante, typographie Baloo 2 + Inter, bibliothèque
