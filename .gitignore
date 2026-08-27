@@ -46,6 +46,9 @@ yarn-error.log*
 # Superpowers subagent-driven-development scratch workspace
 .superpowers/
 
+# Worktrees isolés (superpowers:using-git-worktrees)
+.worktrees/
+
 # vercel
 .vercel
 
