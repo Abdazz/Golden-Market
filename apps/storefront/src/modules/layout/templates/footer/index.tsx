@@ -4,7 +4,6 @@ import { Text, clx } from "@modules/common/components/ui";
 import Image from "next/image";
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link";
-import MedusaCTA from "@modules/layout/components/medusa-cta";
 
 export default async function Footer() {
   const { collections } = await listCollections({
@@ -30,8 +29,8 @@ export default async function Footer() {
           <div className="text-small-regular gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-3">
             {productCategories && productCategories?.length > 0 && (
               <div className="flex flex-col gap-y-2">
-                <span className="txt-small-plus txt-ui-fg-base text-gm-on-violet">
-                  Categories
+                <span className="txt-small-plus text-gm-on-violet">
+                  Catégories
                 </span>
                 <ul
                   className="grid grid-cols-1 gap-2"
@@ -88,7 +87,7 @@ export default async function Footer() {
             )}
             {collections && collections.length > 0 && (
               <div className="flex flex-col gap-y-2">
-                <span className="txt-small-plus txt-ui-fg-base text-gm-on-violet">
+                <span className="txt-small-plus text-gm-on-violet">
                   Collections
                 </span>
                 <ul
@@ -112,50 +111,12 @@ export default async function Footer() {
                 </ul>
               </div>
             )}
-            <div className="flex flex-col gap-y-2">
-              <span className="txt-small-plus txt-ui-fg-base text-gm-on-violet">
-                Medusa
-              </span>
-              <ul className="grid grid-cols-1 gap-y-2 text-gm-on-violet-muted txt-small">
-                <li>
-                  <a
-                    href="https://github.com/medusajs"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-gm-on-violet"
-                  >
-                    GitHub
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://docs.medusajs.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-gm-on-violet"
-                  >
-                    Documentation
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://github.com/medusajs/dtc-starter"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-gm-on-violet"
-                  >
-                    Source code
-                  </a>
-                </li>
-              </ul>
-            </div>
           </div>
         </div>
-        <div className="flex w-full mb-16 flex-wrap justify-between gap-x-4 gap-y-2 text-gm-on-violet-muted">
+        <div className="flex w-full mb-16 text-gm-on-violet-muted">
           <Text className="txt-compact-small">
-            © {new Date().getFullYear()} Medusa Store. All rights reserved.
+            © {new Date().getFullYear()} Golden Market. Tous droits réservés.
           </Text>
-          <MedusaCTA />
         </div>
       </div>
     </footer>

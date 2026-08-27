@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default function RootLayout(props: { children: React.ReactNode }) {
   return (
     <html
-      lang="en"
+      lang="fr"
       data-mode="light"
       className={`${inter.variable} ${baloo.variable}`}
     >
