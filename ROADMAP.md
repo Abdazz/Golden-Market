@@ -108,20 +108,35 @@ depuis l'admin Medusa, comme la quasi-totalité du texte de marque/UI du site).
 
 ## Phase 2 — Durcissement sécurité
 
-- [ ] Secrets de production distincts des valeurs de `.env.template`
+Statut global : **fait**
+
+- [x] Secrets de production distincts des valeurs de `.env.template`
       (`JWT_SECRET=supersecret`, `COOKIE_SECRET=supersecret` sont des valeurs de dev à ne
-      jamais réutiliser en prod) — générer des secrets aléatoires forts.
-- [ ] `STORE_CORS` / `ADMIN_CORS` / `AUTH_CORS` restreints aux domaines réels de
-      production (actuellement `localhost` + domaines Medusa dans le template).
-- [ ] Compte admin dédié en prod, mot de passe fort — ne pas réutiliser
+      jamais réutiliser en prod) — générer des secrets aléatoires forts. Désormais imposé
+      par un garde-fou de démarrage (`assertProductionConfig`, appelé depuis
+      `medusa-config.ts`) qui fait échouer le boot en production si un secret est absent,
+      égal à la valeur de dev ou trop court (< 32 caractères), pas seulement documenté.
+- [x] `STORE_CORS` / `ADMIN_CORS` / `AUTH_CORS` restreints aux domaines réels de
+      production (actuellement `localhost` + domaines Medusa dans le template). Désormais
+      imposé par le même garde-fou de démarrage (`assertProductionConfig`) : le boot en
+      production échoue si l'une de ces variables contient `localhost`, pas seulement
+      documenté.
+- [x] Compte admin dédié en prod, mot de passe fort — ne pas réutiliser
       `admin@golden-market.co` / mot de passe de dev mentionné dans `ARCHITECTURE.md`.
-- [ ] Revalider que `.env` / `.env.local` de production suivent la même hygiène qu'en dev
-      (jamais commités — déjà correctement configuré dans `.gitignore`).
-- [ ] Limiter le débit (rate limiting) de l'endpoint public
+      Déjà couvert, aucun code requis : documenté dans `ARCHITECTURE.md` ligne 64 et fait
+      partie de la procédure de déploiement listée en Phase 3 ci-dessous.
+- [x] Revalider que `.env` / `.env.local` de production suivent la même hygiène qu'en dev
+      (jamais commités — déjà correctement configuré dans `.gitignore`). Déjà couvert,
+      vérifié pendant ce plan : aucun code requis.
+- [x] Limiter le débit (rate limiting) de l'endpoint public
       `POST /auth/customer/emailpass/reset-password` — non authentifié, répond
       toujours 201 (comportement Medusa voulu pour ne pas révéler l'existence d'un
       compte), et déclenche un email sortant à chaque appel : vecteur
-      d'amplification/abus une fois une vraie clé Resend configurée.
+      d'amplification/abus une fois une vraie clé Resend configurée. Implémenté via un
+      middleware Medusa (`apps/backend/src/api/middlewares.ts` et
+      `apps/backend/src/api/middlewares/rate-limiter.ts`) qui limite à 5 requêtes / 15
+      minutes par IP, en s'appuyant sur le module cache Redis déjà en place (pas de
+      nouvelle dépendance).
 
 ## Phase 3 — Déploiement VPS + Docker
 
@@ -180,6 +195,6 @@ Hors périmètre du lancement, à reprendre une fois la boutique ouverte :
 
 ## Prochaine étape
 
-Phases 0, 1 et 1.5 terminées. Passer la Phase 2 (durcissement sécurité) dans le skill
+Phases 0, 1, 1.5 et 2 terminées. Passer la Phase 3 (déploiement VPS + Docker) dans le skill
 `writing-plans` pour produire un plan d'implémentation détaillé (fichiers exacts, ordre des
 changements, critères de vérification).

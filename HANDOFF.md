@@ -16,6 +16,12 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-27 - Phase 2 (durcissement sécurité) clôturée : garde-fou de démarrage
+`assertProductionConfig` (secrets forts, CORS sans `localhost`, no-op hors production) et
+rate limiting Redis sur `POST /auth/customer/emailpass/reset-password` (5 req / 15 min par
+IP, best-effort) implémentés ; compte admin dédié en prod et hygiène `.env` déjà satisfaits
+sans code. Voir `ROADMAP.md` Phase 2 et le journal ci-dessous pour le détail.
+
 2026-08-27 — Phase 1.5 (refonte visuelle du storefront) clôturée : spec de design validée,
 4 plans exécutés (Fondation, Accueil/Catalogue/Fiche produit, Panier/Paiement, Compte),
 branding Medusa retiré, storefront traduit en français, vraie taxonomie de catégories créée,
@@ -73,7 +79,19 @@ Codé en dur côté storefront, non éditable depuis l'admin (comme tout le text
 site — seules les données produit/catalogue le sont).
 
 ### Phase 2 — Durcissement sécurité
-Statut global : **à faire**
+Statut global : **fait**
+
+- [x] Secrets de production distincts des valeurs de `.env.template` - vérifié sans
+      changement de code requis, désormais imposé par le garde-fou de démarrage
+      `assertProductionConfig` (voir plan lié ci-dessous)
+- [x] `STORE_CORS` / `ADMIN_CORS` / `AUTH_CORS` restreints en production - vérifié sans
+      changement de code requis, désormais imposé par le même garde-fou de démarrage
+- [x] Compte admin dédié en prod - déjà satisfait sans action de code, documenté dans
+      `ARCHITECTURE.md` ligne 64
+- [x] Hygiène `.env` / `.env.local` de production - déjà satisfait sans action de code,
+      revérifié pendant ce plan
+- [x] Rate limiting de `POST /auth/customer/emailpass/reset-password` - implémenté, voir
+      le journal ci-dessous pour le détail
 
 ### Phase 3 — Déploiement VPS + Docker
 Statut global : **à faire**
@@ -90,6 +108,37 @@ catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
 
+- **2026-08-27 (durcissement sécurité, Phase 2)** - Phase 2 clôturée via un plan dédié
+  (`.superpowers/sdd/2026-08-27-phase2-durcissement-securite/`, non commité comme le reste
+  de `.superpowers/`, dans `.gitignore`), 2 tâches de code plus cette clôture documentaire :
+  - **Garde-fou de démarrage** : `apps/backend/src/lib/assert-production-config.ts`, fonction
+    `assertProductionConfig(env)` appelée au démarrage de `medusa-config.ts` (commit
+    `be80946`). Fait échouer le boot en production (`throw`) si `JWT_SECRET` ou
+    `COOKIE_SECRET` sont absents, égaux à la valeur de dev `"supersecret"`, ou trop courts
+    (< 32 caractères), ou si `STORE_CORS` / `ADMIN_CORS` / `AUTH_CORS` contiennent
+    `"localhost"`. No-op hors production - ce qui répond aux deux premiers points du
+    `ROADMAP.md` Phase 2 (secrets forts, CORS restreints) : désormais imposé au démarrage,
+    plus seulement documenté.
+  - **Rate limiting du reset de mot de passe** : middleware Medusa
+    (`apps/backend/src/api/middlewares.ts` et
+    `apps/backend/src/api/middlewares/rate-limiter.ts`, commits `a565ccd` puis `c966629`)
+    qui limite `POST /auth/customer/emailpass/reset-password` à 5 requêtes / 15 minutes par
+    IP, via le module cache Redis déjà en place (pas de nouvelle dépendance). Comptage
+    best-effort (pas d'incrément atomique) - jugé suffisant pour ce cas d'usage (protection
+    contre l'abus, pas une garantie stricte). En cas de panne du cache Redis, le middleware
+    "fail open" : il logue un warning et laisse passer la requête plutôt que de bloquer tous
+    les resets de mot de passe - choix (fail-open vs fail-closed) explicitement validé par le
+    propriétaire du dépôt après qu'une revue de sécurité automatique en a suggéré l'inverse,
+    précisément parce que Redis est déjà une dépendance dure ailleurs dans ce backend (cache
+    et event bus, sans repli) : une panne Redis casse de toute façon d'autres flux en même
+    temps.
+  - **Deux points déjà satisfaits sans action de code**, vérifiés pendant le cadrage de ce
+    plan : le compte admin dédié en prod (déjà documenté dans `ARCHITECTURE.md` ligne 64,
+    fait partie de la procédure de déploiement listée en Phase 3 du `ROADMAP.md`) et
+    l'hygiène des fichiers `.env` / `.env.local` (déjà correctement ignorés par git dans les
+    `.gitignore` respectifs).
+  Phase 2 marquée **fait** dans `ROADMAP.md` et ci-dessus : les 5 points sont couverts, les
+  3 premiers par vérification sans changement de code, les 2 derniers par implémentation.
 - **2026-08-24/27 (refonte visuelle du storefront, Phase 1.5)** — Spec de design créée et
   validée par brainstorming (`docs/superpowers/specs/2026-08-24-storefront-redesign-design.md`) :
   palette violet/or extraite de la charte existante, typographie Baloo 2 + Inter, bibliothèque
