@@ -149,6 +149,16 @@ Statut global : **fait**
 - [ ] Procédure de déploiement : migrations (`medusa db:migrate`), création du user admin,
       variables d'environnement de prod.
 - [ ] Sauvegardes Postgres (dump périodique automatisé, a minima un cron).
+- [ ] `medusa build` charge aussi `medusa-config.ts` (pas seulement `medusa start`), donc
+      le garde-fou `assertProductionConfig` (Phase 2) s'exécute aussi pendant le build de
+      l'image Docker, pas seulement au démarrage du container. Il faut soit construire
+      l'image sans `NODE_ENV=production` (les vrais secrets étant injectés seulement au
+      runtime du container), soit fournir des secrets placeholder valides (32+ caractères,
+      différents de `supersecret`, sans `localhost` dans le CORS) au moment du build.
+- [ ] Le reverse proxy (Phase 3) doit écraser l'en-tête `X-Forwarded-For` du client plutôt
+      que de l'ajouter en liste (append), sinon le rate limiter par IP de la Phase 2
+      (`POST /auth/customer/emailpass/reset-password`) reste trivialement contournable par
+      un client qui usurpe cet en-tête directement.
 
 ## Phase 4 — Tests & CI minimale
 
