@@ -1,0 +1,83 @@
+# Stack de déploiement Golden Market (staging et production). Fichier unique
+# partagé entre les deux environnements : le nom des conteneurs, les ports
+# publiés et les variables NEXT_PUBLIC_* viennent de .env.deploy (un fichier
+# distinct par environnement, jamais commité - voir .env.deploy.example).
+# N'affecte pas docker-compose.yml (infra de dev local, backend/storefront
+# natifs), inchangé.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${ENV_NAME}-golden-market-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${ENV_NAME}-golden-market-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    container_name: ${ENV_NAME}-golden-market-backend
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - apps/backend/.env
+    environment:
+      NODE_ENV: production
+      # sslmode=disable : postgres (le conteneur du service ci-dessus) ne sert
+      # pas de TLS - sans ce paramètre, @medusajs/utils active SSL par défaut
+      # dès que l'hôte de connexion n'est pas littéralement "localhost" ou
+      # "127.0.0.1" (ce qui est le cas ici : "postgres", le nom du service
+      # Docker Compose, obligatoire pour la résolution DNS interne). Sans ce
+      # correctif, `medusa db:migrate` reste bloqué indéfiniment (le pool de
+      # connexions avale l'erreur TLS et retente en boucle silencieusement).
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "127.0.0.1:${BACKEND_PORT}:9000"
+
+  storefront:
+    container_name: ${ENV_NAME}-golden-market-storefront
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile
+      network: host
+      args:
+        NEXT_PUBLIC_MEDUSA_BACKEND_URL: ${NEXT_PUBLIC_MEDUSA_BACKEND_URL}
+        NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_DEFAULT_REGION: ${NEXT_PUBLIC_DEFAULT_REGION}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:${STOREFRONT_PORT}:8000"
+
+volumes:
+  postgres_data:
+  redis_data:
