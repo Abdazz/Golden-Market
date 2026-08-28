@@ -776,17 +776,27 @@ Cette section n'est **pas** une suite de tâches à dispatcher à un subagent : 
    cd /opt/golden-market/staging && git clone -b staging git@github.com:Abdazz/Golden-Market.git .
    cd /opt/golden-market/production && git clone -b main git@github.com:Abdazz/Golden-Market.git .
    ```
-2. **Créer `.env.deploy` et `apps/backend/.env` dans chaque répertoire**, à partir de `.env.deploy.example` et `apps/backend/.env.template`, avec les vraies valeurs de chaque environnement (secrets forts générés, `ORANGE_MONEY_NUMBER`/`RESEND_API_KEY` de test fournis par le propriétaire pour staging - jamais générés ni devinés, jamais écrits dans un fichier suivi par git).
-3. **Premier démarrage de chaque stack** :
+2. **Créer `.env.deploy` et `apps/backend/.env` dans chaque répertoire**, à partir de `.env.deploy.example` et `apps/backend/.env.template`, avec les vraies valeurs de chaque environnement (secrets forts générés, `ORANGE_MONEY_NUMBER`/`RESEND_API_KEY` de test fournis par le propriétaire pour staging - jamais générés ni devinés, jamais écrits dans un fichier suivi par git). Attention : `STORE_CORS`/`ADMIN_CORS`/`AUTH_CORS` ne doivent contenir aucune occurrence de `localhost`, sous peine de faire échouer le démarrage du backend (garde-fou `assertProductionConfig` de la Phase 2, qui s'applique dès que `NODE_ENV=production` - ce que fixe `docker-compose.prod.yml`).
+3. **Premier démarrage de chaque stack** (ordre important - ne pas construire `storefront` avant que `backend` soit réellement joignable en HTTPS avec des données seedées, sous peine de reproduire l'échec de build découvert en Task 4/5) :
    ```bash
    cd /opt/golden-market/staging
-   docker compose -f docker-compose.prod.yml --env-file .env.deploy up -d --build
-   docker compose -f docker-compose.prod.yml --env-file .env.deploy exec -T backend npm exec medusa db:migrate
-   docker compose -f docker-compose.prod.yml --env-file .env.deploy exec -T backend npm exec medusa user -e <admin-staging> -p <mot-de-passe>
+   docker compose -f docker-compose.prod.yml --env-file .env.deploy up -d postgres redis
+   docker compose -f docker-compose.prod.yml --env-file .env.deploy build backend
+   docker compose -f docker-compose.prod.yml --env-file .env.deploy run --rm backend npm exec medusa db:migrate
+   docker compose -f docker-compose.prod.yml --env-file .env.deploy run --rm backend npm exec medusa user -e <admin-staging> -p <mot-de-passe>
+   docker compose -f docker-compose.prod.yml --env-file .env.deploy up -d backend
    ```
-   Répéter pour `/opt/golden-market/production` après validation explicite du staging par le propriétaire.
+   Installer ensuite le vhost Apache et lancer certbot (points 4 et 5 ci-dessous) pour que le domaine de cet environnement soit joignable en HTTPS, puis créer une clé publishable réelle depuis l'admin Medusa (`https://<domaine>/app`) et la renseigner dans `.env.deploy`
+   (`NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`). C'est seulement à ce moment que le storefront peut être
+   construit (`next build` fait de vrais appels réseau vers le backend via `generateStaticParams`,
+   voir Task 4/5) :
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.deploy build storefront
+   docker compose -f docker-compose.prod.yml --env-file .env.deploy up -d storefront
+   ```
+   Répéter toute cette séquence pour `/opt/golden-market/production` après validation explicite du staging par le propriétaire.
 4. **Installer les VirtualHosts Apache** : copier `deploy/apache/*.conf` dans `/etc/apache2/sites-available/`, `sudo a2enmod proxy proxy_http headers`, `sudo a2ensite golden-market.co staging.golden-market.co`, `sudo apache2ctl configtest`, `sudo systemctl reload apache2`.
-5. **TLS** : `sudo certbot --apache -d golden-market.co -d staging.golden-market.co`. Après coup, relire le vhost `-le-ssl.conf` généré par certbot pour chaque domaine et confirmer que la directive `RequestHeader set X-Forwarded-For %{REMOTE_ADDR}s` y est bien présente (certbot duplique en principe les directives du vhost `:80` vers le vhost `:443`, mais c'est un point de la spec à vérifier explicitement, pas à supposer).
+5. **TLS** : `sudo certbot --apache -d golden-market.co -d staging.golden-market.co`. Après coup, relire le vhost `-le-ssl.conf` généré par certbot pour chaque domaine et confirmer que la directive `RequestHeader set X-Forwarded-For %{REMOTE_ADDR}s` y est bien présente (certbot duplique en principe les directives du vhost `:80` vers le vhost `:443`, mais c'est un point de la spec à vérifier explicitement, pas à supposer). Vérifier également que `X-Forwarded-Proto` a bien été copié dans ce même vhost SSL. Vérifier aussi avec `curl -sI http://<domaine>/` que la requête HTTP est bien redirigée en 301 vers HTTPS (mod_proxy et mod_rewrite peuvent entrer en conflit sur l'ordre des hooks Apache - si aucune redirection n'a lieu, il faudra retirer les directives `ProxyPass`/`ProxyPassReverse` du vhost `:80` et les remplacer par `Redirect permanent / https://<domaine>/`).
 6. **Secrets GitHub Actions** : `gh secret set VPS_HOST`, `gh secret set VPS_SSH_USER` (`admin`), `gh secret set VPS_SSH_PRIVATE_KEY` (clé dédiée au déploiement, générée pour l'occasion plutôt que de réutiliser une clé personnelle).
 7. **Cron de sauvegarde** (`crontab -e` sur le VPS) :
    ```
