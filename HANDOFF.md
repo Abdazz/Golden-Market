@@ -16,6 +16,13 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-28 - Phase 3 (déploiement VPS + Docker) : artefacts de code livrés et mergés sur `main`
+(Dockerfiles backend/storefront, `docker-compose.prod.yml` paramétré par `.env.deploy`, script de
+sauvegarde Postgres avec rétention, templates de vhost Apache staging/production, workflows
+GitHub Actions de déploiement automatique). Statut global passé à **en cours** : reste le Runbook
+manuel VPS (accès réel, secrets, premier déploiement staging puis validation explicite avant
+production), volontairement non automatisé. Voir `ROADMAP.md` Phase 3 et le journal ci-dessous.
+
 2026-08-27 - Phase 2 (durcissement sécurité) clôturée : garde-fou de démarrage
 `assertProductionConfig` (secrets forts, CORS sans `localhost`, no-op hors production) et
 rate limiting Redis sur `POST /auth/customer/emailpass/reset-password` (5 req / 15 min par
@@ -94,7 +101,15 @@ Statut global : **fait**
       le journal ci-dessous pour le détail
 
 ### Phase 3 — Déploiement VPS + Docker
-Statut global : **à faire**
+Statut global : **en cours**
+
+- [x] Dockerfiles production backend/storefront, `docker-compose.prod.yml`, script de
+      sauvegarde Postgres, templates Apache, workflows GitHub Actions - livrés et mergés sur
+      `main`. Voir `ROADMAP.md` Phase 3 pour le détail et le journal ci-dessous.
+- [ ] Runbook manuel VPS (provisionnement réel, secrets, premier déploiement staging validé
+      explicitement par le propriétaire, puis production) - volontairement non automatisé,
+      à exécuter en session interactive. Détail complet dans
+      `docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`.
 
 ### Phase 4 — Tests & CI minimale
 Statut global : **à faire**
@@ -107,6 +122,67 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-08-27/28 (déploiement staging/production, Phase 3, artefacts de code)** - Design validé
+  par brainstorming (`docs/superpowers/specs/2026-08-27-phase3-deploiement-staging-production-design.md`) :
+  VPS unique partagé avec `n8n_automation`, Apache existant comme unique reverse proxy (pas de
+  Traefik/Caddy), `docker-compose.prod.yml` unique paramétré par `.env.deploy` (préfixe `ENV_NAME`
+  sur les noms de conteneurs, isolation réelle via le répertoire de déploiement), compte SSH `admin`
+  existant réutilisé pour la CI/CD (décision explicite du propriétaire malgré le risque signalé -
+  clé de déploiement avec accès sudo complet au VPS). Plan détaillé écrit
+  (`docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`), exécuté via
+  `subagent-driven-development` dans un worktree isolé (`phase3-deploiement-staging-production`),
+  8 tâches + une revue finale de branche (Opus) + un fix wave.
+  - **Correctif préalable non planifié** : `medusa build` (jamais lancé en pratique avant cette
+    phase, seul `medusa develop` l'avait été) échouait sur 3 erreurs TypeScript préexistantes sur
+    `main`, sans rapport avec la Phase 3 - propriété `port` invalide dans `medusa-config.ts`
+    (n'existe plus dans le type de `@medusajs/framework` 2.18.0), fichiers `__tests__/*.spec.ts`
+    inclus dans la compilation `medusa build` (jamais utilisée par Jest, qui a sa propre
+    transformation swc), et propriété `rules` (règle de prix de gros) invalide dans
+    `import-catalog.ts` - traité avec l'accord explicite du propriétaire, correctif minimal et
+    confirmé sans effet sur le comportement runtime (40/40 tests unitaires toujours verts, JS émis
+    byte-identique pour le `@ts-expect-error`).
+  - **Livrables** : `apps/backend/Dockerfile` et `apps/storefront/Dockerfile` (images construites
+    sans `NODE_ENV=production`, secrets réels injectés seulement au runtime) ;
+    `docker-compose.prod.yml` (Postgres/Redis dédiés sans port publié sur l'hôte,
+    backend/storefront sur `127.0.0.1` uniquement, `network: host` sur le build du storefront -
+    `next build` fait de vrais appels réseau au backend via `generateStaticParams` - et
+    `?sslmode=disable` sur `DATABASE_URL`, Postgres du conteneur ne servant pas TLS) ;
+    `deploy/backup-postgres.sh` (rétention 7 jours staging / 30 jours production) ;
+    `deploy/apache/*.conf` (écrasement de `X-Forwarded-For`, condition du rate limiting Phase 2) ;
+    `.github/workflows/deploy-{staging,production}.yml`.
+  - **3 défauts de plan découverts et corrigés pendant l'exécution** (au-delà des tâches
+    prévues) : (1) le test bout en bout local du storefront échouait contre le domaine de staging
+    réel (sert un autre site sur le VPS partagé, mismatch TLS) - contourné en pointant vers le
+    backend de dev local seedé pour valider le mécanisme de build ; (2) le `.env` de test prescrit
+    par le plan utilisait des CORS `localhost`, rejetées par le garde-fou Phase 2 dès que
+    `NODE_ENV=production` (ce que fixe le compose) - corrigé en `127.0.0.1` ; (3) `medusa start` ne
+    migre jamais automatiquement le schéma, donc l'ordre initialement prévu (démarrer puis migrer)
+    plantait en boucle sur une base neuve - corrigé en migrant via un conteneur jetable avant le
+    démarrage du démon.
+  - **Revue finale de branche (Opus)** : verdict "Ready to merge: With fixes", 3 findings Critical
+    - tous liés au fait que le correctif du point (3) ci-dessus n'avait jamais été répercuté ni
+    dans le Runbook manuel du plan ni dans les workflows GitHub Actions (corrigé dans le fix wave,
+    re-review scoped clean, aucune régression). 7 findings Important corrigés dans le même fix wave
+    (en-tête `X-Forwarded-Proto` codé en dur "http" cassant la redirection région en HTTPS,
+    vérification manquante du redirect HTTP→HTTPS, absence de `concurrency:` sur les workflows,
+    absence de nettoyage d'images Docker - risque disque sur le VPS partagé avec `n8n_automation` -,
+    `generateStaticParams` de la page catégories sans gestion d'erreur contrairement à la page
+    produit, avertissement manquant sur le piège CORS `localhost`).
+  - **Point ouvert différé** (pas un défaut introduit par cette phase) : les images produit
+    (`file-local`, pas de module `file` configuré) seraient perdues à chaque redéploiement et
+    persisteraient des URLs `localhost` inatteignables en base - à résoudre avant tout import de
+    catalogue réel en staging/production, nécessite une décision de conception (domaine public,
+    volume) avec le propriétaire.
+  - Merge local (fast-forward, pas de conflit) dans `main`, worktree et branche nettoyés. Aucun
+    push effectué. Branche `staging` créée et poussée sur `origin` (Task 1 du plan, confirmée
+    explicitement avant push) - reste vide de commits applicatifs au-delà de ce que `main`
+    contenait au moment de sa création.
+  **Reste à faire (Runbook manuel, hors périmètre automatisable)** : provisionnement réel du VPS
+  (répertoires `/opt/golden-market/{staging,production}`, secrets réels dont Orange Money/Resend de
+  test pour staging), installation effective des vhosts Apache + certbot, secrets GitHub Actions,
+  cron de sauvegarde, premier déploiement staging suivi d'une validation explicite du propriétaire
+  avant tout déploiement production - jamais enchaîné automatiquement.
 
 - **2026-08-27 (durcissement sécurité, Phase 2)** - Phase 2 clôturée via un plan dédié
   (`.superpowers/sdd/2026-08-27-phase2-durcissement-securite/`, non commité comme le reste

@@ -140,25 +140,29 @@ Statut global : **fait**
 
 ## Phase 3 — Déploiement VPS + Docker
 
-- [ ] Dockerfile production pour `apps/backend` (`medusa build` puis `medusa start`).
-- [ ] Dockerfile production pour `apps/storefront` (`next build` puis `next start`).
-- [ ] `docker-compose` de production (ou intégration au VPS existant aux côtés de
-      `n8n_automation`) — Postgres/Redis managés ou conteneurisés selon ce que l'infra
-      VPS supporte déjà.
-- [ ] Reverse proxy + TLS (Let's Encrypt) devant backend et storefront.
-- [ ] Procédure de déploiement : migrations (`medusa db:migrate`), création du user admin,
-      variables d'environnement de prod.
-- [ ] Sauvegardes Postgres (dump périodique automatisé, a minima un cron).
-- [ ] `medusa build` charge aussi `medusa-config.ts` (pas seulement `medusa start`), donc
-      le garde-fou `assertProductionConfig` (Phase 2) s'exécute aussi pendant le build de
-      l'image Docker, pas seulement au démarrage du container. Il faut soit construire
-      l'image sans `NODE_ENV=production` (les vrais secrets étant injectés seulement au
-      runtime du container), soit fournir des secrets placeholder valides (32+ caractères,
-      différents de `supersecret`, sans `localhost` dans le CORS) au moment du build.
-- [ ] Le reverse proxy (Phase 3) doit écraser l'en-tête `X-Forwarded-For` du client plutôt
-      que de l'ajouter en liste (append), sinon le rate limiter par IP de la Phase 2
-      (`POST /auth/customer/emailpass/reset-password`) reste trivialement contournable par
-      un client qui usurpe cet en-tête directement.
+Statut global : **en cours** - artefacts de code livrés et mergés sur `main`, déploiement réel
+sur le VPS pas encore effectué (voir `HANDOFF.md` pour le détail et le Runbook manuel qui reste
+à exécuter en session interactive avec le propriétaire).
+
+- [x] Dockerfile production pour `apps/backend` (`medusa build` puis `medusa start`).
+- [x] Dockerfile production pour `apps/storefront` (`next build` puis `next start`).
+- [x] `docker-compose.prod.yml` unique paramétré par `.env.deploy`, isolant staging et
+      production (Postgres/Redis dédiés et conteneurisés, aucun port publié sur l'hôte).
+- [x] Templates de reverse proxy Apache + TLS (certbot) pour `golden-market.co` et
+      `staging.golden-market.co` - à installer manuellement sur le VPS (Runbook).
+- [x] Workflows GitHub Actions de déploiement automatique (push `staging`/`main`).
+- [x] Script de sauvegarde Postgres avec rétention par environnement (staging 7 jours,
+      production 30 jours) - à installer en cron sur le VPS (Runbook).
+- [ ] **Reste à faire, hors périmètre d'une session automatisée** : provisionnement réel du
+      VPS (répertoires de déploiement, secrets réels, clé SSH CI/CD), installation effective
+      des vhosts Apache + certbot, premier déploiement staging, validation explicite du
+      propriétaire, puis premier déploiement production. Voir le Runbook manuel détaillé dans
+      `docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`.
+- [x] `medusa build` chargeant aussi `medusa-config.ts` (garde-fou `assertProductionConfig`
+      actif pendant le build) - résolu : l'image backend se construit sans `NODE_ENV=production`
+      (secrets réels injectés seulement au runtime du conteneur).
+- [x] Le reverse proxy écrase bien l'en-tête `X-Forwarded-For` du client (`RequestHeader set`,
+      pas `append`) dans les deux templates Apache livrés.
 
 ## Phase 4 — Tests & CI minimale
 
@@ -205,6 +209,8 @@ Hors périmètre du lancement, à reprendre une fois la boutique ouverte :
 
 ## Prochaine étape
 
-Phases 0, 1, 1.5 et 2 terminées. Passer la Phase 3 (déploiement VPS + Docker) dans le skill
-`writing-plans` pour produire un plan d'implémentation détaillé (fichiers exacts, ordre des
-changements, critères de vérification).
+Phases 0, 1, 1.5 et 2 terminées. Phase 3 en cours : artefacts de code (Dockerfiles, compose,
+Apache, CI/CD, sauvegarde) livrés et mergés sur `main`. Reste à exécuter, en session interactive
+avec le propriétaire : le Runbook manuel VPS (accès réel, secrets, premier déploiement staging,
+validation explicite avant bascule production) - voir
+`docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`.
