@@ -70,3 +70,8 @@ static-data/
 
 # Fichier Excel du catalogue en prod/staging (CATALOG_PATH), jamais commité
 catalog-data/
+
+# Dumps Postgres du cron de sauvegarde (deploy/backup-postgres.sh) - stockés
+# sous le répertoire de déploiement faute d'accès root à /opt/backups sur le
+# VPS partagé, jamais commités
+backups/

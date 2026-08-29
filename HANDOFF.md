@@ -16,6 +16,16 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-29 (soir) - **Staging entièrement déployé et validé sur le VPS réel**
+(`https://staging.golden-market.co`) : pipeline CI/CD entièrement automatisé (build → migrate →
+seed → démarrage, sans aucune étape manuelle par déploiement), parcours d'achat complet vérifié
+via l'API (panier → livraison → Orange Money → commande, `display_id 1`), cron de sauvegarde
+Postgres installé et testé (dump réel confirmé, rétention 7 jours). Phase 3 reste **en cours**
+uniquement parce que la production n'est pas encore déployée (décision explicite du propriétaire :
+staging d'abord, validation avant toute promotion vers `main`/production). Voir le journal
+ci-dessous pour le détail complet (4 bugs réels trouvés et corrigés pendant ce premier
+déploiement).
+
 2026-08-29 - Correctif de persistance des images produit (Phase 3) : le module `file`
 (file-local, jamais configuré explicitement) construisait ses URLs sur
 `http://localhost:9000/static` en dur et rien ne servait ce chemin nulle part (ni Medusa,
@@ -126,6 +136,9 @@ Statut global : **en cours**
       `docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`.
       **Décision explicite du propriétaire (2026-08-29) : déploiement staging uniquement pour
       le moment, production seulement après validation explicite du staging.**
+- [x] Staging entièrement provisionné, déployé et vérifié - voir journal ci-dessous. Reste :
+      provisionner `/opt/golden-market/production` (même procédure, une fois validée par le
+      propriétaire) et son propre cron de sauvegarde (30 jours de rétention, jamais fait).
 
 ### Phase 4 — Tests & CI minimale
 Statut global : **à faire**
@@ -138,6 +151,48 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-08-29 (soir, validation finale staging, Phase 3)** - Suite directe de l'entrée
+  précédente. Deux bugs réels supplémentaires trouvés en poussant le pipeline CI/CD jusqu'au bout
+  (jamais testé de bout en bout avant ce soir) :
+  - **Race BuildKit** : `docker compose build` (sans argument de service) construisait backend et
+    storefront en parallèle - même contexte de monorepo, même `package-lock.json`, panne
+    aléatoire `ETXTBSY` sur un binaire postinstall (`esbuild`) quand les deux `npm ci`
+    s'exécutent en même temps. Corrigé : build toujours séquentiel (`build backend` puis, après
+    migration/seed/démarrage du backend, `build storefront`) - ordre qui corrige aussi un défaut
+    de conception plus profond : le storefront ne doit être construit qu'une fois le backend
+    joignable (`next build` fait de vraies requêtes réseau via `generateStaticParams`), jamais
+    avant, comme le faisait le script précédent.
+  - **Scripts de seed cassés en production** : `medusa exec ./src/scripts/*.ts` échoue sur
+    l'image compilée (seule la sortie `.js` existe dans `.medusa/server`) - bug déjà documenté
+    dans ce fichier (entrée Task 5 du 2026-08-27/28) mais jamais corrigé dans le code, seulement
+    contourné à la main. Corrigé cette fois dans `apps/backend/package.json` : chaque script
+    tente d'abord le `.ts` (dev) puis retombe sur le `.js` compilé (prod).
+  - **Résultat** : premier déploiement CI/CD 100% automatisé réussi de bout en bout sur staging.
+    Base reseedée proprement (région Burkina Faso uniquement, 29 produits réels, 6 catégories,
+    1 option de livraison) - `db:migrate:scripts` confirmé sûr à répéter maintenant que le script
+    de démo est supprimé.
+  - **Clé publishable et compte admin recréés** après la remise à zéro de la base (perdus avec
+    le `DROP DATABASE` de la tentative précédente) - positionnés directement sur le VPS, jamais
+    commités.
+  - **Test de checkout complet fait via l'API** (extension Chrome indisponible pour un test
+    visuel réel - à refaire au navigateur dès que possible, voir mémoire session
+    `feedback_visual_verification_required`) : panier → article (3000 XOF) → adresse Ouagadougou
+    → option de livraison unique à 0 FCFA → session de paiement Orange Money (instructions
+    correctes : `+226 64 94 73 73`, "Golden Market") → commande complétée
+    (`order_01M17V6ET8AMEHNNW1BP2P9J5X`, `display_id 1`, statut `pending`, paiement non capturé -
+    comportement attendu, capture manuelle par le marchand). Aucune erreur dans les logs du
+    subscriber d'email de confirmation (clé Resend réelle désormais configurée).
+  - **Cron de sauvegarde installé et testé** (dump réel produit, 64 Ko, contenant la commande de
+    test ci-dessus) - avec un ajustement de chemin : `/opt/backups` et `/var/log` appartiennent à
+    `root` sur ce VPS partagé, et le propriétaire n'avait accès qu'à un terminal mobile au moment
+    de la session (pas de moyen simple de lancer une commande `sudo` interactive). Contourné sans
+    sudo : dumps et logs stockés sous `/opt/golden-market/staging/backups/` (déjà `admin:admin`,
+    survit à `git reset --hard` comme `.env.deploy` - jamais suivi par git). Rétention 7 jours,
+    cron quotidien à 3h.
+  - **Reste ouvert** : provisionner `/opt/golden-market/production` (même procédure) après
+    validation explicite de ce staging par le propriétaire ; son propre cron (30 jours) ; vrai
+    test de checkout au navigateur (extension Chrome à reconnecter).
 
 - **2026-08-29 (premier déploiement staging réel, automatisation CI/CD, Phase 3)** - VPS
   provisionné (`/opt/golden-market/staging`, clé SSH dédiée `golden_market_deploy` distincte
