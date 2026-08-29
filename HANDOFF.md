@@ -184,12 +184,15 @@ catalogue automatisé, nettoyage TODOs template).
     comportement attendu, capture manuelle par le marchand). Aucune erreur dans les logs du
     subscriber d'email de confirmation (clé Resend réelle désormais configurée).
   - **Cron de sauvegarde installé et testé** (dump réel produit, 64 Ko, contenant la commande de
-    test ci-dessus) - avec un ajustement de chemin : `/opt/backups` et `/var/log` appartiennent à
-    `root` sur ce VPS partagé, et le propriétaire n'avait accès qu'à un terminal mobile au moment
-    de la session (pas de moyen simple de lancer une commande `sudo` interactive). Contourné sans
-    sudo : dumps et logs stockés sous `/opt/golden-market/staging/backups/` (déjà `admin:admin`,
-    survit à `git reset --hard` comme `.env.deploy` - jamais suivi par git). Rétention 7 jours,
-    cron quotidien à 3h.
+    test ci-dessus). `/opt/backups` et `/var/log` appartiennent à `root` sur ce VPS partagé ; le
+    propriétaire n'avait accès qu'à un terminal mobile pendant la session (pas de moyen simple de
+    lancer un `sudo` interactif) - contourné temporairement en stockant dumps et logs sous
+    `/opt/golden-market/staging/backups/` (déjà `admin:admin`). Le propriétaire a ensuite créé
+    `/opt/backups/golden-market/staging` lui-même (accès root retrouvé) : dumps déplacés au
+    chemin définitif prévu par le plan, cron mis à jour en conséquence. Seul le fichier de log
+    reste à l'écart de `/var/log` (toujours `root`), stocké à côté des dumps
+    (`/opt/backups/golden-market/staging/backup.log`) plutôt qu'à l'emplacement du plan - écart
+    mineur, sans conséquence fonctionnelle. Rétention 7 jours, cron quotidien à 3h.
   - **Reste ouvert** : provisionner `/opt/golden-market/production` (même procédure) après
     validation explicite de ce staging par le propriétaire ; son propre cron (30 jours) ; vrai
     test de checkout au navigateur (extension Chrome à reconnecter).
