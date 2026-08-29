@@ -139,6 +139,51 @@ catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
 
+- **2026-08-29 (premier déploiement staging réel, automatisation CI/CD, Phase 3)** - VPS
+  provisionné (`/opt/golden-market/staging`, clé SSH dédiée `golden_market_deploy` distincte
+  d'une clé personnelle, secrets GitHub Actions `VPS_HOST`/`VPS_SSH_USER`/`VPS_SSH_PRIVATE_KEY`
+  configurés). Premier déploiement fait manuellement par nécessité (les secrets GitHub
+  n'existaient pas encore), a révélé un bug réel non lié à la Phase 3 :
+  - **`initial-data-seed.ts` (scaffold Medusa jamais nettoyé)** : ce script de démo
+    (`apps/backend/src/migration-scripts/`, région Europe + 4 produits T-Shirt/Sweatshirt de
+    démo - déjà connu comme résidu en dev, voir journal Phase 1.5) se réexécute automatiquement
+    dès que `medusa db:migrate:scripts` tourne sur une base neuve, ce qui a pollué la première
+    tentative de staging. **Supprimé définitivement** (commit sur `staging`) - les vrais scripts
+    de seed du projet (`seed-region-bf.ts`, `import-catalog.ts`, `seed-categories-bf.ts`, tous
+    idempotents) n'en dépendent pas.
+  - **Base staging réinitialisée** (`DROP DATABASE` / `CREATE DATABASE` via `psql` dans le
+    conteneur Postgres - aucune donnée réelle perdue, environnement neuf) puis reseedée
+    proprement via le pipeline CI/CD corrigé ci-dessous.
+  - **Automatisation étendue** (demande explicite du propriétaire : ne plus jamais rejouer ces
+    étapes à la main pour la production) : `.github/workflows/deploy-{staging,production}.yml`
+    exécutent désormais aussi `db:migrate:scripts`, `seed:region-bf`, `import:catalog` (ignoré
+    silencieusement si `CATALOG_PATH` ne pointe vers aucun fichier - le fichier Excel du
+    catalogue n'est jamais commité, placé manuellement une fois par environnement) et
+    `seed:categories-bf`, dans cet ordre, à chaque déploiement. Tous idempotents (vérifient
+    l'existant par nom/handle) - sûrs à rejouer indéfiniment, y compris le tout premier
+    déploiement d'un environnement neuf.
+  - **Reste manuel, structurellement** (le pipeline dépend de leur existence préalable) :
+    création des répertoires `/opt/golden-market/*`, `.env.deploy`/`apps/backend/.env` avec les
+    vrais secrets, vhost Apache + certbot (chicken-and-egg avec le DNS/TLS), les 3 secrets
+    GitHub Actions eux-mêmes, création du premier utilisateur admin (`medusa user`, volontairement
+    non automatisé - pas d'identifiants admin en clair dans la CI), cron de sauvegarde.
+  - **Bug bloquant découvert et résolu en session** : le provider `resend`
+    (`apps/backend/src/modules/resend/service.ts`) a une validation stricte
+    (`validateOptions`) qui fait planter tout le démarrage du backend si `RESEND_API_KEY` est
+    vide - pas un échec silencieux à l'envoi comme documenté ailleurs pour le comportement prévu
+    hors-Resend. Clé réelle fournie par le propriétaire et positionnée dans `apps/backend/.env`
+    de staging (jamais commitée).
+  - **Vérifié en direct** : `https://staging.golden-market.co` répond en HTTPS valide (certbot),
+    redirection HTTP→HTTPS confirmée (301), `X-Forwarded-For`/`X-Forwarded-Proto` bien copiés
+    dans le vhost `-le-ssl.conf` généré par certbot, route `/static` Apache dédiée aux images en
+    place, backend accessible via le reverse proxy (`/store/products` répond, 400 attendu sans
+    clé publishable dans l'en-tête - confirme le bon routage). Clé publishable réelle déjà
+    auto-créée par Medusa et liée au Default Sales Channel, positionnée dans `.env.deploy`.
+  **Reste à faire avant validation finale du staging** : fournir le fichier Excel du catalogue
+  (`Golden Market - Catalogue des produits.xlsx`, jamais commité) pour déclencher l'import réel
+  des 29 produits ; construire et démarrer le service `storefront` (bloqué sur la région/le
+  catalogue jusqu'ici) ; cron de sauvegarde restant à installer.
+
 - **2026-08-29 (persistance des images produit, Phase 3)** - Investigation déclenchée par une
   question directe du propriétaire ("on ne doit pas perdre les images à chaque déploiement").
   Root cause identifiée par lecture du code source de `@medusajs/file-local`

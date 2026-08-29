@@ -67,3 +67,6 @@ docker-compose.override.yml
 
 # Bind mount des images produit en prod (docker-compose.prod.yml), jamais commité
 static-data/
+
+# Fichier Excel du catalogue en prod/staging (CATALOG_PATH), jamais commité
+catalog-data/

@@ -26,5 +26,16 @@ jobs:
             git reset --hard origin/staging
             docker compose -f docker-compose.prod.yml --env-file .env.deploy build
             docker compose -f docker-compose.prod.yml --env-file .env.deploy run --rm backend npm exec medusa db:migrate
+            # db:migrate:scripts exécute aussi les migration-scripts internes de
+            # @medusajs/medusa (ex. shipping profile par défaut) - nécessaire
+            # avant tout seed. Sûr à répéter à chaque déploiement : ce projet ne
+            # garde plus aucun script de démo dans src/migration-scripts (voir
+            # journal HANDOFF.md, suppression de initial-data-seed.ts).
+            docker compose -f docker-compose.prod.yml --env-file .env.deploy run --rm backend npx medusa db:migrate:scripts
+            # Idempotents (vérifient l'existant par nom/handle avant de créer) -
+            # sûrs à rejouer à chaque déploiement, y compris le premier.
+            docker compose -f docker-compose.prod.yml --env-file .env.deploy run --rm backend npm run seed:region-bf
+            docker compose -f docker-compose.prod.yml --env-file .env.deploy run --rm backend sh -c 'if [ -f "$CATALOG_PATH" ]; then npm run import:catalog; else echo "CATALOG_PATH absent, import du catalogue ignoré"; fi'
+            docker compose -f docker-compose.prod.yml --env-file .env.deploy run --rm backend npm run seed:categories-bf
             docker compose -f docker-compose.prod.yml --env-file .env.deploy up -d
             docker image prune -f
