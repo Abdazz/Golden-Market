@@ -16,6 +16,16 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-29 - Correctif de persistance des images produit (Phase 3) : le module `file`
+(file-local, jamais configuré explicitement) construisait ses URLs sur
+`http://localhost:9000/static` en dur et rien ne servait ce chemin nulle part (ni Medusa,
+ni Apache) - les images étaient donc cassées indépendamment de tout redéploiement. Corrigé
+via `MEDUSA_BACKEND_PUBLIC_URL`, un bind mount Docker persistant et une route Apache dédiée.
+Politique de branche confirmée : tout passe par `staging` (poussée sur `origin`) avant `main`.
+Décision explicite du propriétaire : déploiement staging seul pour le moment, production
+seulement après validation. Accès SSH VPS fourni (`admin@144.91.110.105`). Voir le journal
+ci-dessous pour le détail technique.
+
 2026-08-28 - Phase 3 (déploiement VPS + Docker) : artefacts de code livrés et mergés sur `main`
 (Dockerfiles backend/storefront, `docker-compose.prod.yml` paramétré par `.env.deploy`, script de
 sauvegarde Postgres avec rétention, templates de vhost Apache staging/production, workflows
@@ -106,10 +116,16 @@ Statut global : **en cours**
 - [x] Dockerfiles production backend/storefront, `docker-compose.prod.yml`, script de
       sauvegarde Postgres, templates Apache, workflows GitHub Actions - livrés et mergés sur
       `main`. Voir `ROADMAP.md` Phase 3 pour le détail et le journal ci-dessous.
-- [ ] Runbook manuel VPS (provisionnement réel, secrets, premier déploiement staging validé
-      explicitement par le propriétaire, puis production) - volontairement non automatisé,
-      à exécuter en session interactive. Détail complet dans
+- [x] Persistance des images produit entre redéploiements (module `file` configuré,
+      volume bind mount + route Apache dédiée) - voir journal ci-dessous.
+- [ ] Runbook manuel VPS (provisionnement réel : accès SSH `admin@144.91.110.105` fourni par
+      le propriétaire, secrets, premier déploiement staging validé explicitement par le
+      propriétaire, puis production) - volontairement non automatisé côté bootstrap initial
+      (le déploiement lui-même, une fois le VPS provisionné, est entièrement automatisé via
+      les workflows GitHub Actions). Détail complet dans
       `docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`.
+      **Décision explicite du propriétaire (2026-08-29) : déploiement staging uniquement pour
+      le moment, production seulement après validation explicite du staging.**
 
 ### Phase 4 — Tests & CI minimale
 Statut global : **à faire**
@@ -122,6 +138,45 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-08-29 (persistance des images produit, Phase 3)** - Investigation déclenchée par une
+  question directe du propriétaire ("on ne doit pas perdre les images à chaque déploiement").
+  Root cause identifiée par lecture du code source de `@medusajs/file-local`
+  (`node_modules/@medusajs/file-local/dist/services/local-file.js`) et de `@medusajs/medusa`
+  (aucune occurrence de `express.static` dans tout le package - confirmé par grep) : le module
+  `file` n'était configuré nulle part dans `medusa-config.ts`, donc file-local tournait sur ses
+  valeurs par défaut (`backend_url: "http://localhost:9000/static"`, `upload_dir: "static"`
+  relatif à `process.cwd()`) - et rien, ni Medusa lui-même ni Apache, ne sert jamais ce chemin.
+  Les images produit étaient donc cassées par construction, indépendamment de toute question de
+  redéploiement (bug préexistant, pas introduit par la Phase 3). Le commentaire déjà présent dans
+  `import-catalog.ts` (fonction `fixImageUrl`) documentait le symptôme (mauvais port en dev) sans
+  corriger la cause racine.
+  - **Choix tranché avec le propriétaire** : volume Docker + route Apache (pas de bascule vers un
+    stockage objet S3-compatible - pas de compte/coût externe supplémentaire, cohérent avec
+    l'infra VPS mono-serveur existante).
+  - **Correctifs** : `apps/backend/medusa-config.ts` - module `file` configuré explicitement
+    (`@medusajs/medusa/file` + provider `@medusajs/medusa/file-local`), `backend_url` construit
+    depuis `MEDUSA_BACKEND_PUBLIC_URL` (fallback `http://localhost:9000` en dev, comportement
+    inchangé en local). `docker-compose.prod.yml` - `MEDUSA_BACKEND_PUBLIC_URL` réutilise la même
+    valeur que `NEXT_PUBLIC_MEDUSA_BACKEND_URL` (même domaine public que le storefront) ; bind
+    mount `./static-data:/app/static` sur le service `backend` (bind mount et non volume nommé
+    Docker, délibérément : Apache tourne sur l'hôte, pas dans un conteneur, et doit lire ce même
+    répertoire directement). `deploy/apache/*.conf` (staging et production) - `Alias /static/`
+    vers `/opt/golden-market/{staging,production}/static-data/` avec `ProxyPass /static !` pour
+    exclure ce chemin du reverse proxy vers le backend. `.gitignore` - `static-data/` ajouté (bind
+    mount local, jamais commité, même traitement que `.env.deploy`).
+  - **Vérifié** : `medusa build` repasse proprement (premier essai avait échoué -
+    `@medusajs/medusa/file-local` ne s'utilise pas seul en `resolve` direct, il faut l'envelopper
+    dans le module `@medusajs/medusa/file` avec un tableau `providers`, corrigé) ; suite unitaire
+    toujours 40/40 verte ; `docker compose -f docker-compose.prod.yml --env-file ... config` valide
+    sans erreur.
+  - **Non fait dans ce lot, volontairement** : `fixImageUrl` dans `import-catalog.ts` (le
+    contournement dev pour le port 9001) laissé en l'état - devenu inoffensif (no-op si
+    `MEDUSA_BACKEND_PUBLIC_URL` est absent en dev, comportement par défaut inchangé) mais pas
+    retiré, script sensible (tarifs de gros) hors périmètre de ce correctif ciblé.
+  - Commité directement sur `staging` (pas de plan/subagent-driven-development pour ce
+    correctif ciblé et déjà vérifié par build+tests - même traitement que les 3 correctifs
+    TypeScript de la Task 3 originale de cette phase).
 
 - **2026-08-27/28 (déploiement staging/production, Phase 3, artefacts de code)** - Design validé
   par brainstorming (`docs/superpowers/specs/2026-08-27-phase3-deploiement-staging-production-design.md`) :

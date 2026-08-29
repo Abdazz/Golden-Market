@@ -58,8 +58,17 @@ services:
       # connexions avale l'erreur TLS et retente en boucle silencieusement).
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       REDIS_URL: redis://redis:6379
+      # Même domaine public que le storefront (Apache reverse-proxy /store,
+      # /admin, /auth, /app dessus) : corrige les URLs d'images générées par
+      # le module file-local, qui pointent sinon vers localhost:9000.
+      MEDUSA_BACKEND_PUBLIC_URL: ${NEXT_PUBLIC_MEDUSA_BACKEND_URL}
     ports:
       - "127.0.0.1:${BACKEND_PORT}:9000"
+    volumes:
+      # Bind mount (pas un volume nommé) : Apache sur l'hôte doit pouvoir
+      # servir ce même répertoire directement (voir deploy/apache/*.conf),
+      # chemin prévisible dans le répertoire de déploiement de l'environnement.
+      - ./static-data:/app/static
 
   storefront:
     container_name: ${ENV_NAME}-golden-market-storefront

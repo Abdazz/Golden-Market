@@ -35,6 +35,27 @@ module.exports = defineConfig({
         redisUrl: process.env.REDIS_URL,
       },
     },
+    // file-local par défaut construit ses URLs sur "http://localhost:9000/static"
+    // en dur (voir @medusajs/file-local) - inatteignable dès que le backend est
+    // servi derrière Apache sur un domaine public. MEDUSA_BACKEND_PUBLIC_URL
+    // (même valeur que NEXT_PUBLIC_MEDUSA_BACKEND_URL en prod, voir
+    // docker-compose.prod.yml) corrige l'origine des URLs générées ; le volume
+    // qui persiste `static/` entre redéploiements est déclaré dans
+    // docker-compose.prod.yml, servi publiquement via Apache (voir deploy/apache/*.conf).
+    file: {
+      resolve: '@medusajs/medusa/file',
+      options: {
+        providers: [
+          {
+            resolve: '@medusajs/medusa/file-local',
+            id: 'local',
+            options: {
+              backend_url: `${process.env.MEDUSA_BACKEND_PUBLIC_URL || 'http://localhost:9000'}/static`,
+            },
+          },
+        ],
+      },
+    },
     payment: {
       resolve: '@medusajs/medusa/payment',
       options: {

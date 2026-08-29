@@ -64,3 +64,6 @@ Thumbs.db
 **/.DS_Store
 # Override local docker-compose (specifique a une machine, ne pas commiter)
 docker-compose.override.yml
+
+# Bind mount des images produit en prod (docker-compose.prod.yml), jamais commité
+static-data/
