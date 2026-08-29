@@ -69,6 +69,10 @@ services:
       # servir ce même répertoire directement (voir deploy/apache/*.conf),
       # chemin prévisible dans le répertoire de déploiement de l'environnement.
       - ./static-data:/app/static
+      # Fichier Excel du catalogue (CATALOG_PATH dans apps/backend/.env),
+      # placé manuellement une fois par environnement, jamais commité - le
+      # workflow de déploiement l'importe s'il est présent (voir import:catalog).
+      - ./catalog-data:/app/catalog-data:ro
 
   storefront:
     container_name: ${ENV_NAME}-golden-market-storefront
