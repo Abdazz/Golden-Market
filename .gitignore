@@ -75,3 +75,9 @@ catalog-data/
 # sous le répertoire de déploiement faute d'accès root à /opt/backups sur le
 # VPS partagé, jamais commités
 backups/
+
+# Playwright (apps/storefront/e2e)
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.cache/

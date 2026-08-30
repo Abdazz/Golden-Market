@@ -78,7 +78,13 @@ cd apps/storefront && <pm> run lint    # next lint
 cd apps/backend && <pm> run test:unit                      # **/src/**/__tests__/**/*.unit.spec.ts
 cd apps/backend && <pm> run test:integration:modules       # **/src/modules/*/__tests__/**
 cd apps/backend && <pm> run test:integration:http          # **/integration-tests/http/*.spec.ts
+cd apps/storefront && <pm> run test:e2e                    # Playwright, apps/storefront/e2e/*.spec.ts
 ```
+
+`test:e2e` (Playwright, navigateur réel) cible un storefront + backend déjà démarrés (voir
+`apps/storefront/playwright.config.ts` - pas de `webServer` : la stack a besoin de Postgres/
+Redis + Medusa en plus de Next.js, hors du périmètre que Playwright peut démarrer seul).
+`PLAYWRIGHT_BASE_URL` permet de cibler un autre environnement (défaut `http://localhost:8002`).
 
 Single test — pass a path/pattern through to Jest, keeping `TEST_TYPE`:
 
