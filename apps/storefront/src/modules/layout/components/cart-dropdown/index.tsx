@@ -13,6 +13,7 @@ import DeleteButton from "@modules/common/components/delete-button"
 import LineItemOptions from "@modules/common/components/line-item-options"
 import LineItemPrice from "@modules/common/components/line-item-price"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import ShoppingBag from "@modules/common/icons/shopping-bag"
 import Thumbnail from "@modules/products/components/thumbnail"
 import { usePathname } from "next/navigation"
 import { Fragment, useEffect, useRef, useState } from "react"
@@ -80,12 +81,23 @@ const CartDropdown = ({
       onMouseLeave={close}
     >
       <Popover className="relative h-full">
-        <PopoverButton className="h-full">
+        <PopoverButton className="h-full flex items-center">
           <LocalizedClientLink
-            className="hover:text-ui-fg-base"
             href="/cart"
             data-testid="nav-cart-link"
-          >{`Cart (${totalItems})`}</LocalizedClientLink>
+            aria-label={`Panier (${totalItems})`}
+            className="relative inline-flex items-center justify-center w-[38px] h-[38px] rounded-full bg-gm-on-violet/10 border border-gm-on-violet/20 text-gm-on-violet hover:bg-gm-on-violet/20 transition-colors"
+          >
+            <ShoppingBag size="18" />
+            {totalItems > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[17px] h-[17px] rounded-full bg-gm-terracotta text-white text-[10.5px] font-bold border-2 border-gm-violet"
+                data-testid="nav-cart-count"
+              >
+                {totalItems}
+              </span>
+            )}
+          </LocalizedClientLink>
         </PopoverButton>
         <Transition
           show={cartDropdownOpen}

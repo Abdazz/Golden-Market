@@ -16,6 +16,21 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-30 (fin de matinée) - Correctif header + conformité maquettes initiales (artifacts
+claude.ai) : bug réel signalé par le propriétaire (logo centré sur desktop comme sur mobile,
+bouton "Menu" identique aux deux formats, aucune icône). Header refondu selon la maquette
+"Golden Market · Accueil" : logo à gauche sur tous les formats, navigation desktop générique
+(Accueil/Catégories/Promotions/Suivre ma commande - `/store` pour les deux premiers, faute de
+page dédiée ; `/account/orders` pour le suivi de commande), bouton "Menu" + icône hamburger
+réservé au mobile (masqué à partir de `small`), boutons Compte/Panier en icônes circulaires
+(plus de texte "Mon compte"/"Cart (n)"), badge de quantité sur le panier. Favicon généré à
+partir du mark du logo (recadré, remplaçait le triangle par défaut Next.js/Vercel jamais changé).
+2 tests Playwright ajoutés (conformité header desktop/mobile), 8/8 stable. **Accès aux artifacts
+claude.ai coupé en session** (après un `/login` ayant déconnecté le Remote Control) avant d'avoir
+pu auditer les 5 autres maquettes (Catalogue/Panier/Fiche produit/Mon compte/Paiement) - reste à
+faire dans une prochaine session, avec l'accord du propriétaire de continuer sur la seule
+maquette accessible entre-temps.
+
 2026-08-30 (matin, suite) - Pages publiques "Politique de confidentialité" et "Conditions
 générales de vente" ajoutées (`/politique-de-confidentialite`, `/conditions-generales`),
 liées depuis une nouvelle colonne "Légal" du footer. Contenu rédigé à partir du comportement
@@ -180,6 +195,56 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-08-30 (fin de matinée, header + conformité maquettes)** - Signalement direct du
+  propriétaire avec capture d'écran : "Pourquoi le logo est centré au milieu sur desktop ? [...]
+  Et si on est sur mobile il faudrait ajouter l'icone de menu juste à côté du texte 'Menu' à
+  gauche." Investigation : `Nav` (`apps/storefront/src/modules/layout/templates/nav/index.tsx`)
+  plaçait le logo dans une colonne `flex-1` centrale entre deux zones `flex-1` symétriques
+  (identique sur tous les formats), et `SideMenu` (bouton "Menu") n'avait aucune icône ni aucune
+  règle responsive - un pattern mobile affiché tel quel sur desktop, jamais corrigé depuis le
+  scaffold Medusa d'origine.
+  - **Première itération** (avant relecture des maquettes) : logo déplacé à gauche, icône
+    hamburger ajoutée à "Menu" (masqué à partir de `small` via une nouvelle classe sur
+    `SideMenu`), navigation desktop ajoutée avec liens directs vers les 6 vraies catégories.
+  - **Demande explicite du propriétaire de se conformer aux maquettes initiales** (artifacts
+    claude.ai, 6 pages : Accueil, Catalogue, Panier, Fiche produit, Mon compte, Paiement) - lecture
+    de la maquette "Golden Market · Accueil" a révélé un vrai désaccord avec la première itération :
+    la maquette prévoit une navigation desktop **générique** (Accueil / Catégories / Promotions /
+    Suivre ma commande), pas des liens de catégorie, et des **boutons icône circulaires** pour
+    Compte/Panier (avec badge de quantité sur le panier) plutôt que du texte ("Mon compte",
+    "Cart (n)"). Corrigé en conséquence :
+    - `Catégories` et `Promotions` pointent vers `/store` (aucune page dédiée n'existe pour l'un ou
+      l'autre concept dans ce catalogue - `/store` porte déjà le filtre par catégorie et c'est déjà
+      la cible de "Voir les promotions" ailleurs sur le site) ; `Suivre ma commande` pointe vers
+      `/account/orders` (fonctionnalité réelle la plus proche, pas de suivi de commande invité par
+      numéro).
+    - Nouvelles icônes `account.tsx`/`shopping-bag.tsx` (`apps/storefront/src/modules/common/
+      icons/`) répliquant exactement les tracés SVG de la maquette, boutons icône stylés avec les
+      tokens de couleur déjà en place (`gm-on-violet`, `gm-terracotta`) plutôt que des couleurs
+      codées en dur.
+    - **Découverte au passage (hors périmètre, non corrigée)** : `CartDropdown`
+      (`apps/storefront/src/modules/layout/components/cart-dropdown/index.tsx`) contient encore du
+      texte anglais scaffold non traduit ("Cart", "Subtotal (excl. taxes)", "Go to cart",
+      "Quantity:", "Remove", "Your shopping bag is empty.") - jamais couvert par la traduction
+      complète de la Phase 1.5. Signalé au propriétaire, pas corrigé (hors du périmètre de ce
+      correctif de header).
+  - **Favicon** : toujours le triangle par défaut du scaffold Next.js/Vercel, jamais remplacé.
+    Généré à partir du mark du logo (`public/logo/logo-white.png`, recadré par détection de la
+    bande de lignes vides séparant l'icône du texte "Golden Market" en dessous - `PIL.Image.
+    getbbox()` seul aurait inclus le texte). `public/favicon.ico` (16/32/48px, fallback legacy) et
+    `src/app/icon.png` (512px, convention App Router Next.js, auto-détecté sans changement de
+    code) tous deux régénérés depuis ce mark recadré.
+  - **Accès aux artifacts claude.ai coupé en session** juste après un `/login` du propriétaire
+    (a déconnecté le Remote Control) - plus aucun artifact accessible, y compris celui déjà lu
+    quelques échanges plus tôt. Confirmé que ce n'est pas un problème de retry (`list` renvoie
+    "aucun artifact publié" pour tous les scopes). Décision du propriétaire : continuer avec la
+    seule maquette déjà lue (Accueil) plutôt qu'attendre le rétablissement de l'accès. **Reste à
+    faire** : auditer les 5 autres maquettes (Catalogue, Panier, Fiche produit, Mon compte,
+    Paiement) une fois l'accès aux artifacts rétabli - probablement d'autres écarts du même type
+    (texte générique vs contenu réel, icônes vs texte) sur ces pages, non vérifiés à ce jour.
+  - **Vérifié** : 8/8 tests Playwright stables (2 nouveaux, conformité header desktop/mobile),
+    build de production storefront sans erreur (`/icon.png` bien détecté comme route statique).
 
 - **2026-08-30 (matin, tests E2E Playwright + timeout CI/CD)** - Question directe du propriétaire
   ("Can you write full browser tests using playwright?"), première fois qu'un test navigateur réel

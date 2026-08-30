@@ -6,6 +6,7 @@ import { ArrowRightMini, XMark } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { Text, clx } from "@modules/common/components/ui"
+import MenuIcon from "@modules/common/icons/menu"
 import { Fragment } from "react"
 import CountrySelect from "../country-select"
 import LanguageSelect from "../language-select"
@@ -30,7 +31,7 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
   const languageToggleState = useToggleState()
 
   return (
-    <div className="h-full">
+    <div className="h-full small:hidden">
       <div className="flex items-center h-full">
         <Popover className="h-full flex">
           {({ open, close }) => (
@@ -38,8 +39,9 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
               <div className="relative flex h-full">
                 <Popover.Button
                   data-testid="nav-menu-button"
-                  className="relative h-full flex items-center transition-all ease-out duration-200 focus:outline-none hover:text-gm-on-violet"
+                  className="relative h-full flex items-center gap-x-1.5 transition-all ease-out duration-200 focus:outline-none hover:text-gm-on-violet"
                 >
+                  <MenuIcon size="20" />
                   Menu
                 </Popover.Button>
               </div>

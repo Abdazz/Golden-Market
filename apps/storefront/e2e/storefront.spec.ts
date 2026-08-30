@@ -24,6 +24,38 @@ test.describe("Navigation storefront", () => {
   })
 })
 
+test.describe("Header (conformité maquette)", () => {
+  test("desktop : logo à gauche, navigation générique visible, pas de bouton Menu", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 800 })
+    await page.goto("/bf")
+    await expect(page.getByTestId("nav-store-link")).toBeVisible()
+    await expect(page.getByTestId("nav-menu-button")).toBeHidden()
+    await expect(page.getByTestId("nav-account-link")).toBeVisible()
+    await expect(page.getByTestId("nav-cart-link")).toBeVisible()
+    const desktopLinks = page.getByTestId("nav-desktop-link")
+    await expect(desktopLinks).toHaveCount(4)
+    await expect(desktopLinks).toContainText([
+      "Accueil",
+      "Catégories",
+      "Promotions",
+      "Suivre ma commande",
+    ])
+  })
+
+  test("mobile : bouton Menu avec icône visible, navigation desktop masquée", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto("/bf")
+    await expect(page.getByTestId("nav-menu-button")).toBeVisible()
+    await expect(page.getByTestId("nav-desktop-link").first()).toBeHidden()
+    await expect(page.getByTestId("nav-account-link")).toBeVisible()
+    await expect(page.getByTestId("nav-cart-link")).toBeVisible()
+  })
+})
+
 test.describe("Pages légales", () => {
   test("le lien 'Politique de confidentialité' du footer mène à la bonne page", async ({
     page,
