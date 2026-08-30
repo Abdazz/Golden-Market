@@ -86,17 +86,6 @@ export default function PrivacyPolicyPage() {
 
         <section>
           <Heading level="h2" className="mb-3">
-            Responsable du traitement
-          </Heading>
-          <Text>
-            Golden Market — [raison sociale, forme juridique et numéro
-            d&apos;enregistrement à compléter par le propriétaire de la
-            boutique avant lancement].
-          </Text>
-        </section>
-
-        <section>
-          <Heading level="h2" className="mb-3">
             Nous contacter
           </Heading>
           <Text>
