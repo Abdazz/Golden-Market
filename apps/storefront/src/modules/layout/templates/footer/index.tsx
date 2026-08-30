@@ -26,7 +26,7 @@ export default async function Footer() {
               />
             </LocalizedClientLink>
           </div>
-          <div className="text-small-regular gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-3">
+          <div className="text-small-regular gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-4">
             {productCategories && productCategories?.length > 0 && (
               <div className="flex flex-col gap-y-2">
                 <span className="txt-small-plus text-gm-on-violet">
@@ -111,6 +111,29 @@ export default async function Footer() {
                 </ul>
               </div>
             )}
+            <div className="flex flex-col gap-y-2">
+              <span className="txt-small-plus text-gm-on-violet">Légal</span>
+              <ul className="grid grid-cols-1 gap-2 text-gm-on-violet-muted txt-small">
+                <li>
+                  <LocalizedClientLink
+                    className="hover:text-gm-on-violet"
+                    href="/politique-de-confidentialite"
+                    data-testid="footer-privacy-policy-link"
+                  >
+                    Politique de confidentialité
+                  </LocalizedClientLink>
+                </li>
+                <li>
+                  <LocalizedClientLink
+                    className="hover:text-gm-on-violet"
+                    href="/conditions-generales"
+                    data-testid="footer-terms-link"
+                  >
+                    Conditions générales de vente
+                  </LocalizedClientLink>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
         <div className="flex w-full mb-16 text-gm-on-violet-muted">

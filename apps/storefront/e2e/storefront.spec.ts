@@ -23,3 +23,23 @@ test.describe("Navigation storefront", () => {
     await expect(page.getByTestId("product-price")).toContainText("CFA")
   })
 })
+
+test.describe("Pages légales", () => {
+  test("le lien 'Politique de confidentialité' du footer mène à la bonne page", async ({
+    page,
+  }) => {
+    await page.goto("/bf")
+    await page.getByTestId("footer-privacy-policy-link").click()
+    await expect(page).toHaveURL(/\/bf\/politique-de-confidentialite$/)
+    await expect(page.getByTestId("privacy-policy-content")).toBeVisible()
+  })
+
+  test("le lien 'Conditions générales de vente' du footer mène à la bonne page", async ({
+    page,
+  }) => {
+    await page.goto("/bf")
+    await page.getByTestId("footer-terms-link").click()
+    await expect(page).toHaveURL(/\/bf\/conditions-generales$/)
+    await expect(page.getByTestId("terms-of-service-content")).toBeVisible()
+  })
+})

@@ -16,6 +16,16 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-30 (matin, suite) - Pages publiques "Politique de confidentialité" et "Conditions
+générales de vente" ajoutées (`/politique-de-confidentialite`, `/conditions-generales`),
+liées depuis une nouvelle colonne "Légal" du footer. Contenu rédigé à partir du comportement
+réel du code (données collectées au checkout, paiement Orange Money manuel sans données de
+carte, emails Resend) - pas de texte juridique générique copié d'un modèle. Un placeholder
+explicite `[à compléter]` marque la raison sociale/numéro d'enregistrement, absents du dépôt
+- **à faire par le propriétaire avant tout lancement réel**, même limite que celle déjà
+documentée pour l'onglet "Livraison et retours" des fiches produit. Suite Playwright
+étendue (2 tests de plus, liens footer → contenu de page), 6/6 stable en local.
+
 2026-08-30 (matin) - Suite de tests E2E Playwright ajoutée (`apps/storefront/e2e/`,
 `playwright.config.ts`) : parcours d'achat complet vérifié en conditions réelles de navigateur
 (région → produit → panier → adresse → livraison → Orange Money → commande confirmée), 4/4 tests
