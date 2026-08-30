@@ -140,9 +140,10 @@ Statut global : **fait**
 
 ## Phase 3 — Déploiement VPS + Docker
 
-Statut global : **en cours** - artefacts de code livrés et mergés sur `main`, déploiement réel
-sur le VPS pas encore effectué (voir `HANDOFF.md` pour le détail et le Runbook manuel qui reste
-à exécuter en session interactive avec le propriétaire).
+Statut global : **fait** - artefacts de code livrés, Runbook manuel exécuté pour staging et
+production, les deux environnements sont en ligne et vérifiés
+(`https://staging.golden-market.co`, `https://golden-market.co`). Voir `HANDOFF.md` pour le
+détail complet.
 
 - [x] Dockerfile production pour `apps/backend` (`medusa build` puis `medusa start`).
 - [x] Dockerfile production pour `apps/storefront` (`next build` puis `next start`).
@@ -153,11 +154,11 @@ sur le VPS pas encore effectué (voir `HANDOFF.md` pour le détail et le Runbook
 - [x] Workflows GitHub Actions de déploiement automatique (push `staging`/`main`).
 - [x] Script de sauvegarde Postgres avec rétention par environnement (staging 7 jours,
       production 30 jours) - à installer en cron sur le VPS (Runbook).
-- [ ] **Reste à faire, hors périmètre d'une session automatisée** : provisionnement réel du
-      VPS (répertoires de déploiement, secrets réels, clé SSH CI/CD), installation effective
-      des vhosts Apache + certbot, premier déploiement staging, validation explicite du
-      propriétaire, puis premier déploiement production. Voir le Runbook manuel détaillé dans
-      `docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`.
+- [x] Provisionnement réel du VPS (répertoires de déploiement, secrets réels, clé SSH CI/CD
+      dédiée) exécuté pour staging et production, vhosts Apache + certbot installés sur les deux
+      domaines, premier déploiement staging validé par le propriétaire puis premier déploiement
+      production effectué. Voir `HANDOFF.md` pour le détail (dont 2 bugs applicatifs réels et un
+      incident TLS certbot découverts et corrigés pendant l'exécution).
 - [x] `medusa build` chargeant aussi `medusa-config.ts` (garde-fou `assertProductionConfig`
       actif pendant le build) - résolu : l'image backend se construit sans `NODE_ENV=production`
       (secrets réels injectés seulement au runtime du conteneur).
@@ -209,8 +210,7 @@ Hors périmètre du lancement, à reprendre une fois la boutique ouverte :
 
 ## Prochaine étape
 
-Phases 0, 1, 1.5 et 2 terminées. Phase 3 en cours : artefacts de code (Dockerfiles, compose,
-Apache, CI/CD, sauvegarde) livrés et mergés sur `main`. Reste à exécuter, en session interactive
-avec le propriétaire : le Runbook manuel VPS (accès réel, secrets, premier déploiement staging,
-validation explicite avant bascule production) - voir
-`docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`.
+Phases 0, 1, 1.5, 2 et 3 terminées. `staging` et `production` sont en ligne et vérifiées sur le
+VPS réel. Reste ouvert avant lancement : Phase 4 (tests & CI minimale, aucun test métier écrit à
+ce jour) et Phase 5 (vérification pré-lancement, dont un vrai test de checkout au navigateur -
+jamais fait, seulement vérifié via l'API).

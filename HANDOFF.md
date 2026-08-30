@@ -16,6 +16,15 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-30 - **Production entièrement déployée et vérifiée sur le VPS réel**
+(`https://golden-market.co`) : `staging` mergée dans `main` et poussée (décision explicite du
+propriétaire de passer en production après validation du staging), VPS provisionné selon la même
+procédure que staging (répertoire, secrets réels, vhost Apache + certbot, admin, catalogue),
+pipeline CI/CD automatisé vérifié de bout en bout. **Phase 3 marquée fait** - voir journal
+ci-dessous pour le détail (dont un incident TLS certbot en cours de route, résolu). Aucune commande
+de test placée en production (contrairement au test API fait sur staging) pour ne pas polluer les
+données réelles du marchand.
+
 2026-08-29 (soir) - **Staging entièrement déployé et validé sur le VPS réel**
 (`https://staging.golden-market.co`) : pipeline CI/CD entièrement automatisé (build → migrate →
 seed → démarrage, sans aucune étape manuelle par déploiement), parcours d'achat complet vérifié
@@ -121,24 +130,23 @@ Statut global : **fait**
       le journal ci-dessous pour le détail
 
 ### Phase 3 — Déploiement VPS + Docker
-Statut global : **en cours**
+Statut global : **fait**
 
 - [x] Dockerfiles production backend/storefront, `docker-compose.prod.yml`, script de
       sauvegarde Postgres, templates Apache, workflows GitHub Actions - livrés et mergés sur
       `main`. Voir `ROADMAP.md` Phase 3 pour le détail et le journal ci-dessous.
 - [x] Persistance des images produit entre redéploiements (module `file` configuré,
       volume bind mount + route Apache dédiée) - voir journal ci-dessous.
-- [ ] Runbook manuel VPS (provisionnement réel : accès SSH `admin@144.91.110.105` fourni par
-      le propriétaire, secrets, premier déploiement staging validé explicitement par le
-      propriétaire, puis production) - volontairement non automatisé côté bootstrap initial
-      (le déploiement lui-même, une fois le VPS provisionné, est entièrement automatisé via
-      les workflows GitHub Actions). Détail complet dans
-      `docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md`.
-      **Décision explicite du propriétaire (2026-08-29) : déploiement staging uniquement pour
-      le moment, production seulement après validation explicite du staging.**
-- [x] Staging entièrement provisionné, déployé et vérifié - voir journal ci-dessous. Reste :
-      provisionner `/opt/golden-market/production` (même procédure, une fois validée par le
-      propriétaire) et son propre cron de sauvegarde (30 jours de rétention, jamais fait).
+- [x] Runbook manuel VPS exécuté pour staging ET production : répertoires
+      `/opt/golden-market/{staging,production}`, secrets réels, comptes admin, vhosts Apache +
+      certbot sur les deux domaines, catalogue importé, cron de sauvegarde installé et testé sur
+      les deux environnements (rétention 7 jours staging / 30 jours production). Détail complet
+      dans `docs/superpowers/plans/2026-08-27-phase3-deploiement-staging-production.md` et le
+      journal ci-dessous.
+- [x] Staging entièrement provisionné, déployé et vérifié (checkout complet testé via l'API).
+- [x] Production entièrement provisionnée, déployée et vérifiée (2026-08-30) après validation du
+      staging par le propriétaire - `https://golden-market.co` en ligne, 4 conteneurs stables,
+      pipeline CI/CD automatisé confirmé fonctionnel de bout en bout.
 
 ### Phase 4 — Tests & CI minimale
 Statut global : **à faire**
@@ -151,6 +159,44 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-08-30 (déploiement production, clôture Phase 3)** - Après validation du staging par le
+  propriétaire ("Yes. Go ahead" à la question explicite sur le test de checkout, puis "Go head with
+  the production deployment"), `staging` mergée dans `main` (fast-forward, 8 commits) et poussée.
+  VPS provisionné pour `/opt/golden-market/production` en suivant exactement la même procédure que
+  staging (répertoire créé par le propriétaire via `sudo`, clonage de `main`, secrets réels générés
+  - JWT/cookie/Postgres distincts de staging, `RESEND_API_KEY` et `ORANGE_MONEY_NUMBER` réutilisés
+  tels quels par décision explicite du propriétaire, admin `abdoulazizzorom@gmail.com` avec le même
+  mot de passe qu'en staging par décision explicite du propriétaire malgré la recommandation
+  contraire).
+  - **Incident TLS certbot (résolu)** : la première tentative (`certbot --apache -d golden-market.co
+    -d www.golden-market.co`) a échoué sur un conflit de vhost lors de la tentative d'installation
+    sur `www.golden-market.co` (aucun vhost existant pour ce nom) - or certbot fait un rollback
+    transactionnel de **toute** sa session en cas d'échec, y compris le certificat déjà déployé
+    avec succès sur `golden-market.co` juste avant. Résultat temporaire : Apache servait le
+    certificat par défaut d'un autre site du VPS partagé (`biblio.golden-technologies.com`) pour
+    toute requête HTTPS sur `golden-market.co`. Diagnostiqué via `apache2ctl -S` (absence du vhost
+    dans la liste `*:443`) et confirmation que le fichier `golden-market.co-le-ssl.conf` avait
+    disparu de `sites-available`. Corrigé en relançant `certbot --apache -d golden-market.co` seul
+    (sans `www`, qui n'était pas un prérequis) - a créé un second lignage de certificat
+    (`golden-market.co-0001`, cohabite sans problème avec l'éventuel premier). Vérifié après coup :
+    `curl -v` confirme le bon certificat servi, `apache2ctl -S` liste bien `golden-market.co` sous
+    `*:443`.
+  - **Cron de sauvegarde production** : même contournement que pour staging (`/opt/backups`
+    appartient à `root`, propriétaire injoignable pour un `sudo` interactif au moment de cette
+    étape) - dumps stockés sous `/opt/golden-market/production/backups/` (untracked, survit à
+    `git reset --hard`). Rétention 30 jours, cron quotidien à 4h (décalé d'une heure par rapport à
+    staging). Testé : dump réel produit (57 Ko).
+  - **Aucune commande de test placée en production** (contrairement au test API complet fait sur
+    staging) - décision délibérée pour ne pas polluer les données réelles du marchand. Vérification
+    limitée à : site HTTPS joignable avec le bon certificat, redirection `/` → `/bf`, contenu réel
+    affiché (branding + catégories), région/catalogue/catégories/option de livraison identiques à
+    staging (Burkina Faso, 29 produits, 6 catégories, 1 option de livraison), 4 conteneurs stables
+    plusieurs heures après déploiement.
+  - **Reste ouvert** : vrai test de checkout au navigateur (jamais fait, ni sur staging ni sur
+    production - extension Chrome à reconnecter) ; harmoniser le chemin des sauvegardes avec
+    `/opt/backups` si le propriétaire retrouve un accès `sudo` interactif (déjà fait pour staging
+    après coup, voir entrée précédente).
 
 - **2026-08-29 (soir, validation finale staging, Phase 3)** - Suite directe de l'entrée
   précédente. Deux bugs réels supplémentaires trouvés en poussant le pipeline CI/CD jusqu'au bout
