@@ -167,15 +167,19 @@ détail complet.
 
 ## Phase 4 — Tests & CI minimale
 
-Actuellement : aucun test métier écrit (seul `integration-tests/setup.js` boilerplate),
-aucune CI.
-
-- [ ] Test d'intégration HTTP sur le parcours critique : panier → checkout → session de
-      paiement Orange Money → commande créée (`apps/backend/integration-tests/http/`).
+- [x] Test E2E navigateur réel (Playwright) sur le parcours critique complet : produit → panier
+      → checkout → adresse → livraison → session Orange Money → commande créée → page de
+      confirmation (`apps/storefront/e2e/checkout.spec.ts`). Vérifié 4/4 stable sur deux
+      exécutions contre le dev local seedé. Voir `HANDOFF.md` (2026-08-30 matin) pour le détail.
+- [ ] Test d'intégration HTTP niveau backend sur le même parcours (sans navigateur), toujours
+      absent (`apps/backend/integration-tests/http/`) - le test Playwright couvre le parcours
+      côté storefront, pas l'API backend isolée.
 - [ ] Test unitaire sur `OrangeMoneyManualService`
       (`apps/backend/src/modules/__tests__/` ou équivalent — vérifier la convention Jest
       du projet, cf. `test:unit` dans `AGENTS.md`).
-- [ ] CI GitHub Actions : lint + test sur chaque pull request.
+- [ ] CI GitHub Actions : lint + test sur chaque pull request (la suite Playwright tourne
+      aujourd'hui uniquement en local, pas encore en CI - nécessiterait un environnement de test
+      dédié avec backend/DB).
 
 ## Phase 5 — Vérification pré-lancement
 

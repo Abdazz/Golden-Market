@@ -16,6 +16,17 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-30 (matin) - Suite de tests E2E Playwright ajoutée (`apps/storefront/e2e/`,
+`playwright.config.ts`) : parcours d'achat complet vérifié en conditions réelles de navigateur
+(région → produit → panier → adresse → livraison → Orange Money → commande confirmée), 4/4 tests
+stables sur deux exécutions locales consécutives contre le vrai backend/DB de dev seedés. Poussé
+sur `staging` puis `main`, a déclenché un redéploiement automatique des deux environnements : le
+déploiement staging a dépassé le timeout SSH de 40 min (image storefront déjà construite avec
+succès, seul le `docker compose up -d` final n'a pas eu le temps de s'exécuter) - corrigé en
+démarrant manuellement le conteneur puis en portant `command_timeout` à 60 min dans les deux
+workflows pour absorber une marge de charge VPS. Production a réussi du premier coup. Voir le
+journal ci-dessous pour le détail.
+
 2026-08-30 - **Production entièrement déployée et vérifiée sur le VPS réel**
 (`https://golden-market.co`) : `staging` mergée dans `main` et poussée (décision explicite du
 propriétaire de passer en production après validation du staging), VPS provisionné selon la même
@@ -159,6 +170,44 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-08-30 (matin, tests E2E Playwright + timeout CI/CD)** - Question directe du propriétaire
+  ("Can you write full browser tests using playwright?"), première fois qu'un test navigateur réel
+  existe pour ce projet (Phase 4/5 encore vides jusque-là). Stack de dev locale relancée (Postgres/
+  Redis Docker déjà présents, backend/storefront redémarrés manuellement), `@playwright/test`
+  installé comme devDependency du storefront (pas un script jetable). `apps/storefront/e2e/
+  storefront.spec.ts` (3 tests : redirection région, contenu réel, prix XOF) et `checkout.spec.ts`
+  (parcours d'achat complet, s'appuyant sur les `data-testid` déjà présents dans le scaffold).
+  - **Bugs de test corrigés en écrivant la suite** (pas des bugs applicatifs) : le code postal était
+    un champ requis jamais rempli, bloquant silencieusement la soumission du formulaire d'adresse
+    (Medusa ne montre pas d'erreur explicite pour un champ HTML natif invalide) ; l'assertion sur le
+    prix (`/F ?CFA/`) échouait à cause des espaces insécables Unicode (U+202F) qu'`Intl.
+    NumberFormat` insère et qu'un `\s` littéral ne capture pas - corrigé en utilisant le
+    `data-testid="product-price"` dédié plutôt qu'un texte libre, qui échouait aussi en mode
+    "tous les tests ensemble" à cause d'un conflit de sélecteur strict avec les prix des produits
+    similaires affichés sur la même page.
+  - **Vérifié réellement, pas seulement écrit** : 4/4 tests passent, exécuté deux fois de suite
+    pour écarter un succès isolé, une vraie commande confirmée en base à chaque passage
+    (`display_id` incrémenté, vérifié via `psql`).
+  - **Incident système rencontré et diagnostiqué en cours de route** : le backend de dev local a
+    été tué par OOM (poste de développement partagé avec de nombreux autres projets/conteneurs
+    tournant en simultané, sans rapport avec ce dépôt) pendant que la suite tournait - diagnostiqué
+    via `free -h` et l'exit code 137 dans les logs, corrigé en redémarrant le backend, pas un défaut
+    des tests eux-mêmes.
+  - **Incident CI/CD découvert en poussant la suite** : le push sur `staging` puis `main`
+    (nécessaire, `@playwright/test` est une dépendance réelle du storefront) a déclenché les deux
+    déploiements automatiques. Le déploiement **staging** a échoué après 40 minutes (limite
+    `command_timeout` du workflow) - diagnostic : l'image `staging-golden-market-storefront` avait
+    fini de se construire avec succès (confirmée présente via `docker images` sur le VPS), seule
+    l'étape finale `docker compose up -d` n'a pas eu le temps de s'exécuter avant la coupure SSH.
+    Corrigé en deux temps : démarrage manuel du conteneur storefront déjà construit (`docker compose
+    up -d`, aucune perte de travail), puis `command_timeout` porté de 40 à 60 minutes dans les deux
+    workflows pour absorber une marge de charge VPS future. Le déploiement **production** de la même
+    session a réussi du premier coup (VPS moins chargé au moment de son exécution, en parallèle de
+    staging).
+  - **Reste ouvert** : la suite Playwright ne tourne pas encore en CI (nécessiterait un `webServer`
+    Playwright ou un environnement de test dédié avec backend/DB - hors périmètre de cette session,
+    conçue pour tourner en local pour l'instant, voir Phase 4).
 
 - **2026-08-30 (déploiement production, clôture Phase 3)** - Après validation du staging par le
   propriétaire ("Yes. Go ahead" à la question explicite sur le test de checkout, puis "Go head with
