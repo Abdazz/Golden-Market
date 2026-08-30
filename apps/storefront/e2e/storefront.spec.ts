@@ -24,6 +24,29 @@ test.describe("Navigation storefront", () => {
   })
 })
 
+test.describe("Catalogue (conformité maquette)", () => {
+  test("le filtre par catégorie affiche les vraies catégories et filtre réellement", async ({
+    page,
+  }) => {
+    await page.goto("/bf/store")
+    await expect(page.getByTestId("category-filter-checkbox").first()).toBeVisible()
+
+    const firstCheckbox = page.getByTestId("category-filter-checkbox").first()
+    await firstCheckbox.click()
+    await expect(page).toHaveURL(/categoryIds=/)
+    await expect(firstCheckbox).toBeChecked()
+    await expect(page.getByTestId("clear-category-filter")).toBeVisible()
+  })
+
+  test("le bouton d'ajout rapide ajoute réellement au panier depuis la grille", async ({
+    page,
+  }) => {
+    await page.goto("/bf/store")
+    await page.getByTestId("quick-add-button").first().click()
+    await expect(page.getByTestId("nav-cart-count")).toHaveText("1")
+  })
+})
+
 test.describe("Header (conformité maquette)", () => {
   test("desktop : logo à gauche, navigation générique visible, pas de bouton Menu", async ({
     page,

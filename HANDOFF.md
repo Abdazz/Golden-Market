@@ -16,6 +16,21 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-30 (midi) - Conformité maquette "Golden Market · Catalogue" (page `/store` "Tous les
+produits") : le filtre de la barre latérale ("Filtrer par Size/Color") a été remplacé par un
+vrai filtre par catégorie (les 6 vraies catégories, compteurs réels, multi-sélection) - l'ancien
+filtre n'avait plus aucun rapport avec le catalogue réel (options S/M/L/XL et Black/White
+orphelines en base, résidu d'un ancien seed de démo jamais nettoyé côté données - signalé, pas
+corrigé, hors périmètre de ce correctif front). Composant `OptionsPicker` devenu mort, supprimé.
+Ajout d'un bouton d'ajout rapide au panier sur chaque carte produit (variante unique uniquement,
+le cas de tout le catalogue réel), d'un badge "Nouveau" réel (basé sur `created_at`), et du vrai
+pourcentage de réduction sur le badge promo existant (mécanisme Medusa natif via price list de
+type "sale", déjà branché correctement - juste jamais affiché avec le vrai %). 10/10 tests
+Playwright stables, build de production vérifié. Accès aux artifacts claude.ai rétabli en
+session (compte Chrome reconnecté) mais lecture/scroll bloqués par le sandboxing cross-origin de
+l'iframe de rendu des maquettes - contourné par capture d'écran manuelle. **Reste à auditer** :
+Panier, Fiche produit, Mon compte, Paiement (mockups non encore comparés au code).
+
 2026-08-30 (fin de matinée) - Correctif header + conformité maquettes initiales (artifacts
 claude.ai) : bug réel signalé par le propriétaire (logo centré sur desktop comme sur mobile,
 bouton "Menu" identique aux deux formats, aucune icône). Header refondu selon la maquette
@@ -195,6 +210,53 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-08-30 (midi, conformité maquette Catalogue)** - Accès aux artifacts claude.ai rétabli
+  après reconnexion du compte Chrome (le blocage précédent était lié à un changement de compte
+  côté propriétaire, pas un bug de l'outil). Capture de la maquette "Golden Market · Catalogue"
+  via l'extension Chrome - lecture directe via l'outil Artifact toujours indisponible
+  ("public non-member reader"), et le scroll/clic dans l'iframe de rendu des maquettes ne
+  répond à aucune interaction synthétique (souris, clavier, JS) même dans un onglet neuf -
+  sandboxing cross-origin, confirmé en testant plusieurs approches (scroll à différentes
+  positions, clic sur un menu déroulant réel de la maquette, redimensionnement de fenêtre,
+  raccourcis de zoom navigateur - tous bloqués). Capture d'écran manuelle du premier écran
+  suffisante pour comparer la page `/store`.
+  - **Écart réel identifié et corrigé** : le filtre de la barre latérale du catalogue affichait
+    "Size" (S/M/L/XL) et "Color" (Black/White) - des valeurs réelles en base
+    (`/store/product-options` les renvoie sans filtrer par produit encore existant), mais
+    **orphelines** : aucun produit réel ne les référence (confirmé par requête SQL directe,
+    `product_option`/`product_option_value`) - résidu d'un ancien seed de démo dont les produits
+    ont été supprimés sans jamais nettoyer les options associées. Signalé comme bug de données à
+    traiter séparément (pas corrigé ici, portée front uniquement).
+  - **Corrigé** : nouveau composant `CategoryFilter` (`apps/storefront/src/modules/store/
+    components/refinement-list/category-filter.tsx`) - les 6 vraies catégories avec compteurs
+    réels (`category.products.length`), multi-sélection via un nouveau paramètre d'URL
+    `categoryIds` (`apps/storefront/src/lib/util/category-filters.ts`, même pattern que
+    `product-option-filters.ts` existant), remplace `OptionsPicker` dans `RefinementList`.
+    Filtrage branché de bout en bout : `store/page.tsx` → `StoreTemplate` →
+    `PaginatedProducts` (paramètre `categoryIds`, distinct du `categoryId` singulier déjà
+    utilisé par les pages de catégorie individuelles) → requête Medusa réelle. `OptionsPicker`
+    devenu totalement mort (plus aucun import) - supprimé plutôt que laissé en l'état. La
+    plomberie de filtrage par option de variante (`product-option-filters.ts`,
+    `optionValueIds` dans `listProductsWithSort`) reste en place : capacité toujours valide,
+    seule l'UI qui l'exposait a été retirée.
+  - **Bouton d'ajout rapide** (`quick-add-button.tsx`, nouveau) sur chaque carte produit de la
+    grille - variante unique uniquement (`product.variants.length === 1`), le cas de tout le
+    catalogue réel importé ; réutilise le même `addToCart` server action que la fiche produit.
+  - **Badges réels, pas inventés** (décision explicite du propriétaire : "vrai % configurable",
+    pas de fausses promos) : le badge "Promo" affichait un texte générique alors que le
+    mécanisme de réduction réel existait déjà et fonctionnait correctement (`price_type ===
+    "sale"` via une vraie price list Medusa, `percentage_diff` déjà calculé dans
+    `get-product-price.ts`) - simplement jamais affiché avec le vrai pourcentage. Corrigé pour
+    afficher `-{percentage_diff}%` réel. Badge "Nouveau" ajouté séparément, basé sur
+    `created_at` (fenêtre de 14 jours) - signal réel, aucune donnée éditoriale inventée.
+  - **Vérifié** : 10/10 tests Playwright stables sur deux exécutions consécutives (2 nouveaux
+    tests : filtre catégorie fonctionnel, ajout rapide fonctionnel avec vérification du badge de
+    panier), build de production storefront sans erreur.
+  - **Reste à faire** : auditer les 4 autres maquettes non encore comparées au code (Panier,
+    Fiche produit, Mon compte, Paiement) - probablement d'autres écarts du même type. Corriger
+    le bug de données des options orphelines (`Size`/`Color`) si un nettoyage de base est
+    souhaité avant lancement réel.
 
 - **2026-08-30 (fin de matinée, header + conformité maquettes)** - Signalement direct du
   propriétaire avec capture d'écran : "Pourquoi le logo est centré au milieu sur desktop ? [...]

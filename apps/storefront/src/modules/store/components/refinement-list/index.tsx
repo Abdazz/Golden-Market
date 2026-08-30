@@ -3,11 +3,8 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
 
-import {
-  OPTION_VALUE_QUERY_KEY,
-  parseOptionValueIds,
-} from "@lib/util/product-option-filters"
-import OptionsPicker from "./options-picker"
+import { CATEGORY_ID_QUERY_KEY, parseCategoryIds } from "@lib/util/category-filters"
+import CategoryFilter from "./category-filter"
 import SortProducts, { SortOptions } from "./sort-products"
 
 type RefinementListProps = {
@@ -50,16 +47,16 @@ const RefinementList = ({
   const setQueryParams = (name: string, value: string) =>
     updateQueryParams((params) => params.set(name, value))
 
-  const selectedOptionValueIds = useMemo(
-    () => parseOptionValueIds(searchParams),
+  const selectedCategoryIds = useMemo(
+    () => parseCategoryIds(searchParams),
     [searchParams]
   )
 
-  const setOptionValueIds = (valueIds: string[]) =>
+  const setCategoryIds = (categoryIds: string[]) =>
     updateQueryParams((params) => {
-      params.delete(OPTION_VALUE_QUERY_KEY)
-      valueIds.forEach((valueId) =>
-        params.append(OPTION_VALUE_QUERY_KEY, valueId)
+      params.delete(CATEGORY_ID_QUERY_KEY)
+      categoryIds.forEach((categoryId) =>
+        params.append(CATEGORY_ID_QUERY_KEY, categoryId)
       )
     })
 
@@ -83,9 +80,9 @@ const RefinementList = ({
           data-testid={dataTestId}
         />
         {!hideOptionsPicker && (
-          <OptionsPicker
-            selectedValueIds={selectedOptionValueIds}
-            setOptionValueIds={setOptionValueIds}
+          <CategoryFilter
+            selectedCategoryIds={selectedCategoryIds}
+            setCategoryIds={setCategoryIds}
           />
         )}
       </div>
@@ -116,9 +113,9 @@ const RefinementList = ({
                 data-testid={dataTestId}
               />
               {!hideOptionsPicker && (
-                <OptionsPicker
-                  selectedValueIds={selectedOptionValueIds}
-                  setOptionValueIds={setOptionValueIds}
+                <CategoryFilter
+                  selectedCategoryIds={selectedCategoryIds}
+                  setCategoryIds={setCategoryIds}
                 />
               )}
             </div>

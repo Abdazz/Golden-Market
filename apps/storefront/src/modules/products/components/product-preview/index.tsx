@@ -4,6 +4,20 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { Badge } from "@modules/common/components/ui"
 import Thumbnail from "../thumbnail"
 import PreviewPrice from "./price"
+import QuickAddButton from "./quick-add-button"
+
+// Un produit compte comme "Nouveau" pendant ses 14 premiers jours - signal
+// réel basé sur created_at, pas une valeur éditoriale inventée.
+const NEW_PRODUCT_WINDOW_DAYS = 14
+
+const isRecentlyAdded = (createdAt?: string | null) => {
+  if (!createdAt) {
+    return false
+  }
+  const ageInDays =
+    (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
+  return ageInDays <= NEW_PRODUCT_WINDOW_DAYS
+}
 
 export default async function ProductPreview({
   product,
@@ -16,6 +30,14 @@ export default async function ProductPreview({
     product,
   })
 
+  const isSale = cheapestPrice?.price_type === "sale"
+  const isNew = !isSale && isRecentlyAdded(product.created_at)
+  // La carte ne peut ajouter au panier directement que pour un produit à
+  // variante unique (pas de sélection d'option possible depuis la grille) -
+  // le cas de tout le catalogue réel importé (voir import-catalog.ts).
+  const singleVariantId =
+    product.variants?.length === 1 ? product.variants[0].id : undefined
+
   return (
     <LocalizedClientLink
       href={`/products/${product.handle}`}
@@ -23,12 +45,17 @@ export default async function ProductPreview({
       data-testid="product-wrapper"
     >
       <div className="relative">
-        {cheapestPrice?.price_type === "sale" && (
+        {isSale && (
           <Badge
             color="terracotta"
             className="absolute top-2.5 left-2.5 z-10"
           >
-            Promo
+            -{cheapestPrice.percentage_diff}%
+          </Badge>
+        )}
+        {isNew && (
+          <Badge color="gold" className="absolute top-2.5 left-2.5 z-10">
+            Nouveau
           </Badge>
         )}
         <Thumbnail
@@ -37,6 +64,7 @@ export default async function ProductPreview({
           size="full"
           className="rounded-none"
         />
+        {singleVariantId && <QuickAddButton variantId={singleVariantId} />}
       </div>
       <div className="flex flex-col gap-2 p-3">
         <span
