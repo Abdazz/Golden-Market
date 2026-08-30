@@ -15,7 +15,16 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: "list",
-  timeout: 45_000,
+  timeout: 60_000,
+  expect: {
+    // Contre un environnement distant (staging/production réels), chaque
+    // requête réseau (création panier, ligne de panier...) prend 1-2s de
+    // plus qu'en local (latence internet réelle vs localhost) - constaté en
+    // testant contre https://staging.golden-market.co, 5s (défaut Playwright)
+    // était trop court et faisait échouer des assertions sur des actions
+    // pourtant réussies côté backend (vérifié dans les logs : 200 partout).
+    timeout: 15_000,
+  },
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:8002",
     trace: "retain-on-failure",
