@@ -16,18 +16,23 @@ const CategoryGrid = async () => {
 
   return (
     <div className="content-container py-10 small:py-16">
-      <div className="flex items-baseline justify-between mb-6">
-        <Heading level="h2" className="text-2xl">
-          Parcourir par catégorie
-        </Heading>
+      <div className="flex items-baseline justify-between gap-4 mb-6">
+        <div>
+          <span className="block mb-2.5 text-xs font-bold uppercase tracking-wide text-gm-gold-strong">
+            Rayons
+          </span>
+          <Heading level="h2" className="text-2xl">
+            Parcourir par catégorie
+          </Heading>
+        </div>
         <LocalizedClientLink
           href="/store"
-          className="text-sm font-semibold text-gm-amethyst hover:underline"
+          className="shrink-0 text-sm font-semibold text-gm-amethyst hover:underline"
         >
-          Toutes les catégories
+          Toutes les catégories →
         </LocalizedClientLink>
       </div>
-      <div className="grid grid-cols-3 small:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-3 xsmall:grid-cols-6 gap-3.5">
         {topLevel.map((category) => (
           <LocalizedClientLink
             key={category.id}

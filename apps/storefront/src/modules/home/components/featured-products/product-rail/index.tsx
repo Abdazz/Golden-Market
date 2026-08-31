@@ -1,6 +1,6 @@
 import { listProducts } from "@lib/data/products"
 import { HttpTypes } from "@medusajs/types"
-import { Heading, clx } from "@modules/common/components/ui"
+import { Heading } from "@modules/common/components/ui"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ProductPreview from "@modules/products/components/product-preview"
@@ -8,11 +8,9 @@ import ProductPreview from "@modules/products/components/product-preview"
 export default async function ProductRail({
   collection,
   region,
-  tone = "default",
 }: {
   collection: HttpTypes.StoreCollection
   region: HttpTypes.StoreRegion
-  tone?: "default" | "promo"
 }) {
   const {
     response: { products: pricedProducts },
@@ -29,26 +27,15 @@ export default async function ProductRail({
   }
 
   return (
-    <div
-      className={clx("py-10 small:py-16", {
-        "bg-gm-terracotta/[0.06]": tone === "promo",
-      })}
-    >
+    <div className="py-10 small:py-16">
       <div className="content-container">
         <div className="flex items-baseline justify-between mb-6">
           <Heading level="h2" className="text-2xl">
-            {tone === "promo" ? (
-              <span className="text-gm-terracotta">{collection.title}</span>
-            ) : (
-              collection.title
-            )}
+            {collection.title}
           </Heading>
           <LocalizedClientLink
             href={`/collections/${collection.handle}`}
-            className={clx("text-sm font-semibold hover:underline", {
-              "text-gm-terracotta": tone === "promo",
-              "text-gm-amethyst": tone !== "promo",
-            })}
+            className="text-sm font-semibold text-gm-amethyst hover:underline"
           >
             Voir tout
           </LocalizedClientLink>

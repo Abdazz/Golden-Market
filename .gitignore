@@ -88,3 +88,10 @@ backups/
 header-zoom*.png
 shared-*.png
 .playwright-mcp/
+accueil*.png
+hero*.png
+pdp*.png
+catalogue*.png
+compte*.png
+fiche*.png
+paiement*.png
