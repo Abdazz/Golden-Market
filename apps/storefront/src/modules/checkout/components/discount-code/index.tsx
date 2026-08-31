@@ -15,7 +15,7 @@ type DiscountCodeProps = {
 }
 
 const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
-  const [isOpen, setIsOpen] = React.useState(false)
+  const [isOpen, setIsOpen] = React.useState(true)
   const [errorMessage, setErrorMessage] = React.useState("")
 
   const { promotions = [] } = cart
@@ -73,6 +73,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                 type="text"
                 autoFocus={false}
                 data-testid="discount-input"
+                placeholder="Code promo"
               />
               <SubmitButton variant="secondary" data-testid="discount-apply-button">
                 Appliquer

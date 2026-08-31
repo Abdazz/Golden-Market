@@ -1,3 +1,5 @@
+import Breadcrumb from "@modules/common/components/breadcrumb"
+
 import ItemsTemplate from "./items"
 import Summary from "./summary"
 import EmptyCartMessage from "../components/empty-cart-message"
@@ -12,8 +14,11 @@ const CartTemplate = ({
   customer: HttpTypes.StoreCustomer | null
 }) => {
   return (
-    <div className="py-8 small:py-12">
+    <div className="pb-16">
       <div className="content-container" data-testid="cart-container">
+        <Breadcrumb
+          items={[{ label: "Accueil", href: "/" }, { label: "Panier" }]}
+        />
         {cart?.items?.length ? (
           <div className="grid grid-cols-1 small:grid-cols-[1fr_380px] gap-8 small:gap-10 items-start">
             <div className="flex flex-col gap-y-6">

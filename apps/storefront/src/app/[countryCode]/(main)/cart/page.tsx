@@ -5,8 +5,8 @@ import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 export const metadata: Metadata = {
-  title: "Cart",
-  description: "View your cart",
+  title: "Mon panier | Golden Market",
+  description: "Votre panier Golden Market.",
 }
 
 export default async function Cart() {

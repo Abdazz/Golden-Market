@@ -15,10 +15,13 @@ const ItemsTemplate = ({ cart }: ItemsTemplateProps) => {
 
   return (
     <div className="rounded-2xl border border-gm-border bg-white p-5 small:p-6">
-      <Heading level="h1" className="text-xl mb-4">
-        Panier
+      <Heading level="h1" className="text-2xl mb-4">
+        Mon panier
         {itemCount > 0 && (
-          <span className="text-gm-ink-muted font-normal"> ({itemCount})</span>
+          <span className="text-gm-ink-muted font-normal text-base">
+            {" "}
+            ({itemCount} {itemCount > 1 ? "articles" : "article"})
+          </span>
         )}
       </Heading>
       <div>

@@ -12,7 +12,9 @@ const LineItemOptions = ({
   "data-testid": dataTestid,
   "data-value": dataValue,
 }: LineItemOptionsProps) => {
-  if (!variant?.title) {
+  // "Default Title" est le nom que Medusa donne à la variante unique d'un
+  // produit sans option - aucune information à afficher pour l'acheteur.
+  if (!variant?.title || variant.title === "Default Title") {
     return null
   }
 

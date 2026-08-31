@@ -2,7 +2,6 @@
 
 import { updateLineItem } from "@lib/data/cart"
 import { HttpTypes } from "@medusajs/types"
-import CartItemSelect from "@modules/cart/components/cart-item-select"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import DeleteButton from "@modules/common/components/delete-button"
 import LineItemOptions from "@modules/common/components/line-item-options"
@@ -96,23 +95,35 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
 
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <CartItemSelect
-              value={item.quantity}
-              onChange={(value) => changeQuantity(parseInt(value.target.value))}
-              className="w-16 h-10"
-              data-testid="product-select-button"
-            >
-              {/* TODO: Update this with the v2 way of managing inventory */}
-              {Array.from({ length: Math.min(maxQuantity, 10) }, (_, i) => (
-                <option value={i + 1} key={i}>
-                  {i + 1}
-                </option>
-              ))}
-
-              <option value={1} key={1}>
-                1
-              </option>
-            </CartItemSelect>
+            <div className="flex items-center rounded-full border border-gm-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => changeQuantity(Math.max(1, item.quantity - 1))}
+                disabled={updating || item.quantity <= 1}
+                className="w-8 h-9 bg-gm-ivoire-2 text-gm-ink text-base disabled:opacity-40"
+                aria-label="Diminuer la quantité"
+                data-testid="product-select-button"
+              >
+                −
+              </button>
+              <span
+                className="w-8 text-center font-bold text-sm tabular-nums"
+                data-testid="product-quantity"
+              >
+                {item.quantity}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  changeQuantity(Math.min(maxQuantity, item.quantity + 1))
+                }
+                disabled={updating || item.quantity >= maxQuantity}
+                className="w-8 h-9 bg-gm-ivoire-2 text-gm-ink text-base disabled:opacity-40"
+                aria-label="Augmenter la quantité"
+              >
+                +
+              </button>
+            </div>
             {updating && <Spinner />}
           </div>
           <DeleteButton id={item.id} data-testid="product-delete-button">
