@@ -14,12 +14,19 @@ const Overview = ({ customer, orders }: OverviewProps) => {
     customer?.addresses?.find((a) => a.is_default_shipping) ??
     customer?.addresses?.find((a) => a.is_default_billing)
 
+  const memberSince = customer?.created_at
+    ? new Date(customer.created_at).toLocaleDateString("fr-FR", {
+        month: "long",
+        year: "numeric",
+      })
+    : null
+
   return (
     <div className="flex flex-col gap-y-8" data-testid="overview-page-wrapper">
       <div className="rounded-2xl bg-gm-violet p-6 small:p-8 flex flex-col small:flex-row small:items-center small:justify-between gap-4">
         <div>
           <Heading
-            level="h2"
+            level="h1"
             className="text-gm-on-violet text-2xl"
             data-testid="welcome-message"
             data-value={customer?.first_name}
@@ -27,35 +34,43 @@ const Overview = ({ customer, orders }: OverviewProps) => {
             Bonjour {customer?.first_name}
           </Heading>
           <p
-            className="text-gm-on-violet-muted text-sm mt-1"
+            className="text-gm-on-violet-muted text-[13px] mt-1"
             data-testid="customer-email"
             data-value={customer?.email}
           >
-            Connecté en tant que {customer?.email}
+            {memberSince && `Membre depuis ${memberSince} · `}
+            {customer?.email}
           </p>
         </div>
         <LocalizedClientLink
           href="/account/profile"
-          className="shrink-0 text-sm font-semibold text-gm-on-violet border border-white/40 rounded-full px-4 py-2 hover:bg-white/10 transition-colors"
+          className="shrink-0 text-sm font-semibold text-gm-on-violet border border-white/40 rounded-full px-5 py-2.5 hover:bg-white/10 transition-colors"
         >
-          Voir mon profil
+          Modifier mon profil
         </LocalizedClientLink>
       </div>
 
       <div>
-        <Heading level="h3" className="text-lg mb-4">
+        <span className="block text-xs font-bold uppercase tracking-wide text-gm-ink-muted mb-3.5">
           Commandes récentes
-        </Heading>
-        <ul className="flex flex-col gap-y-4" data-testid="orders-wrapper">
+        </span>
+        <ul className="flex flex-col gap-y-3" data-testid="orders-wrapper">
           {orders && orders.length > 0 ? (
             orders.slice(0, 5).map((order) => (
-              <li key={order.id} data-testid="order-wrapper" data-value={order.id}>
+              <li
+                key={order.id}
+                data-testid="order-wrapper"
+                data-value={order.id}
+              >
                 <OrderCard order={order} />
               </li>
             ))
           ) : (
             <li>
-              <p className="text-sm text-gm-ink-muted" data-testid="no-orders-message">
+              <p
+                className="text-sm text-gm-ink-muted"
+                data-testid="no-orders-message"
+              >
                 Aucune commande pour le moment.
               </p>
             </li>
@@ -63,17 +78,25 @@ const Overview = ({ customer, orders }: OverviewProps) => {
         </ul>
       </div>
 
-      <div className="rounded-2xl border border-gm-border bg-white p-5 flex items-center justify-between gap-4">
+      <div className="rounded-2xl border border-dashed border-gm-border p-5 flex flex-col small:flex-row small:items-center justify-between gap-3">
         <div>
-          <Heading level="h3" className="text-base">
-            Adresse par défaut
-          </Heading>
+          <strong className="block text-sm text-gm-ink">
+            Adresse de livraison par défaut
+          </strong>
           {defaultAddress ? (
-            <p className="text-sm text-gm-ink-muted mt-1">
-              {defaultAddress.address_1}, {defaultAddress.city}
-            </p>
+            <span className="block text-[13px] text-gm-ink-muted mt-1">
+              {[
+                defaultAddress.address_1,
+                defaultAddress.city,
+                defaultAddress.phone,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
           ) : (
-            <p className="text-sm text-gm-ink-muted mt-1">Aucune adresse enregistrée.</p>
+            <span className="block text-[13px] text-gm-ink-muted mt-1">
+              Aucune adresse enregistrée.
+            </span>
           )}
         </div>
         <LocalizedClientLink

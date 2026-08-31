@@ -24,7 +24,17 @@ const getOrderStatus = (order: HttpTypes.StoreOrder): OrderStatus => {
     return { label: "Livrée", color: "green" }
   }
 
-  if (order.payment_status === "captured" || order.payment_status === "partially_captured") {
+  if (
+    order.fulfillment_status === "shipped" ||
+    order.fulfillment_status === "partially_shipped"
+  ) {
+    return { label: "En livraison", color: "gold" }
+  }
+
+  if (
+    order.payment_status === "captured" ||
+    order.payment_status === "partially_captured"
+  ) {
     return { label: "Paiement reçu", color: "amethyst" }
   }
 

@@ -1,7 +1,7 @@
 import React from "react"
 
-import { clx, Heading } from "@modules/common/components/ui"
-import UnderlineLink from "@modules/common/components/interactive-link"
+import { clx } from "@modules/common/components/ui"
+import Breadcrumb from "@modules/common/components/breadcrumb"
 
 import AccountNav from "../components/account-nav"
 import { HttpTypes } from "@medusajs/types"
@@ -13,11 +13,14 @@ interface AccountLayoutProps {
 
 const AccountLayout: React.FC<AccountLayoutProps> = ({ customer, children }) => {
   return (
-    <div className="flex-1 py-8 small:py-12" data-testid="account-page">
-      <div className="content-container max-w-5xl mx-auto flex flex-col gap-y-8">
+    <div className="flex-1 pb-16" data-testid="account-page">
+      <div className="content-container">
+        <Breadcrumb
+          items={[{ label: "Accueil", href: "/" }, { label: "Mon compte" }]}
+        />
         <div
           className={clx("grid gap-8 items-start", {
-            "grid-cols-1 small:grid-cols-[240px_1fr]": customer,
+            "grid-cols-1 small:grid-cols-[220px_1fr]": customer,
             "grid-cols-1": !customer,
           })}
         >
@@ -27,17 +30,6 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({ customer, children }) => 
             </div>
           )}
           <div className="flex-1 min-w-0">{children}</div>
-        </div>
-        <div className="rounded-2xl border border-gm-border bg-white p-6 flex flex-col small:flex-row items-start small:items-center justify-between gap-4">
-          <div>
-            <Heading level="h3" className="text-lg mb-1">
-              Des questions ?
-            </Heading>
-            <span className="text-sm text-gm-ink-muted">
-              Retrouvez les réponses aux questions fréquentes sur notre page service client.
-            </span>
-          </div>
-          <UnderlineLink href="/customer-service">Service client</UnderlineLink>
         </div>
       </div>
     </div>
