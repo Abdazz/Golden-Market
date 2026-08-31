@@ -16,6 +16,13 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-31 - **Session dédiée à l'audit de conformité aux 6 maquettes claude.ai coupée
+pour cause de contexte trop long.** Voir la section « Prompt de reprise — conformité
+maquettes » juste après ce bloc pour repartir proprement dans une nouvelle session :
+elle contient les 6 URLs de maquettes, l'état exact (Accueil et Catalogue faits, 3
+maquettes auditées mais pas encore implémentées, 1 maquette avec lien mort), et la
+liste précise des écarts déjà identifiés à construire ou à signaler.
+
 2026-08-30 (midi) - Conformité maquette "Golden Market · Catalogue" (page `/store` "Tous les
 produits") : le filtre de la barre latérale ("Filtrer par Size/Color") a été remplacé par un
 vrai filtre par catégorie (les 6 vraies catégories, compteurs réels, multi-sélection) - l'ancien
@@ -121,6 +128,130 @@ avec succès en XOF (panier → checkout → livraison 0 FCFA → Orange Money �
 Voir journal ci-dessous pour le détail, notamment une pollution de données découverte et
 corrigée (un `geo_zone` « bf » orphelin sur le fulfillment set européen, résidu de la
 Phase 0, faussait les options de livraison proposées pour la région BF).
+
+## Prompt de reprise — conformité aux maquettes (2026-08-31)
+
+Copier-coller le bloc ci-dessous en premier message d'une nouvelle session Claude Code
+pour reprendre exactement où l'audit s'est arrêté.
+
+> Continue l'audit de conformité du storefront Golden Market aux 6 maquettes publiées
+> comme artifacts claude.ai. Lis d'abord `HANDOFF.md` en entier (section « Prompt de
+> reprise » et journal du 2026-08-30/31), `AGENTS.md`, puis reprends le travail décrit
+> ci-dessous. Ne recommence pas l'audit d'Accueil/Catalogue (déjà faits et vérifiés) ;
+> continue sur Panier, Fiche produit, Mon compte (déjà comparés au code, à implémenter),
+> et Paiement (maquette pas encore vue, lien mort à ce jour — vérifier avant de
+> continuer, voir plus bas).
+>
+> Règles déjà établies dans ce projet à respecter sans redemander :
+> - Ne jamais fabriquer de fausses données pour coller à une maquette (couleurs de
+>   variante inexistantes, pourcentages de remise sans vraie promo, texte marketing
+>   sans source réelle). Construire le vrai mécanisme sous-jacent quand il existe côté
+>   Medusa, sinon signaler l'écart à l'utilisateur au lieu d'inventer.
+> - Toujours committer sur `staging` d'abord, jamais directement sur `main`
+>   (`git checkout staging` → commit → `git checkout main` → `git merge staging
+>   --ff-only` → `git push origin main`).
+> - Jamais de trailer `Co-Authored-By: Claude` dans les commits.
+> - Vérification visuelle obligatoire (Playwright + captures d'écran réelles), pas
+>   seulement une relecture de code — des bugs réels ont déjà été manqués sans ce
+>   passage.
+> - Pour chaque page corrigée : vérifier en local (dev server + suite Playwright
+>   `apps/storefront/e2e/`), vérifier le build de production, committer, merger/pousser
+>   sur `main`, puis rejouer les tests contre staging et production réels (exclure tout
+>   test qui mute une vraie commande/panier des runs de production).
+
+### Les 6 maquettes (artifacts claude.ai)
+
+| Page | URL | Statut |
+|---|---|---|
+| Accueil | https://claude.ai/code/artifact/f4a7c57d-c941-4050-aa76-096ac933512f | ✅ fait, vérifié prod |
+| Catalogue | https://claude.ai/code/artifact/06fbcabb-fe70-43d9-b6b7-cb0516c1b2f5 | ✅ fait, vérifié prod |
+| Panier | https://claude.ai/code/artifact/5427c142-92a4-4835-b34d-ecc382aef3d9 | 🔍 audité, pas implémenté |
+| Fiche produit | https://claude.ai/code/artifact/e00b18ea-ea99-42af-89b1-68fbcb8311b0 | 🔍 audité, pas implémenté |
+| Mon compte | https://claude.ai/code/artifact/e19ba19e-3eda-406e-a072-7e99d85a60d9 | 🔍 audité, pas implémenté |
+| Paiement | https://claude.ai/code/artifact/8c2e9351-4406-4bca-9c91-d924326fe349 | ❌ lien mort (404 confirmé 2×, 2026-08-31) — redemander l'URL au propriétaire avant de traiter cette page |
+
+Il existe aussi un 7e artifact, `2fdb5ee1-d8ed-4b9e-aaa9-7fc4e3e9285b` (« Golden Market »,
+sans suffixe) — probablement une vue d'ensemble/design system, jamais ouvert pendant
+cette session, à vérifier si utile.
+
+**Note sur l'outil `Artifact`** : `action: "read"` et `action: "list"` sur ce compte ont
+été intermittents toute la session (parfois « No published artifacts yet. », parfois une
+vraie erreur d'accès « public reader »), sans lien avec un vrai changement côté serveur -
+pas la peine de perdre du temps à retenter plus de 2-3 fois. Le contournement fiable est
+la capture d'écran via le navigateur Chrome (`mcp__claude-in-chrome__*`, déjà connecté à
+la bonne session claude.ai) : `navigate` vers l'URL de l'artifact puis
+`computer` (screenshot). Limite connue : l'iframe de rendu de la maquette bloque tout
+scroll/clic/JS synthétique (sandboxing cross-origin volontaire) - un seul viewport est
+donc capturable par capture, pas la page complète ; zoomer/dézoomer le navigateur avant
+la capture peut aider à voir plus de contenu d'un coup si besoin.
+
+### Écarts déjà identifiés (Panier, Fiche produit, Mon compte) — à implémenter
+
+**Panier** (`apps/storefront/src/modules/cart/...`) :
+- Fil d'Ariane (breadcrumb) manquant.
+- Titre H1 doit inclure le compte réel d'articles, ex. « Panier (3 articles) ».
+- Steppers de quantité (boutons −/+) à vérifier/construire (existant à confirmer avant
+  de recoder).
+- Bouton de suppression avec icône poubelle + libellé « Retirer » (style à aligner sur
+  la maquette).
+- Champ code promo affiché directement sur la page panier (actuellement seulement au
+  checkout, si présent du tout - à vérifier s'il existe un vrai mécanisme de code promo
+  côté Medusa avant de construire un champ qui ne ferait rien de réel).
+- Carte récapitulatif : titre « Récapitulatif », détail Sous-total/Livraison/Total, CTA
+  « Passer la commande », lien « Continuer mes achats ».
+- Le panneau `CartDropdown` (`apps/storefront/src/modules/layout/components/cart-dropdown/index.tsx`)
+  contient encore du texte anglais résiduel du scaffold (Cart / Subtotal (excl. taxes) /
+  Go to cart / Quantity: / Remove / Your shopping bag is empty.) — jamais corrigé, à
+  traiter en même temps que la page Panier puisque le contenu de la maquette diffère.
+
+**Fiche produit** (`apps/storefront/src/modules/products/...`) :
+- Fil d'Ariane manquant.
+- Texte « Économisez X FCFA » : réel et calculable à partir de
+  `calculated_price.original_amount` vs `calculated_amount` (même mécanisme que le badge
+  de remise du Catalogue, déjà branché dans `get-product-price.ts`) — à construire, pas
+  fabriqué.
+- Rangée de badges de confiance (Orange Money / Livraison Burkina Faso / Assistance
+  WhatsApp) : contenu statique légitime (infos réelles déjà utilisées ailleurs dans le
+  code, ex. `ORANGE_MONEY_NUMBER`/`ORANGE_MONEY_NAME`), à construire.
+- Nouvelle section accordéon « Paiement Orange Money » : contenu réel/statique, à
+  construire.
+- Bouton d'ajout au panier combiné avec le prix, ex. « Ajouter au panier · 12 000 FCFA ».
+- **Ne pas construire** : les swatches de couleur (le produit réel n'a qu'une seule
+  variante, pas d'option couleur) ni les 3 puces marketing (« ✓ Suivi du sommeil... »,
+  aucune source de données réelle) — signaler ces deux écarts à l'utilisateur plutôt que
+  d'inventer du contenu.
+
+**Mon compte** (`apps/storefront/src/modules/account/...`, `/account/*`) :
+- Fil d'Ariane manquant.
+- Icônes sur la nav latérale du compte, à ajouter.
+- Bannière de bienvenue avec « Cliente depuis [mois année] » — calculable depuis
+  `customer.created_at`, à construire.
+- Bouton « Modifier mon profil ».
+- Section « COMMANDES RÉCENTES » avec cartes de commande. **Attention** : les badges de
+  statut de la maquette (« Livrée » / « En livraison » / « Paiement reçu ») doivent être
+  mappés depuis les vrais champs Medusa (`fulfillment_status`, `payment_status`) —
+  vérifier la correspondance réelle des valeurs avant de coder le mapping, ne pas
+  inventer de statuts qui n'existent pas côté Medusa.
+- Carte résumé de l'adresse de livraison par défaut.
+- Les pages `/account/*` actuelles sont encore globalement le scaffold non stylé — c'est
+  une vraie refonte de page complète, pas un correctif ponctuel.
+
+**Footer (transversal, toutes les pages)** : le footer actuellement en place
+(`apps/storefront/src/modules/layout/templates/footer/index.tsx`, colonnes
+Catégories/Collections/Légal, ajoutées en session du 2026-08-30) ne correspond pas à la
+structure vue sur les maquettes Panier et Mon compte : celles-ci montrent un footer avec
+tagline + 3 colonnes Boutique/Aide/Contact, et de vrais numéros de contact (WhatsApp
+« +226 61 85 37 37 », téléphone « +226 64 94 73 73 », email `commandes@golden-market.co`
+déjà utilisé sur les pages Confidentialité/CGV). À reconstruire pour matcher la maquette
+tout en gardant les liens légaux déjà ajoutés (Politique de confidentialité / CGV) quelque
+part dans la nouvelle structure — ne pas les perdre au passage.
+
+### Ordre de travail suggéré
+
+1. Confirmer/récupérer l'URL de la maquette Paiement auprès du propriétaire (lien mort).
+2. Reconstruire le footer commun (impacte toutes les pages, autant le faire une fois).
+3. Panier, puis Fiche produit, puis Mon compte, puis Paiement — un commit par page,
+   vérifié comme décrit dans les règles ci-dessus avant de passer à la suivante.
 
 ## Statut par phase
 
