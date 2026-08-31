@@ -4,8 +4,15 @@
 # via docker-compose.prod.yml, avec les vrais secrets de l'environnement ciblé.
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY . .
+
+# Manifestes d'abord : la couche `npm ci` n'est ré-exécutée que si les
+# dépendances changent réellement, pas à chaque modification de code source.
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY apps/storefront/package.json apps/storefront/package.json
 RUN npm ci
+
+COPY . .
 WORKDIR /app/apps/backend
 RUN npm run build
 WORKDIR /app/apps/backend/.medusa/server

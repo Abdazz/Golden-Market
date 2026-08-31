@@ -4,8 +4,19 @@
 # distincts par environnement - voir docker-compose.prod.yml).
 FROM node:20-alpine
 WORKDIR /app
-COPY . .
+
+# Manifestes d'abord : la couche `npm ci` n'est ré-exécutée que si les
+# dépendances changent réellement (package-lock.json ou un package.json de
+# workspace), pas à chaque modification de code source. Sur ce VPS partagé le
+# cache de couches BuildKit ne survit pas toujours entre deux déploiements,
+# mais quand il survit c'est cette couche (la plus longue) qui est réutilisée.
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY apps/storefront/package.json apps/storefront/package.json
 RUN npm ci
+
+COPY . .
+
 ARG NEXT_PUBLIC_MEDUSA_BACKEND_URL
 ARG NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_DEFAULT_REGION
