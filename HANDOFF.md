@@ -59,19 +59,47 @@ Commits sur `staging` (pas encore sur `main`) :
   quantité (- n +), champ code promo affiché d'emblée, traduction du texte anglais
   résiduel du CartDropdown, masquage de la variante "Default Title".
 
-**Reste à faire dans cette session ou la suivante :**
-1. Attendre le déploiement `staging` (poussé à 16h07 GMT env., ~40-60 min) et vérifier
-   les 6 pages sur `https://staging.golden-market.co`.
-2. `git checkout main && git merge staging --ff-only && git push origin main` -> une
-   seule promotion prod ; re-vérifier sur `https://golden-market.co`.
-3. Signaler au propriétaire les écarts assumés : puces marketing + pastilles couleur de
+**État au 2026-08-31 ~17h05 GMT :**
+1. ✅ Déploiement `staging` réussi (42 min). Les 5 pages front vérifiées à l'écran sur
+   `https://staging.golden-market.co` (Accueil, Catalogue, Fiche produit, Panier,
+   Paiement) : conformes. `/account` non vérifiable en ligne (voir bug ci-dessous), mais
+   code vérifié en dev local.
+2. ✅ `staging` mergé dans `main` (fast-forward, 7 commits `bf3c78f..658780d`) et poussé.
+   **Déploiement production en cours** (poussé ~17h05 GMT). À re-vérifier sur
+   `https://golden-market.co` quand il est terminé.
+3. À signaler au propriétaire — écarts assumés : puces marketing + pastilles couleur de
    la fiche produit (pas de données réelles), "Charger plus" remplacé par pagination
    numérique, liens footer "Aide" (Paiement OM / Livraison) pointant vers les CGV faute
    de pages dédiées.
-4. **Bug infra repéré (hors périmètre maquettes)** : sur prod, un chunk JS de
-   `account/@dashboard` renvoie 404 après déploiement (référence de hash périmée). À
-   creuser côté service des fichiers `_next/static` par Apache / cache. Non bloquant
-   (rechargement corrige).
+
+### BUG BLOQUANT (pré-existant, hors périmètre maquettes) : /account cassé en prod ET staging
+
+Toutes les pages `/{cc}/account*` affichent « Application error: a client-side exception
+has occurred » (écran blanc). Cause : `ChunkLoadError` sur les chunks des slots de
+routes parallèles Next `account/@dashboard/page-*.js` et `account/@login/page-*.js`.
+
+**Diagnostic (fait cette session) :**
+- Le navigateur demande `.../_next/static/chunks/app/%5BcountryCode%5D/(main)/account/%40dashboard/page-<hash>.js`
+  (le `@` du dossier de slot encodé en `%40`). Apache renvoie **404**.
+- Le même chemin (`%5BcountryCode%5D`, `(main)`) **sans** `%40` — ex. `.../store/page-<hash>.js`
+  — renvoie **200**. Donc c'est bien le `%40` (`@`) qui pose problème.
+- `next start` lancé **en local** sur le build de prod sert le chemin encodé `%40` avec
+  **200** (le `@` littéral, lui, renvoie 404). Donc `next start` est correct.
+- Conclusion : le reverse-proxy **Apache** devant le conteneur dé-canonicalise / décode
+  le `%40` avant de proxyfier, `next start` reçoit un `@` littéral et renvoie 404.
+
+**Correctif probable (à appliquer sur le VPS, accès SSH `admin@144.91.110.105`) :**
+ajouter l'option `nocanon` à la directive `ProxyPass` des vhosts staging **et** prod du
+storefront (transmet le chemin brut non décodé au backend) :
+```
+ProxyPass        / http://127.0.0.1:<port-storefront>/ nocanon
+ProxyPassReverse / http://127.0.0.1:<port-storefront>/
+```
+puis `sudo apache2ctl configtest && sudo apache2ctl graceful`. Vérifier ensuite
+`curl -s -o /dev/null -w '%{http_code}' 'https://.../\_next/static/chunks/app/%5BcountryCode%5D/(main)/account/%40dashboard/page-<hash>.js'` -> doit passer à 200, et
+`/bf/account` doit afficher le formulaire de connexion sans écran blanc.
+Ce bug **n'est pas** causé par les commits de conformité (prod le présentait déjà avec
+`bf3c78f` seul) et la promotion prod ne l'aggrave pas.
 
 ### Notes techniques de session (dev local)
 - Ports de dev réels : backend **9002**, storefront **8002** (pas 9001/8001 - ceux-là
