@@ -1,5 +1,6 @@
 "use client"
 
+import { CONTACT } from "@lib/contact"
 import Back from "@modules/common/icons/back"
 import FastDelivery from "@modules/common/icons/fast-delivery"
 import Refresh from "@modules/common/icons/refresh"
@@ -14,12 +15,16 @@ type ProductTabsProps = {
 const ProductTabs = ({ product }: ProductTabsProps) => {
   const tabs = [
     {
-      label: "Informations produit",
-      component: <ProductInfoTab product={product} />,
+      label: "Description",
+      component: <DescriptionTab product={product} />,
     },
     {
       label: "Livraison et retours",
       component: <ShippingInfoTab />,
+    },
+    {
+      label: "Paiement Orange Money",
+      component: <OrangeMoneyTab />,
     },
   ]
 
@@ -41,47 +46,18 @@ const ProductTabs = ({ product }: ProductTabsProps) => {
   )
 }
 
-const ProductInfoTab = ({ product }: ProductTabsProps) => {
+const DescriptionTab = ({ product }: ProductTabsProps) => {
   return (
-    <div className="text-small-regular py-8">
-      <div className="grid grid-cols-2 gap-x-8">
-        <div className="flex flex-col gap-y-4">
-          <div>
-            <span className="font-semibold">Matériau</span>
-            <p>{product.material ? product.material : "-"}</p>
-          </div>
-          <div>
-            <span className="font-semibold">Pays d&apos;origine</span>
-            <p>{product.origin_country ? product.origin_country : "-"}</p>
-          </div>
-          <div>
-            <span className="font-semibold">Type</span>
-            <p>{product.type ? product.type.value : "-"}</p>
-          </div>
-        </div>
-        <div className="flex flex-col gap-y-4">
-          <div>
-            <span className="font-semibold">Poids</span>
-            <p>{product.weight ? `${product.weight} g` : "-"}</p>
-          </div>
-          <div>
-            <span className="font-semibold">Dimensions</span>
-            <p>
-              {product.length && product.width && product.height
-                ? `${product.length}L x ${product.width}W x ${product.height}H`
-                : "-"}
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="py-4 text-sm leading-relaxed whitespace-pre-line">
+      {product.description || "Aucune description fournie pour ce produit."}
     </div>
   )
 }
 
 const ShippingInfoTab = () => {
   return (
-    <div className="text-small-regular py-8">
-      <div className="grid grid-cols-1 gap-y-8">
+    <div className="py-4">
+      <div className="grid grid-cols-1 gap-y-6 text-sm">
         <div className="flex items-start gap-x-2">
           <FastDelivery />
           <div>
@@ -114,6 +90,32 @@ const ShippingInfoTab = () => {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+const OrangeMoneyTab = () => {
+  return (
+    <div className="py-4 text-sm leading-relaxed flex flex-col gap-2">
+      <p>
+        Le paiement se fait par transfert Orange Money, sans carte bancaire.
+        À la dernière étape de la commande, vous recevez le numéro et le
+        montant exact à envoyer.
+      </p>
+      <p>
+        Une fois le transfert effectué, votre commande est confirmée dès que
+        notre équipe reçoit le paiement. Une question ? Écrivez-nous sur
+        WhatsApp au{" "}
+        <a
+          href={CONTACT.whatsapp.href}
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-gm-violet hover:underline"
+        >
+          {CONTACT.whatsapp.display}
+        </a>
+        .
+      </p>
     </div>
   )
 }

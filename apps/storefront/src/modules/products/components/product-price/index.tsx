@@ -1,6 +1,5 @@
-import { clx } from "@modules/common/components/ui"
-
 import { getProductPrice } from "@lib/util/get-product-price"
+import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 
 export default function ProductPrice({
@@ -18,39 +17,43 @@ export default function ProductPrice({
   const selectedPrice = variant ? variantPrice : cheapestPrice
 
   if (!selectedPrice) {
-    return <div className="block w-32 h-9 bg-gray-100 animate-pulse" />
+    return <div className="block w-32 h-9 bg-gm-ivoire-2 animate-pulse rounded" />
   }
 
+  const isSale = selectedPrice.price_type === "sale"
+  const saved =
+    isSale && selectedPrice.original_price_number
+      ? selectedPrice.original_price_number -
+        selectedPrice.calculated_price_number
+      : 0
+
   return (
-    <div className="flex flex-col text-ui-fg-base">
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <span
-        className={clx("text-xl-semi", {
-          "text-ui-fg-interactive": selectedPrice.price_type === "sale",
-        })}
+        className="font-display font-extrabold text-3xl text-gm-violet tabular-nums"
+        data-testid="product-price"
+        data-value={selectedPrice.calculated_price_number}
       >
-        {!variant && "From "}
-        <span
-          data-testid="product-price"
-          data-value={selectedPrice.calculated_price_number}
-        >
-          {selectedPrice.calculated_price}
-        </span>
+        {selectedPrice.calculated_price}
       </span>
-      {selectedPrice.price_type === "sale" && (
+      {isSale && (
         <>
-          <p>
-            <span className="text-ui-fg-subtle">Original: </span>
-            <span
-              className="line-through"
-              data-testid="original-product-price"
-              data-value={selectedPrice.original_price_number}
-            >
-              {selectedPrice.original_price}
-            </span>
-          </p>
-          <span className="text-ui-fg-interactive">
-            -{selectedPrice.percentage_diff}%
+          <span
+            className="text-base text-gm-ink-muted line-through tabular-nums"
+            data-testid="original-product-price"
+            data-value={selectedPrice.original_price_number}
+          >
+            {selectedPrice.original_price}
           </span>
+          {saved > 0 && (
+            <span className="text-[12.5px] font-bold text-gm-terracotta">
+              Économisez{" "}
+              {convertToLocale({
+                amount: saved,
+                currency_code: selectedPrice.currency_code,
+              })}
+            </span>
+          )}
         </>
       )}
     </div>

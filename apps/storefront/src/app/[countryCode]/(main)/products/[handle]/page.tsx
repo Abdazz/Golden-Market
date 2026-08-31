@@ -118,7 +118,13 @@ export default async function ProductPage(props: Props) {
 
   const pricedProduct = await listProducts({
     countryCode: params.countryCode,
-    queryParams: { handle },
+    queryParams: {
+      handle,
+      // Champs par défaut de listProducts + les catégories, nécessaires au
+      // fil d'Ariane de la fiche produit ("Accueil / <catégorie> / <titre>").
+      fields:
+        "*variants.calculated_price,+variants.inventory_quantity,*variants.images,*variants.options,+metadata,+tags,*categories",
+    },
   }).then(({ response }) => response.products[0])
 
   const images = getImagesForVariant(pricedProduct, selectedVariantId)

@@ -2,6 +2,7 @@
 
 import { addToCart } from "@lib/data/cart"
 import { useIntersection } from "@lib/hooks/use-in-view"
+import { getProductPrice } from "@lib/util/get-product-price"
 import { HttpTypes } from "@medusajs/types"
 import { Button } from "@modules/common/components/ui"
 import Divider from "@modules/common/components/divider"
@@ -38,6 +39,7 @@ export default function ProductActions({
 
   const [options, setOptions] = useState<Record<string, string | undefined>>({})
   const [isAdding, setIsAdding] = useState(false)
+  const [quantity, setQuantity] = useState(1)
   const countryCode = useParams().countryCode as string
 
   // If there is only 1 variant, preselect the options
@@ -128,12 +130,19 @@ export default function ProductActions({
 
     await addToCart({
       variantId: selectedVariant.id,
-      quantity: 1,
+      quantity,
       countryCode,
     })
 
     setIsAdding(false)
   }
+
+  const { variantPrice, cheapestPrice } = getProductPrice({
+    product,
+    variantId: selectedVariant?.id,
+  })
+  const priceLabel = (selectedVariant ? variantPrice : cheapestPrice)
+    ?.calculated_price
 
   return (
     <>
@@ -162,26 +171,56 @@ export default function ProductActions({
 
         <ProductPrice product={product} variant={selectedVariant} />
 
-        <Button
-          onClick={handleAddToCart}
-          disabled={
-            !inStock ||
-            !selectedVariant ||
-            !!disabled ||
-            isAdding ||
-            !isValidVariant
-          }
-          variant="primary"
-          className="w-full h-10"
-          isLoading={isAdding}
-          data-testid="add-product-button"
-        >
-          {!selectedVariant && !options
-            ? "Sélectionnez une variante"
-            : !inStock || !isValidVariant
-            ? "Rupture de stock"
-            : "Ajouter au panier"}
-        </Button>
+        <div className="flex items-stretch gap-3">
+          <div className="flex items-center rounded-full border border-gm-border overflow-hidden shrink-0">
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              disabled={quantity <= 1 || isAdding}
+              className="w-9 h-10 bg-gm-ivoire-2 text-gm-ink text-lg disabled:opacity-40"
+              aria-label="Diminuer la quantité"
+            >
+              −
+            </button>
+            <span
+              className="w-9 text-center font-bold text-sm tabular-nums"
+              data-testid="product-quantity"
+            >
+              {quantity}
+            </span>
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+              disabled={quantity >= 99 || isAdding}
+              className="w-9 h-10 bg-gm-ivoire-2 text-gm-ink text-lg disabled:opacity-40"
+              aria-label="Augmenter la quantité"
+            >
+              +
+            </button>
+          </div>
+          <Button
+            onClick={handleAddToCart}
+            disabled={
+              !inStock ||
+              !selectedVariant ||
+              !!disabled ||
+              isAdding ||
+              !isValidVariant
+            }
+            variant="primary"
+            className="flex-1 h-10"
+            isLoading={isAdding}
+            data-testid="add-product-button"
+          >
+            {!selectedVariant && !options
+              ? "Sélectionnez une variante"
+              : !inStock || !isValidVariant
+              ? "Rupture de stock"
+              : priceLabel
+              ? `Ajouter au panier · ${priceLabel}`
+              : "Ajouter au panier"}
+          </Button>
+        </div>
         <MobileActions
           product={product}
           variant={selectedVariant}
