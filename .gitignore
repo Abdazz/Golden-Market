@@ -95,3 +95,9 @@ catalogue*.png
 compte*.png
 fiche*.png
 paiement*.png
+
+# Captures de verification visuelle locales (non versionnees)
+stg-*.png
+prod-*.png
+*-v2.png
+*-v3.png

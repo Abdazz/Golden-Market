@@ -16,6 +16,23 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-08-31 (soir) - **Conformité aux 6 maquettes claude.ai : TERMINÉ, en prod, vérifié.**
+Les 6 pages (Accueil, Catalogue, Fiche produit, Mon compte, Paiement, Panier) + les
+correctifs transverses sont sur `main` et déployées sur `https://golden-market.co`,
+chacune vérifiée à l'écran (voir capture par capture plus bas). `main == staging`.
+Bug bloquant `/account` (écran blanc, `ChunkLoadError` sur les slots de routes
+parallèles) : **résolu** — c'était Apache qui décodait le `%40` avant de proxyfier,
+corrigé par `nocanon` sur `ProxyPass /` des deux vhosts `-le-ssl.conf` (fait par le
+propriétaire en SSH). Enfin, les workflows de déploiement ont été accélérés
+(`d82f153`) : `paths-ignore` (pushs 100 % doc = aucun déploiement), reconstruction
+conditionnelle backend/storefront selon le `git diff`, et Dockerfiles réorganisés
+(manifestes copiés avant `npm ci`). Un déploiement à froid est passé de ~40-46 min à
+~20 min ; un push doc ou storefront-seul est bien plus rapide encore. **Rien en
+attente.** Écarts assumés listés plus bas (puces marketing + pastilles couleur fiche
+produit, "Charger plus" -> pagination numérique, liens footer Aide -> CGV).
+
+--- entrée précédente ---
+
 2026-08-31 (après-midi) - **Conformité aux 6 maquettes claude.ai : les 6 pages
 implémentées et vérifiées en local, en cours de déploiement.** Le propriétaire a
 signalé qu'Accueil et Catalogue n'étaient en fait pas conformes non plus (contrairement
@@ -59,18 +76,24 @@ Commits sur `staging` (pas encore sur `main`) :
   quantité (- n +), champ code promo affiché d'emblée, traduction du texte anglais
   résiduel du CartDropdown, masquage de la variante "Default Title".
 
-**État au 2026-08-31 ~17h05 GMT :**
-1. ✅ Déploiement `staging` réussi (42 min). Les 5 pages front vérifiées à l'écran sur
-   `https://staging.golden-market.co` (Accueil, Catalogue, Fiche produit, Panier,
-   Paiement) : conformes. `/account` non vérifiable en ligne (voir bug ci-dessous), mais
-   code vérifié en dev local.
-2. ✅ `staging` mergé dans `main` (fast-forward, 7 commits `bf3c78f..658780d`) et poussé.
-   **Déploiement production en cours** (poussé ~17h05 GMT). À re-vérifier sur
-   `https://golden-market.co` quand il est terminé.
-3. À signaler au propriétaire — écarts assumés : puces marketing + pastilles couleur de
+**État final au 2026-08-31 ~20h00 GMT — TOUT EN PROD ET VÉRIFIÉ :**
+1. ✅ Les 6 pages + correctifs transverses sur `main`, déployées sur
+   `https://golden-market.co`. Vérifiées à l'écran une par une (Accueil hero 2 col +
+   visuel, Catalogue breadcrumb + toolbar, Fiche produit 2 col + accordéon, Panier
+   steppers + promo, Paiement en-tête complet + formulaire FR, Mon compte formulaire
+   de connexion sans erreur console). `main == staging == d82f153`.
+2. ✅ Bug `/account` résolu (`nocanon` Apache) — chunks `%40dashboard` / `%40login`
+   -> 200 sur prod et staging, page rendue.
+3. ✅ Workflows de déploiement accélérés (`d82f153`, commit ci-dessous dans le journal).
+4. Écarts assumés (rappelés au propriétaire) : puces marketing + pastilles couleur de
    la fiche produit (pas de données réelles), "Charger plus" remplacé par pagination
    numérique, liens footer "Aide" (Paiement OM / Livraison) pointant vers les CGV faute
    de pages dédiées.
+5. Piste non retenue cette session : `generateStaticParams` sur `/products/[handle]`
+   pré-rend ~260 pages produit à chaque `next build` (le plus gros du temps de build).
+   Passer en rendu à la demande / ISR le réduirait fortement (compromis : 1er hit par
+   fiche = rendu serveur au lieu de statique). À décider si les temps de build
+   redeviennent gênants.
 
 ### ✅ RÉSOLU 2026-08-31 17h26 GMT — /account cassé en prod ET staging (pré-existant)
 
@@ -450,6 +473,46 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-08-31 (conformité aux 6 maquettes, bout en bout jusqu'en prod)** - Le
+  propriétaire signale qu'Accueil et Catalogue ne sont pas conformes non plus, contrairement
+  au prompt de reprise : toutes les pages sont (re)traitées. Les 6 maquettes lues via
+  `Artifact action:"read"` (fonctionne malgré des intermittences ; le "lien mort" de
+  Paiement était un faux positif). Stack de dev locale relancée (backend 9002, storefront
+  8002, Postgres 5440). 8 commits sur `staging` : `bf3c78f` transverse (format prix
+  "15 000 FCFA" via `money.ts` fr-FR + branche XOF, footer maquette + `lib/contact.ts`,
+  logo recadré `logo-mark-*.png`, icônes de rayon SVG, badge "Nouveau" retiré),
+  `207ca84` Accueil, `6fe6372` Catalogue + pages catégorie/collection (composant
+  `Breadcrumb` partagé, `StoreToolbar`), `7a98394` Fiche produit (2 col, `ProductTrust`,
+  accordéon Paiement OM), `d371783` Mon compte, `883c271` Paiement (en-tête site complet
+  sur le tunnel, correction bug "null null" de l'étape adresse, traduction du formulaire),
+  `3261730` Panier, + commits doc. Chaque page : build prod OK + 10/10 Playwright en
+  local (échecs "Rupture de stock" intermittents = bruit HMR, pas des régressions ;
+  redémarrer le dev proprement) + vérif visuelle. Cadence : tout sur `staging`, une
+  seule promotion `main` à la fin (déploiements VPS à froid = 40-46 min).
+  - **Bug bloquant trouvé pendant la vérif staging** : `/account*` = écran blanc
+    « Application error », `ChunkLoadError` sur `account/@dashboard|@login/page-*.js`.
+    Pré-existant (prod le présentait déjà avec `bf3c78f` seul), pas une régression.
+    Diagnostic : le navigateur demande le chunk avec `%40` (le `@` du slot de route
+    parallèle Next encodé) ; Apache renvoie 404 alors que le même chemin sans `%40` passe,
+    et `next start` en local sert le `%40` en 200. Conclusion : Apache décanonicalise le
+    `%40` avant de proxyfier. **Corrigé** par `nocanon` sur `ProxyPass /` des vhosts
+    `/etc/apache2/sites-available/{golden-market.co,staging.golden-market.co}-le-ssl.conf`
+    (fait par le propriétaire en SSH), `apache2ctl graceful`. Vérifié : chunks -> 200,
+    `/bf/account` rend le formulaire de connexion, 0 erreur console, prod et staging.
+  - **Accélération des déploiements** (`d82f153`) : `paths-ignore` (`**.md`, `docs/**`,
+    `.gitignore`, `.claude/**`, `LICENSE`) -> un push 100 % doc ne déclenche aucun
+    déploiement ; le script SSH calcule via `git diff BEFORE..AFTER` s'il faut
+    reconstruire le backend (et lancer les 5 étapes migrate/seed) et/ou le storefront
+    (`next build`), sinon `exit 0` ; Dockerfiles backend + storefront réorganisés
+    (copie des seuls `package.json` + `package-lock.json` avant `npm ci`, puis
+    `COPY . .`). Constat au passage : un déploiement dont le contexte Docker ne change
+    pas (ex. push doc-seul, `.dockerignore` exclut déjà `*.md`) et dont le cache de
+    couches a survécu passe en ~3 min ; les 40 min sont les déploiements à cache froid
+    (le VPS partagé évince le cache entre deux déploiements espacés). Déploiement à froid
+    observé après la refonte : ~20 min.
+  - **Résultat** : 6 pages conformes en prod et vérifiées à l'écran, `/account`
+    réparé, CI accélérée. `main == staging`.
 
 - **2026-08-30 (midi, conformité maquette Catalogue)** - Accès aux artifacts claude.ai rétabli
   après reconnexion du compte Chrome (le blocage précédent était lié à un changement de compte
