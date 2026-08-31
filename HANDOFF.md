@@ -16,12 +16,80 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
-2026-08-31 - **Session dédiée à l'audit de conformité aux 6 maquettes claude.ai coupée
-pour cause de contexte trop long.** Voir la section « Prompt de reprise — conformité
-maquettes » juste après ce bloc pour repartir proprement dans une nouvelle session :
-elle contient les 6 URLs de maquettes, l'état exact (Accueil et Catalogue faits, 3
-maquettes auditées mais pas encore implémentées, 1 maquette avec lien mort), et la
-liste précise des écarts déjà identifiés à construire ou à signaler.
+2026-08-31 (après-midi) - **Conformité aux 6 maquettes claude.ai : les 6 pages
+implémentées et vérifiées en local, en cours de déploiement.** Le propriétaire a
+signalé qu'Accueil et Catalogue n'étaient en fait pas conformes non plus (contrairement
+au prompt de reprise) - toutes les pages ont donc été (re)traitées. Cadence choisie par
+le propriétaire : tout enchaîner sur `staging` (chaque page vérifiée en local + build
+prod + 10/10 Playwright), puis **une seule** promotion `staging` -> `main` à la fin
+(les déploiements VPS prennent 40-60 min pièce en ce moment). Le lien de la maquette
+Paiement n'était pas mort : `Artifact action:"read"` fonctionne (intermittences de
+l'outil, pas du serveur).
+
+Commits sur `staging` (pas encore sur `main`) :
+- `bf3c78f` Correctifs transverses : format prix "15 000 FCFA" (`money.ts` en fr-FR +
+  branche XOF), footer refait selon maquette (Boutique/Aide/Contact + vrais numéros,
+  `lib/contact.ts`), logo recadré sur la pastille (`logo-mark-*.png`), icônes de rayon
+  SVG, badge "Nouveau" retiré (catalogue importé le même jour -> apparaissait partout).
+  **Déjà mergé sur `main` et déployé en prod (vérifié).**
+- `207ca84` Accueil : hero 2 colonnes + visuel décoratif (vrai produit, jamais de
+  fausse remise), bandeau de confiance avec icônes, sur-titre "Rayons", suppression du
+  faux traitement "promo" terracotta sur la 1re collection.
+- `6fe6372` Catalogue + pages catégorie/collection : composant `Breadcrumb` partagé,
+  barre d'outils (nombre de résultats + menu de tri déroulant), tri sorti de la barre
+  latérale, pages catégorie/collection repassées en gm-*. Pagination numérique
+  conservée (écart assumé vs "Charger plus").
+- `7a98394` Fiche produit : vraie mise en page 2 colonnes, fil d'Ariane catégorie,
+  prix Baloo + "Économisez X" (si vraie promo), sélecteur de quantité + bouton
+  "Ajouter au panier · <prix>", bandeau de réassurance, accordéon Description /
+  Livraison / **Paiement Orange Money**. **Non construits** (à signaler / décider) :
+  puces marketing "Suivi du sommeil..." (aucune source de données) et pastilles de
+  couleur (produits mono-variante).
+- `d371783` Mon compte : fil d'Ariane, icônes sur la nav latérale, "Membre depuis
+  <mois année>" (neutre, pas "Cliente"), bouton "Modifier mon profil", carte adresse
+  par défaut en pointillés, statut "En livraison" ajouté à OrderCard, correction de 2
+  liens morts du formulaire d'inscription, retrait de la carte "/customer-service".
+- `883c271` Paiement : le gabarit `(checkout)/layout` affiche l'en-tête violet complet
+  + footer du site (comme la maquette), fil d'Ariane "Accueil / Panier / Paiement" +
+  titre "Finaliser ma commande", carte renommée "Votre commande", correction du bug
+  "null null" de l'étape adresse (panier avec `shipping_address` vide), traduction des
+  libellés de formulaire restés en anglais. Sélecteur E2E du moyen de paiement rendu
+  précis (le footer contient aussi "Paiement Orange Money").
+- `3261730` Panier : fil d'Ariane, titre "Mon panier (N articles)", sélecteur de
+  quantité (- n +), champ code promo affiché d'emblée, traduction du texte anglais
+  résiduel du CartDropdown, masquage de la variante "Default Title".
+
+**Reste à faire dans cette session ou la suivante :**
+1. Attendre le déploiement `staging` (poussé à 16h07 GMT env., ~40-60 min) et vérifier
+   les 6 pages sur `https://staging.golden-market.co`.
+2. `git checkout main && git merge staging --ff-only && git push origin main` -> une
+   seule promotion prod ; re-vérifier sur `https://golden-market.co`.
+3. Signaler au propriétaire les écarts assumés : puces marketing + pastilles couleur de
+   la fiche produit (pas de données réelles), "Charger plus" remplacé par pagination
+   numérique, liens footer "Aide" (Paiement OM / Livraison) pointant vers les CGV faute
+   de pages dédiées.
+4. **Bug infra repéré (hors périmètre maquettes)** : sur prod, un chunk JS de
+   `account/@dashboard` renvoie 404 après déploiement (référence de hash périmée). À
+   creuser côté service des fichiers `_next/static` par Apache / cache. Non bloquant
+   (rechargement corrige).
+
+### Notes techniques de session (dev local)
+- Ports de dev réels : backend **9002**, storefront **8002** (pas 9001/8001 - ceux-là
+  et 9000/8000 sont pris par d'autres conteneurs). `apps/backend/.env` : `PORT=9002`,
+  `DATABASE_URL` sur `localhost:5440` (Postgres remappé via
+  `docker-compose.override.yml`). `apps/storefront/.env.local` cible 9002/8002.
+- Le script `storefront:dev` force `-p 8000` (occupé) : lancer
+  `npx next dev --turbopack -p 8002` directement depuis `apps/storefront`.
+- **Ne jamais lancer `npm run build` pendant qu'un `next dev` tourne** : ils partagent
+  `.next/`, le build écrase les manifestes du serveur de dev -> 500 ENOENT
+  `_buildManifest.js.tmp` sur toutes les pages. Arrêter le dev, `rm -rf .next`, build,
+  puis relancer le dev.
+- Échecs Playwright intermittents "Rupture de stock" / "2 add-product-button" après une
+  rafale d'éditions : c'est du bruit HMR (l'état `inStock` du client passe faux avant
+  résolution de la variante), **pas** une régression. Redémarrer le dev proprement
+  (`rm -rf .next`), le préchauffer (curl des routes clés), puis relancer -> 10/10.
+- La variante réelle des produits est "Default Title" (`manage_inventory: false` -> jamais
+  en rupture). Le "Rupture de stock" observé était toujours un artefact d'hydratation.
 
 2026-08-30 (midi) - Conformité maquette "Golden Market · Catalogue" (page `/store` "Tous les
 produits") : le filtre de la barre latérale ("Filtrer par Size/Color") a été remplacé par un
@@ -163,16 +231,17 @@ pour reprendre exactement où l'audit s'est arrêté.
 
 | Page | URL | Statut |
 |---|---|---|
-| Accueil | https://claude.ai/code/artifact/f4a7c57d-c941-4050-aa76-096ac933512f | ✅ fait, vérifié prod |
-| Catalogue | https://claude.ai/code/artifact/06fbcabb-fe70-43d9-b6b7-cb0516c1b2f5 | ✅ fait, vérifié prod |
-| Panier | https://claude.ai/code/artifact/5427c142-92a4-4835-b34d-ecc382aef3d9 | 🔍 audité, pas implémenté |
-| Fiche produit | https://claude.ai/code/artifact/e00b18ea-ea99-42af-89b1-68fbcb8311b0 | 🔍 audité, pas implémenté |
-| Mon compte | https://claude.ai/code/artifact/e19ba19e-3eda-406e-a072-7e99d85a60d9 | 🔍 audité, pas implémenté |
-| Paiement | https://claude.ai/code/artifact/8c2e9351-4406-4bca-9c91-d924326fe349 | ❌ lien mort (404 confirmé 2×, 2026-08-31) — redemander l'URL au propriétaire avant de traiter cette page |
+| Accueil | https://claude.ai/code/artifact/f4a7c57d-c941-4050-aa76-096ac933512f | ✅ implémenté sur `staging` (commit `207ca84`), en attente de promotion prod |
+| Catalogue | https://claude.ai/code/artifact/06fbcabb-fe70-43d9-b6b7-cb0516c1b2f5 | ✅ implémenté sur `staging` (`6fe6372`), en attente prod |
+| Panier | https://claude.ai/code/artifact/5427c142-92a4-4835-b34d-ecc382aef3d9 | ✅ implémenté sur `staging` (`3261730`), en attente prod |
+| Fiche produit | https://claude.ai/code/artifact/e00b18ea-ea99-42af-89b1-68fbcb8311b0 | ✅ implémenté sur `staging` (`7a98394`), en attente prod — 2 écarts assumés signalés |
+| Mon compte | https://claude.ai/code/artifact/e19ba19e-3eda-406e-a072-7e99d85a60d9 | ✅ implémenté sur `staging` (`d371783`), en attente prod |
+| Paiement | https://claude.ai/code/artifact/8c2e9351-4406-4bca-9c91-d924326fe349 | ✅ implémenté sur `staging` (`883c271`), en attente prod — lien PAS mort (lisible via `Artifact`) |
 
-Il existe aussi un 7e artifact, `2fdb5ee1-d8ed-4b9e-aaa9-7fc4e3e9285b` (« Golden Market »,
-sans suffixe) — probablement une vue d'ensemble/design system, jamais ouvert pendant
-cette session, à vérifier si utile.
+Le 7e artifact `2fdb5ee1-d8ed-4b9e-aaa9-7fc4e3e9285b` (« Golden Market ») est le **design
+system** : palette (Violet `#332871`, Améthyste `#6E5CC4`, Or `#E7A92E`, Terracotta
+`#C85A1D`, Ivoire `#FAF6EE`, Encre `#211B3D`), typo Baloo 2 (titres) + Inter (texte),
+composants boutons/badges/cartes. Déjà reflété dans `tokens.css` / `tailwind.config.js`.
 
 **Note sur l'outil `Artifact`** : `action: "read"` et `action: "list"` sur ce compte ont
 été intermittents toute la session (parfois « No published artifacts yet. », parfois une
