@@ -5,19 +5,15 @@ import { useCallback, useMemo, useState } from "react"
 
 import { CATEGORY_ID_QUERY_KEY, parseCategoryIds } from "@lib/util/category-filters"
 import CategoryFilter from "./category-filter"
-import SortProducts, { SortOptions } from "./sort-products"
 
 type RefinementListProps = {
-  sortBy: SortOptions
   search?: boolean
   hideOptionsPicker?: boolean
   "data-testid"?: string
 }
 
 const RefinementList = ({
-  sortBy,
   hideOptionsPicker = false,
-  "data-testid": dataTestId,
 }: RefinementListProps) => {
   const router = useRouter()
   const pathname = usePathname()
@@ -44,9 +40,6 @@ const RefinementList = ({
     [pathname, router, searchParams]
   )
 
-  const setQueryParams = (name: string, value: string) =>
-    updateQueryParams((params) => params.set(name, value))
-
   const selectedCategoryIds = useMemo(
     () => parseCategoryIds(searchParams),
     [searchParams]
@@ -62,6 +55,12 @@ const RefinementList = ({
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
+  // Pages catégorie / collection : le périmètre est déjà fixé par l'URL,
+  // pas de filtre latéral à afficher.
+  if (hideOptionsPicker) {
+    return null
+  }
+
   return (
     <>
       <button
@@ -74,11 +73,6 @@ const RefinementList = ({
       </button>
 
       <div className="hidden small:flex small:flex-col small:w-60 small:sticky small:top-24 gap-6">
-        <SortProducts
-          sortBy={sortBy}
-          setQueryParams={setQueryParams}
-          data-testid={dataTestId}
-        />
         {!hideOptionsPicker && (
           <CategoryFilter
             selectedCategoryIds={selectedCategoryIds}
@@ -107,11 +101,6 @@ const RefinementList = ({
               </button>
             </div>
             <div className="flex flex-col gap-6">
-              <SortProducts
-                sortBy={sortBy}
-                setQueryParams={setQueryParams}
-                data-testid={dataTestId}
-              />
               {!hideOptionsPicker && (
                 <CategoryFilter
                   selectedCategoryIds={selectedCategoryIds}

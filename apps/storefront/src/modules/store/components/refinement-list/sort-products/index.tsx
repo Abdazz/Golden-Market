@@ -1,7 +1,5 @@
 "use client"
 
-import FilterRadioGroup from "@modules/common/components/filter-radio-group"
-
 export type SortOptions = "price_asc" | "price_desc" | "created_at"
 
 type SortProductsProps = {
@@ -10,38 +8,37 @@ type SortProductsProps = {
   "data-testid"?: string
 }
 
-const sortOptions = [
-  {
-    value: "created_at",
-    label: "Plus recents",
-  },
-  {
-    value: "price_asc",
-    label: "Prix croissant",
-  },
-  {
-    value: "price_desc",
-    label: "Prix decroissant",
-  },
+const sortOptions: { value: SortOptions; label: string }[] = [
+  { value: "created_at", label: "Plus récents" },
+  { value: "price_asc", label: "Prix croissant" },
+  { value: "price_desc", label: "Prix décroissant" },
 ]
 
+// Sélecteur de tri sous forme de menu déroulant, comme la maquette
+// ("Golden Market · Catalogue" : bouton "Trier : ... v" en haut à droite),
+// au lieu de la liste de boutons radio de la barre latérale du scaffold.
 const SortProducts = ({
   "data-testid": dataTestId,
   sortBy,
   setQueryParams,
 }: SortProductsProps) => {
-  const handleChange = (value: string) => {
-    setQueryParams("sortBy", value as SortOptions)
-  }
-
   return (
-    <FilterRadioGroup
-      title="Trier par"
-      items={sortOptions}
-      value={sortBy}
-      handleChange={handleChange}
-      data-testid={dataTestId}
-    />
+    <label className="inline-flex items-center gap-2 rounded-lg border border-gm-border bg-white px-3.5 py-2 text-sm font-semibold text-gm-ink cursor-pointer">
+      <span className="text-gm-ink-muted">Trier :</span>
+      <select
+        value={sortBy}
+        onChange={(e) => setQueryParams("sortBy", e.target.value)}
+        className="bg-transparent font-semibold text-gm-ink outline-none cursor-pointer"
+        data-testid={dataTestId}
+        aria-label="Trier les produits"
+      >
+        {sortOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 

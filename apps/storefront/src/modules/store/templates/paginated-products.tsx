@@ -4,6 +4,7 @@ import { OptionValueIds } from "@lib/util/product-option-filters"
 import ProductPreview from "@modules/products/components/product-preview"
 import { Pagination } from "@modules/store/components/pagination"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
+import StoreToolbar from "@modules/store/components/store-toolbar"
 
 const PRODUCT_LIMIT = 12
 
@@ -73,9 +74,11 @@ export default async function PaginatedProducts({
   })
 
   const totalPages = Math.ceil(count / PRODUCT_LIMIT)
+  const shown = Math.min(page * PRODUCT_LIMIT, count)
 
   return (
     <>
+      <StoreToolbar sortBy={sortBy ?? "created_at"} count={count} shown={shown} />
       <ul
         className="grid grid-cols-2 w-full small:grid-cols-3 medium:grid-cols-4 gap-x-6 gap-y-8"
         data-testid="products-list"
