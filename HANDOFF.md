@@ -72,9 +72,21 @@ Commits sur `staging` (pas encore sur `main`) :
    numérique, liens footer "Aide" (Paiement OM / Livraison) pointant vers les CGV faute
    de pages dédiées.
 
-### BUG BLOQUANT (pré-existant, hors périmètre maquettes) : /account cassé en prod ET staging
+### ✅ RÉSOLU 2026-08-31 17h26 GMT — /account cassé en prod ET staging (pré-existant)
 
-Toutes les pages `/{cc}/account*` affichent « Application error: a client-side exception
+**Corrigé** : option `nocanon` ajoutée à `ProxyPass /` dans
+`/etc/apache2/sites-available/golden-market.co-le-ssl.conf` (prod, cert lineage
+`golden-market.co-0001`) et `staging.golden-market.co-le-ssl.conf` (staging), puis
+`sudo apache2ctl configtest && sudo apache2ctl graceful` (+ `service apache2 restart`).
+Après coup, les chunks `account/%40dashboard/page-*.js` et `%40login/page-*.js`
+renvoient **200** sur prod ET staging, et `/bf/account` affiche le formulaire de
+connexion (0 erreur console). Fait par le propriétaire en SSH pendant la session.
+Le correctif Apache est indépendant du déploiement storefront : il a résolu prod
+immédiatement, avant même que le déploiement de conformité n'y soit arrivé.
+
+Historique / diagnostic ci-dessous pour mémoire.
+
+Toutes les pages `/{cc}/account*` affichaient « Application error: a client-side exception
 has occurred » (écran blanc). Cause : `ChunkLoadError` sur les chunks des slots de
 routes parallèles Next `account/@dashboard/page-*.js` et `account/@login/page-*.js`.
 
