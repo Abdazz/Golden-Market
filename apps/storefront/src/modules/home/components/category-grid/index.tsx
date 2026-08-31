@@ -1,6 +1,7 @@
 import { listCategories } from "@lib/data/categories"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { Heading } from "@modules/common/components/ui"
+import CategoryIcon from "./category-icon"
 
 const CategoryGrid = async () => {
   const categories = await listCategories()
@@ -33,8 +34,8 @@ const CategoryGrid = async () => {
             href={`/categories/${category.handle}`}
             className="flex flex-col items-center gap-2.5 rounded-2xl border border-gm-border bg-white px-2 py-[1.125rem] text-center hover:border-gm-gold hover:-translate-y-0.5 transition-transform"
           >
-            <span className="flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-full bg-gm-violet text-gm-gold text-lg font-bold">
-              {category.name.charAt(0).toUpperCase()}
+            <span className="flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-full bg-gm-violet text-gm-gold">
+              <CategoryIcon handle={category.handle} />
             </span>
             <span className="text-xs font-semibold text-gm-ink leading-tight">
               {category.name}

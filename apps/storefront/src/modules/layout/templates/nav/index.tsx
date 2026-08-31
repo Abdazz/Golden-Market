@@ -41,11 +41,11 @@ export default async function Nav() {
               data-testid="nav-store-link"
             >
               <Image
-                src="/logo/logo-white.png"
+                src="/logo/logo-mark-white.png"
                 alt="Golden Market"
-                width={140}
+                width={44}
                 height={44}
-                className="h-9 w-auto"
+                className="h-[42px] w-auto"
                 priority
               />
             </LocalizedClientLink>

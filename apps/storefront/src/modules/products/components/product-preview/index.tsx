@@ -6,19 +6,6 @@ import Thumbnail from "../thumbnail"
 import PreviewPrice from "./price"
 import QuickAddButton from "./quick-add-button"
 
-// Un produit compte comme "Nouveau" pendant ses 14 premiers jours - signal
-// réel basé sur created_at, pas une valeur éditoriale inventée.
-const NEW_PRODUCT_WINDOW_DAYS = 14
-
-const isRecentlyAdded = (createdAt?: string | null) => {
-  if (!createdAt) {
-    return false
-  }
-  const ageInDays =
-    (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
-  return ageInDays <= NEW_PRODUCT_WINDOW_DAYS
-}
-
 export default async function ProductPreview({
   product,
   region: _region,
@@ -31,7 +18,6 @@ export default async function ProductPreview({
   })
 
   const isSale = cheapestPrice?.price_type === "sale"
-  const isNew = !isSale && isRecentlyAdded(product.created_at)
   // La carte ne peut ajouter au panier directement que pour un produit à
   // variante unique (pas de sélection d'option possible depuis la grille) -
   // le cas de tout le catalogue réel importé (voir import-catalog.ts).
@@ -51,11 +37,6 @@ export default async function ProductPreview({
             className="absolute top-2.5 left-2.5 z-10"
           >
             -{cheapestPrice.percentage_diff}%
-          </Badge>
-        )}
-        {isNew && (
-          <Badge color="gold" className="absolute top-2.5 left-2.5 z-10">
-            Nouveau
           </Badge>
         )}
         <Thumbnail

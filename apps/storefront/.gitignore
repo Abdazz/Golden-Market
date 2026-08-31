@@ -1,0 +1,8 @@
+
+# Captures Playwright / screenshots de vérification visuelle (locaux, non versionnés)
+.playwright-mcp/
+/apps/storefront/.playwright-mcp/
+/apps/storefront/test-results/
+*-accueil.png
+*-catalogue.png
+header-zoom*.png

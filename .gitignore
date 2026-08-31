@@ -81,3 +81,10 @@ backups/
 **/playwright-report/
 **/blob-report/
 **/playwright/.cache/
+
+# Captures de vérification visuelle locales
+*-accueil.png
+*-catalogue.png
+header-zoom*.png
+shared-*.png
+.playwright-mcp/
