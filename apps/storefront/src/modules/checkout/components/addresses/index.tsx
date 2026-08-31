@@ -24,7 +24,17 @@ const Addresses = ({
   const router = useRouter()
   const pathname = usePathname()
 
-  const isOpen = searchParams.get("step") === "address"
+  const step = searchParams.get("step")
+  // Une adresse n'est "renseignée" que si les champs clés sont réellement
+  // remplis - Medusa attache un objet shipping_address vide au panier, qui
+  // sinon faisait passer l'étape en "terminée" avec un résumé "null null".
+  const addressComplete = !!(
+    cart?.shipping_address?.first_name &&
+    cart?.shipping_address?.address_1 &&
+    cart?.shipping_address?.city
+  )
+  const isOpen =
+    step === "address" || (step === null && !addressComplete)
 
   const { state: sameAsBilling, toggle: toggleSameAsBilling } = useToggleState(
     cart?.shipping_address && cart?.billing_address
@@ -39,18 +49,25 @@ const Addresses = ({
   const [message, formAction] = useActionState(setAddresses, null)
 
   const summary =
-    !isOpen && cart?.shipping_address
-      ? `${cart.shipping_address.first_name} ${cart.shipping_address.last_name} - ${cart.shipping_address.address_1}, ${cart.shipping_address.city}`
+    !isOpen && addressComplete
+      ? [
+          `${cart!.shipping_address!.first_name} ${cart!.shipping_address!.last_name}`.trim(),
+          cart!.shipping_address!.address_1,
+          cart!.shipping_address!.city,
+          cart!.shipping_address!.phone,
+        ]
+          .filter(Boolean)
+          .join(" · ")
       : undefined
 
   return (
     <div className="rounded-2xl border border-gm-border bg-white p-5 small:p-6">
       <StepHeader
         step={1}
-        title="Adresse"
-        status={isOpen ? "active" : cart?.shipping_address ? "completed" : "disabled"}
+        title="Adresse de livraison"
+        status={isOpen ? "active" : addressComplete ? "completed" : "disabled"}
         summary={summary}
-        onEdit={!isOpen && cart?.shipping_address ? handleEdit : undefined}
+        onEdit={!isOpen && addressComplete ? handleEdit : undefined}
         editTestId="edit-address-button"
         summaryTestId="shipping-address-summary"
       />

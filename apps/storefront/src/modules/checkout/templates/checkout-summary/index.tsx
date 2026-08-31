@@ -8,7 +8,7 @@ const CheckoutSummary = ({ cart }: { cart: HttpTypes.StoreCart }) => {
   return (
     <div className="small:sticky small:top-8 h-fit rounded-2xl border border-gm-border bg-white p-5 small:p-6 flex flex-col gap-y-6">
       <Heading level="h2" className="text-xl">
-        Récapitulatif de commande
+        Votre commande
       </Heading>
       <ItemsPreviewTemplate cart={cart} />
       <CartTotals totals={cart} />

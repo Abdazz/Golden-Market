@@ -45,7 +45,12 @@ test.describe("Parcours d'achat complet (Orange Money)", () => {
     })
 
     await test.step("Choisir Orange Money et voir les instructions de paiement", async () => {
-      await page.getByText("Orange Money").click()
+      // Sélecteur précis : la page de paiement affiche désormais le footer
+      // complet, qui contient aussi un lien "Paiement Orange Money".
+      await page
+        .getByTestId("checkout-container")
+        .getByText("Orange Money", { exact: true })
+        .click()
       await expect(page.getByTestId("orange-money-instructions")).toBeVisible()
       // Le numéro Orange Money diffère par environnement (ORANGE_MONEY_NUMBER
       // dans apps/backend/.env) - on vérifie le nom du titulaire, constant
