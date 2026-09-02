@@ -16,6 +16,12 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-02 (soir) - **Import du lot de 11 nouveaux produits terminé** (voir entrée
+ci-dessous) ; **prompt de reprise écrit** pour le sujet suivant, observabilité +
+statistiques de visite (rien construit ni conçu, self-hosted uniquement, priorité
+« Statistiques de visite d'abord » — voir la section « Prompt de reprise —
+observabilité et statistiques de visite » plus bas).
+
 2026-09-02 (soir) - **11 nouveaux produits importés (lot 2026-09) sur staging + prod.**
 Fichier source `Golden_Market_New_products.xlsx` (fourni par le propriétaire, copié dans
 `catalog-data/` des deux environnements). Scripts dédiés dans
@@ -326,6 +332,9 @@ Phase 0, faussait les options de livraison proposées pour la région BF).
 
 ## Prompt de reprise — conformité aux maquettes (2026-08-31)
 
+**✅ Terminé et promu en production (2026-09-02)** — conservé ci-dessous pour référence
+historique (détail des écarts trouvés/corrigés), plus la peine de reprendre ce prompt.
+
 Copier-coller le bloc ci-dessous en premier message d'une nouvelle session Claude Code
 pour reprendre exactement où l'audit s'est arrêté.
 
@@ -448,6 +457,71 @@ part dans la nouvelle structure — ne pas les perdre au passage.
 2. Reconstruire le footer commun (impacte toutes les pages, autant le faire une fois).
 3. Panier, puis Fiche produit, puis Mon compte, puis Paiement — un commit par page,
    vérifié comme décrit dans les règles ci-dessus avant de passer à la suivante.
+
+## Prompt de reprise — observabilité et statistiques de visite (2026-09-02)
+
+Copier-coller le bloc ci-dessous en premier message d'une nouvelle session Claude Code
+pour reprendre exactement où la discussion s'est arrêtée. **Rien n'est encore construit
+ni même conçu** : seule une classification de priorité a été actée avec le propriétaire,
+le brainstorming a été interrompu avant d'aller plus loin.
+
+> Reprends le sujet observabilité/statistiques de visite pour Golden Market, resté en
+> suspens depuis le 2026-09-02 (interrompu par le lot d'import de 11 nouveaux produits,
+> lui-même terminé et promu en prod — voir le journal du 2026-09-02 juste en dessous).
+> Lis d'abord `HANDOFF.md` en entier (cette section + le journal du 2026-09-02) et
+> `AGENTS.md`. Ce sujet est un **nouveau sous-système** (pas un correctif borné) : invoque
+> la skill `superpowers:brainstorming` et suis son chemin « architectural » en entier
+> (questions de cadrage, 2-3 approches avec compromis, design section par section,
+> spec écrite dans `docs/superpowers/specs/`, revue, puis `writing-plans`) — ne saute
+> aucune étape sous prétexte que le sujet a l'air simple.
+>
+> **Contexte déjà établi, à ne pas re-découvrir :**
+> - Le propriétaire a demandé quelle techno avait été ajoutée à la stack pour (a)
+>   l'observabilité applicative (traces/erreurs backend) et (b) les statistiques de
+>   visite (nombre de vues, pages visitées, etc.) côté storefront. Réponse : **aucune des
+>   deux n'existe aujourd'hui.** `apps/backend/instrumentation.ts` contient le scaffold
+>   Medusa/OpenTelemetry par défaut mais entièrement commenté (jamais activé, aucun
+>   exporter choisi) ; le storefront Next.js n'a aucun tracking de visite, ni SaaS ni
+>   maison.
+> - **Contrainte explicite et non négociable du propriétaire : self-hosted uniquement.**
+>   Aucune solution SaaS (pas de Google Analytics, pas de Plausible/Umami/Sentry en mode
+>   cloud, pas de Vercel Analytics, etc.) — seules des solutions qui tournent sur le VPS
+>   du projet sont acceptables.
+> - Face à deux besoins possibles (observabilité backend type erreurs/traces, et
+>   statistiques de visite storefront), le propriétaire a tranché l'ordre :
+>   **« Statistiques de visite d'abord »**. Traiter ce sous-projet avant l'observabilité
+>   backend, qui reste un besoin réel mais différé (à re-proposer une fois les stats de
+>   visite conçues/livrées, pas avant).
+> - Une tentative d'installer un MCP Medusa pour faciliter l'accès à la doc a été
+>   explorée puis abandonnée : le seul MCP disponible (`plugin:medusa-dev:MedusaDocs`)
+>   exige un compte Medusa Cloud (HTTP 402 sinon) ; le propriétaire a confirmé ne pas
+>   vouloir de Medusa Cloud. L'entrée de config inutilisée a été retirée. **Le backend
+>   self-hosted n'a pas de serveur MCP natif** — ne pas re-proposer cette piste sans
+>   nouvelle info.
+> - Aucune approche (outil précis, schéma de données, granularité, rétention, RGPD/vie
+>   privée pour une clientèle burkinabè, etc.) n'a été discutée ni tranchée — tout reste
+>   à cadrer depuis zéro dans le brainstorming. Ne pas présumer d'un outil (ex. ne pas
+>   partir du principe qu'il faut Umami/Plausible self-hosted sans l'avoir proposé et
+>   fait choisir).
+> - **Marge VPS à respecter dans le dimensionnement** (mesurée le 2026-09-02, à
+>   revérifier au moment de concevoir — les 11 nouveaux produits/images l'ont un peu
+>   entamée) : ~5,8 Gio de RAM disponible sur 11 Gio, ~32 Gio d'espace disque libre sur
+>   197 Gio (84 % utilisé). Le VPS héberge déjà `staging` + `production` (Postgres,
+>   Redis, backend, storefront ×2) sur la même machine — toute solution ajoutée
+>   (conteneur supplémentaire, base de données dédiée, etc.) doit rester légère.
+>
+> **Règles déjà établies dans ce projet à respecter sans redemander :**
+> - Ne jamais fabriquer de fausses données ni de métriques inventées — construire le
+>   vrai mécanisme de collecte, sinon signaler l'écart plutôt que d'inventer.
+> - Toujours committer sur `staging` d'abord, jamais directement sur `main`
+>   (`git checkout staging` → commit → `git checkout main` → `git merge staging
+>   --ff-only` → `git push origin main`).
+> - Jamais de trailer `Co-Authored-By: Claude` dans les commits.
+> - Commentaires, messages de commit, documentation : en français.
+> - Vérification visuelle obligatoire (Playwright + captures d'écran réelles) une fois
+>   l'implémentation commencée — des bugs réels ont déjà été manqués sans ce passage.
+> - Accès SSH VPS déjà en place : `ssh admin@144.91.110.105` (fonctionne en non
+>   interactif avec `BatchMode=yes`).
 
 ## Statut par phase
 
