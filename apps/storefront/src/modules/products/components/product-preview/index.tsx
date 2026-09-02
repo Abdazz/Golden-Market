@@ -1,4 +1,5 @@
 import { getProductPrice } from "@lib/util/get-product-price"
+import { getFreeShippingBadgeLabel } from "@lib/util/free-shipping"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { Badge } from "@modules/common/components/ui"
@@ -18,6 +19,7 @@ export default async function ProductPreview({
   })
 
   const isSale = cheapestPrice?.price_type === "sale"
+  const freeShippingBadge = getFreeShippingBadgeLabel(product)
   // La carte ne peut ajouter au panier directement que pour un produit à
   // variante unique (pas de sélection d'option possible depuis la grille) -
   // le cas de tout le catalogue réel importé (voir import-catalog.ts).
@@ -53,6 +55,11 @@ export default async function ProductPreview({
         {!inStock && singleVariant && (
           <Badge color="grey" className="absolute top-2.5 left-2.5 z-10">
             Rupture de stock
+          </Badge>
+        )}
+        {freeShippingBadge && (
+          <Badge color="gold" className="absolute top-2.5 right-2.5 z-10">
+            {freeShippingBadge}
           </Badge>
         )}
         <Thumbnail

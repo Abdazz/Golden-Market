@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { CONTACT } from "@lib/contact"
 import Back from "@modules/common/icons/back"
 import FastDelivery from "@modules/common/icons/fast-delivery"
@@ -7,6 +8,10 @@ import Refresh from "@modules/common/icons/refresh"
 
 import Accordion from "./accordion"
 import { HttpTypes } from "@medusajs/types"
+
+// Nombre de caractères affichés avant troncature de la description produit
+// (palier 2 du backlog du 2026-09-02 : dépliée par défaut, "Lire plus" au-delà).
+const DESCRIPTION_TRUNCATE_LENGTH = 220
 
 type ProductTabsProps = {
   product: HttpTypes.StoreProduct
@@ -30,7 +35,7 @@ const ProductTabs = ({ product }: ProductTabsProps) => {
 
   return (
     <div className="w-full">
-      <Accordion type="multiple">
+      <Accordion type="multiple" defaultValue={["Description"]}>
         {tabs.map((tab, i) => (
           <Accordion.Item
             key={i}
@@ -47,9 +52,27 @@ const ProductTabs = ({ product }: ProductTabsProps) => {
 }
 
 const DescriptionTab = ({ product }: ProductTabsProps) => {
+  const [expanded, setExpanded] = useState(false)
+  const description = product.description || "Aucune description fournie pour ce produit."
+  const isTruncatable = description.length > DESCRIPTION_TRUNCATE_LENGTH
+
+  const shownText =
+    isTruncatable && !expanded
+      ? `${description.slice(0, DESCRIPTION_TRUNCATE_LENGTH).trimEnd()}…`
+      : description
+
   return (
     <div className="py-4 text-sm leading-relaxed whitespace-pre-line">
-      {product.description || "Aucune description fournie pour ce produit."}
+      {shownText}
+      {isTruncatable && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="ml-1 font-semibold text-gm-violet hover:underline"
+        >
+          {expanded ? "Réduire" : "Lire plus…"}
+        </button>
+      )}
     </div>
   )
 }
@@ -61,10 +84,12 @@ const ShippingInfoTab = () => {
         <div className="flex items-start gap-x-2">
           <FastDelivery />
           <div>
-            <span className="font-semibold">Livraison au Burkina Faso</span>
+            <span className="font-semibold">Livraison partout au Burkina Faso</span>
             <p className="max-w-sm">
-              Votre colis est expédié depuis Ouagadougou jusqu&apos;à votre
-              adresse ou votre point de retrait.
+              Si vous êtes à Ouagadougou, nous vous livrons à domicile
+              gratuitement en fonction du produit. Si vous êtes dans une
+              autre ville, votre colis est expédié depuis Ouagadougou via la
+              compagnie de transport de votre choix.
             </p>
           </div>
         </div>
@@ -81,11 +106,11 @@ const ShippingInfoTab = () => {
         <div className="flex items-start gap-x-2">
           <Back />
           <div>
-            <span className="font-semibold">Retours faciles</span>
+            <span className="font-semibold">Satisfait ou remboursé</span>
             <p className="max-w-sm">
-              Retournez-nous simplement votre produit, nous vous remboursons.
-              Aucune question posée, on fait le maximum pour que ce soit sans
-              tracas.
+              Retournez-nous simplement votre produit, nous vous remboursons
+              intégralement. Contactez-nous sur WhatsApp pour lancer un
+              retour, sans question posée.
             </p>
           </div>
         </div>

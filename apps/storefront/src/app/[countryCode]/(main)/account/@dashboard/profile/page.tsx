@@ -9,8 +9,8 @@ import { listRegions } from "@lib/data/regions"
 import { retrieveCustomer } from "@lib/data/customer"
 
 export const metadata: Metadata = {
-  title: "Profile",
-  description: "View and edit your Golden Market profile.",
+  title: "Profil",
+  description: "Consultez et modifiez votre profil Golden Market.",
 }
 
 export default async function Profile() {

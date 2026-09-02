@@ -19,6 +19,11 @@ const ImageGallery = ({ images }: ImageGalleryProps) => {
   }
 
   const main = images[Math.min(active, images.length - 1)]
+  const hasMultiple = images.length > 1
+
+  const showPrevious = () =>
+    setActive((i) => (i - 1 + images.length) % images.length)
+  const showNext = () => setActive((i) => (i + 1) % images.length)
 
   return (
     <div className="flex flex-col gap-3">
@@ -32,6 +37,30 @@ const ImageGallery = ({ images }: ImageGalleryProps) => {
             fill
             sizes="(max-width: 992px) 100vw, 560px"
           />
+        )}
+        {hasMultiple && (
+          <>
+            <button
+              type="button"
+              onClick={showPrevious}
+              aria-label="Image précédente"
+              className="absolute left-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gm-ink shadow hover:bg-white"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={showNext}
+              aria-label="Image suivante"
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gm-ink shadow hover:bg-white"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          </>
         )}
       </div>
 

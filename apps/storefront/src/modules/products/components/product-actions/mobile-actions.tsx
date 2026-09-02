@@ -7,6 +7,7 @@ import ChevronDown from "@modules/common/icons/chevron-down"
 import X from "@modules/common/icons/x"
 
 import { getProductPrice } from "@lib/util/get-product-price"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import OptionSelect from "./option-select"
 import { HttpTypes } from "@medusajs/types"
 import { isSimpleProduct } from "@lib/util/product"
@@ -19,6 +20,7 @@ type MobileActionsProps = {
   inStock?: boolean
   handleAddToCart: () => void
   isAdding?: boolean
+  justAdded?: boolean
   show: boolean
   optionsDisabled: boolean
 }
@@ -31,6 +33,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
   inStock,
   handleAddToCart,
   isAdding,
+  justAdded,
   show,
   optionsDisabled,
 }) => {
@@ -102,6 +105,24 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                 <div></div>
               )}
             </div>
+            {justAdded ? (
+              <div className="grid grid-cols-2 w-full gap-x-4" data-testid="post-add-to-cart-actions">
+                <LocalizedClientLink
+                  href="/cart"
+                  className="w-full inline-flex items-center justify-center h-10 rounded-full bg-gm-gold text-gm-ink font-semibold"
+                  data-testid="view-cart-button"
+                >
+                  Voir le panier
+                </LocalizedClientLink>
+                <LocalizedClientLink
+                  href="/store"
+                  className="w-full inline-flex items-center justify-center h-10 rounded-full border border-gm-violet text-gm-violet font-semibold"
+                  data-testid="continue-shopping-button"
+                >
+                  Retour aux produits
+                </LocalizedClientLink>
+              </div>
+            ) : (
             <div className={clx("grid grid-cols-2 w-full gap-x-4", {
               "!grid-cols-1": isSimple
             })}>
@@ -134,6 +155,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                   : "Ajouter au panier"}
               </Button>
             </div>
+            )}
           </div>
         </Transition>
       </div>

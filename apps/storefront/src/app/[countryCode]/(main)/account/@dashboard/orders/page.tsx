@@ -7,8 +7,8 @@ import Divider from "@modules/common/components/divider"
 import TransferRequestForm from "@modules/account/components/transfer-request-form"
 
 export const metadata: Metadata = {
-  title: "Orders",
-  description: "Overview of your previous orders.",
+  title: "Commandes",
+  description: "Aperçu de vos commandes précédentes.",
 }
 
 export default async function Orders() {
