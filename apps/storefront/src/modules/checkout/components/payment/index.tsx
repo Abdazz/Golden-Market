@@ -1,6 +1,12 @@
 "use client"
 import { RadioGroup } from "@headlessui/react"
-import { isOrangeMoney, isStripeLike, paymentInfoMap } from "@lib/constants"
+import {
+  isCashOnDelivery,
+  isMoovMoney,
+  isOrangeMoney,
+  isStripeLike,
+  paymentInfoMap,
+} from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
 import { convertToLocale } from "@lib/util/money"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -9,7 +15,17 @@ import StepHeader from "@modules/checkout/components/step-header"
 import { Button, clx, Heading } from "@modules/common/components/ui"
 import { HttpTypes } from "@medusajs/types"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+
+// Le paiement à la réception n'a de sens que là où Golden Market livre
+// lui-même à domicile (Ouagadougou) - ailleurs, le colis passe par un
+// transporteur tiers qui ne peut pas encaisser pour le marchand (même
+// contrainte que le badge "Livraison gratuite" et la règle de livraison
+// gratuite conditionnelle). Comparaison tolérante à la casse et aux espaces
+// - le champ Ville reste une saisie libre (suggestions, pas une liste
+// fermée), voir checkout/components/shipping-address.
+const isOuagadougou = (city?: string | null) =>
+  (city ?? "").trim().toLowerCase() === "ouagadougou"
 
 const Payment = ({
   cart,
@@ -37,12 +53,20 @@ const Payment = ({
   const setPaymentMethod = async (method: string) => {
     setError(null)
     setSelectedPaymentMethod(method)
-    if (isStripeLike(method) || isOrangeMoney(method)) {
+    if (isStripeLike(method) || isOrangeMoney(method) || isMoovMoney(method)) {
       await initiatePaymentSession(cart, {
         provider_id: method,
       })
     }
   }
+
+  const filteredPaymentMethods = useMemo(
+    () =>
+      availablePaymentMethods?.filter(
+        (m) => !isCashOnDelivery(m.id) || isOuagadougou(cart.shipping_address?.city)
+      ),
+    [availablePaymentMethods, cart.shipping_address?.city]
+  )
 
   const paidByGiftcard = !!(
     (cart as unknown as Record<string, unknown>)?.gift_cards &&
@@ -98,11 +122,13 @@ const Payment = ({
   const summary =
     !isOpen && paymentReady && activeSession
       ? `${paymentInfoMap[activeSession.provider_id]?.title || activeSession.provider_id} - ${
-          isOrangeMoney(selectedPaymentMethod)
-            ? String(activeSession?.data?.phone_number ?? "Orange Money")
-            : isStripeLike(selectedPaymentMethod) && cardBrand
-              ? cardBrand
-              : "Détails à l'étape suivante"
+          isOrangeMoney(selectedPaymentMethod) || isMoovMoney(selectedPaymentMethod)
+            ? String(activeSession?.data?.phone_number ?? paymentInfoMap[activeSession.provider_id]?.title)
+            : isCashOnDelivery(selectedPaymentMethod)
+              ? "À la livraison"
+              : isStripeLike(selectedPaymentMethod) && cardBrand
+                ? cardBrand
+                : "Détails à l'étape suivante"
         }`
       : !isOpen && paidByGiftcard
         ? "Carte cadeau"
@@ -120,9 +146,9 @@ const Payment = ({
         summaryTestId="payment-method-summary"
       />
       <div className={clx("mt-6", { hidden: !isOpen })}>
-        {!paidByGiftcard && availablePaymentMethods?.length && (
+        {!paidByGiftcard && filteredPaymentMethods?.length && (
           <RadioGroup value={selectedPaymentMethod} onChange={(value: string) => setPaymentMethod(value)}>
-            {availablePaymentMethods.map((paymentMethod) => (
+            {filteredPaymentMethods.map((paymentMethod) => (
               <div key={paymentMethod.id}>
                 {isStripeLike(paymentMethod.id) ? (
                   <StripeCardContainer
@@ -151,34 +177,58 @@ const Payment = ({
           </p>
         )}
 
-        {isOrangeMoney(selectedPaymentMethod) && activeSession && (
+        {(isOrangeMoney(selectedPaymentMethod) || isMoovMoney(selectedPaymentMethod)) &&
+          activeSession && (
+            <div
+              className="mt-4 rounded-xl border-l-4 border-gm-violet bg-gm-ivoire-2 p-4 small:p-5"
+              data-testid="mobile-money-instructions"
+            >
+              <Heading level="h3" className="text-base mb-3">
+                Instructions de paiement{" "}
+                {isOrangeMoney(selectedPaymentMethod) ? "Orange Money" : "Moov Money"}
+              </Heading>
+              <div className="flex flex-col gap-1.5 text-sm text-gm-ink">
+                <p>
+                  Envoyez le montant total au numéro{" "}
+                  <span className="font-semibold">{String(activeSession.data?.phone_number ?? "")}</span>,
+                  titulaire{" "}
+                  <span className="font-semibold">
+                    {String(activeSession.data?.account_name ?? "Golden Market")}
+                  </span>
+                </p>
+                <p>
+                  Montant à envoyer :{" "}
+                  <span className="font-display font-bold text-base text-gm-violet">
+                    {convertToLocale({
+                      amount: cart.total ?? 0,
+                      currency_code: cart.currency_code ?? "XOF",
+                    })}
+                  </span>
+                </p>
+                <p className="text-gm-ink-muted">{String(activeSession.data?.note ?? "")}</p>
+              </div>
+            </div>
+          )}
+
+        {isCashOnDelivery(selectedPaymentMethod) && (
           <div
-            className="mt-4 rounded-xl border-l-4 border-gm-violet bg-gm-ivoire-2 p-4 small:p-5"
-            data-testid="orange-money-instructions"
+            className="mt-4 rounded-xl border-l-4 border-gm-gold bg-gm-ivoire-2 p-4 small:p-5"
+            data-testid="cash-on-delivery-instructions"
           >
             <Heading level="h3" className="text-base mb-3">
-              Instructions de paiement Orange Money
+              Paiement à la réception
             </Heading>
-            <div className="flex flex-col gap-1.5 text-sm text-gm-ink">
-              <p>
-                Envoyez le montant total au numéro{" "}
-                <span className="font-semibold">{String(activeSession.data?.phone_number ?? "")}</span>,
-                titulaire{" "}
-                <span className="font-semibold">
-                  {String(activeSession.data?.account_name ?? "Golden Market")}
-                </span>
-              </p>
-              <p>
-                Montant à envoyer :{" "}
-                <span className="font-display font-bold text-base text-gm-violet">
-                  {convertToLocale({
-                    amount: cart.total ?? 0,
-                    currency_code: cart.currency_code ?? "XOF",
-                  })}
-                </span>
-              </p>
-              <p className="text-gm-ink-muted">{String(activeSession.data?.note ?? "")}</p>
-            </div>
+            <p className="text-sm text-gm-ink">
+              Vous payez en espèces directement au livreur, à la réception de
+              votre colis. Montant à préparer :{" "}
+              <span className="font-display font-bold text-base text-gm-violet">
+                {convertToLocale({
+                  amount: cart.total ?? 0,
+                  currency_code: cart.currency_code ?? "XOF",
+                })}
+              </span>
+              .
+            </p>
           </div>
         )}
 

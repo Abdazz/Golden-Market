@@ -50,10 +50,11 @@ export default function TermsOfServicePage() {
             Paiement
           </Heading>
           <Text>
-            Le paiement s&apos;effectue exclusivement par Orange Money, par
-            transfert manuel au numéro indiqué lors du paiement. Votre
-            commande est traitée après confirmation de la réception du
-            paiement par le marchand.
+            Le paiement s&apos;effectue par transfert manuel Orange Money ou
+            Moov Money, au numéro indiqué lors du paiement, ou en espèces à
+            la réception de votre colis si vous êtes livré à Ouagadougou.
+            Pour un paiement Mobile Money, votre commande est traitée après
+            confirmation de la réception du paiement par le marchand.
           </Text>
         </section>
 

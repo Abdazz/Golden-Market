@@ -28,8 +28,8 @@ const ProductTabs = ({ product }: ProductTabsProps) => {
       component: <ShippingInfoTab />,
     },
     {
-      label: "Paiement Orange Money",
-      component: <OrangeMoneyTab />,
+      label: "Moyens de paiement",
+      component: <PaymentMethodsTab />,
     },
   ]
 
@@ -119,17 +119,19 @@ const ShippingInfoTab = () => {
   )
 }
 
-const OrangeMoneyTab = () => {
+const PaymentMethodsTab = () => {
   return (
     <div className="py-4 text-sm leading-relaxed flex flex-col gap-2">
       <p>
-        Le paiement se fait par transfert Orange Money, sans carte bancaire.
-        À la dernière étape de la commande, vous recevez le numéro et le
-        montant exact à envoyer.
+        Le paiement se fait par transfert Orange Money ou Moov Money, sans
+        carte bancaire — à la dernière étape de la commande, vous recevez le
+        numéro et le montant exact à envoyer. Si vous êtes à Ouagadougou,
+        vous pouvez aussi payer en espèces directement à la réception de
+        votre colis.
       </p>
       <p>
-        Une fois le transfert effectué, votre commande est confirmée dès que
-        notre équipe reçoit le paiement. Une question ? Écrivez-nous sur
+        Pour un paiement Mobile Money, votre commande est confirmée dès que
+        notre équipe reçoit le transfert. Une question ? Écrivez-nous sur
         WhatsApp au{" "}
         <a
           href={CONTACT.whatsapp.href}

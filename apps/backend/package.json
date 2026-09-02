@@ -20,6 +20,7 @@
     "import:catalog": "test -f ./src/scripts/import-catalog.ts && medusa exec ./src/scripts/import-catalog.ts || medusa exec ./src/scripts/import-catalog.js",
     "seed:region-bf": "test -f ./src/scripts/seed-region-bf.ts && medusa exec ./src/scripts/seed-region-bf.ts || medusa exec ./src/scripts/seed-region-bf.js",
     "seed:categories-bf": "test -f ./src/scripts/seed-categories-bf.ts && medusa exec ./src/scripts/seed-categories-bf.ts || medusa exec ./src/scripts/seed-categories-bf.js",
+    "payments:link-providers-bf": "test -f ./src/scripts/link-payment-providers-bf.ts && medusa exec ./src/scripts/link-payment-providers-bf.ts || medusa exec ./src/scripts/link-payment-providers-bf.js",
     "test:integration:http": "TEST_TYPE=integration:http NODE_OPTIONS=--experimental-vm-modules jest --silent=false --runInBand --forceExit",
     "test:integration:modules": "TEST_TYPE=integration:modules NODE_OPTIONS=--experimental-vm-modules jest --silent=false --runInBand --forceExit",
     "test:unit": "TEST_TYPE=unit NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit"

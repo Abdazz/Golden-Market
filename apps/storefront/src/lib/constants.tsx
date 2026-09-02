@@ -1,4 +1,4 @@
-import { CreditCard, Phone } from "@medusajs/icons"
+import { Cash, CreditCard, Phone } from "@medusajs/icons"
 import Bancontact from "@modules/common/icons/bancontact"
 import Ideal from "@modules/common/icons/ideal"
 import PayPal from "@modules/common/icons/paypal"
@@ -37,6 +37,14 @@ export const paymentInfoMap: Record<
     title: "Orange Money",
     icon: <Phone />,
   },
+  "pp_moov-money-manual_moov-money-manual": {
+    title: "Moov Money",
+    icon: <Phone />,
+  },
+  "pp_cash-on-delivery_cash-on-delivery": {
+    title: "Paiement à la réception",
+    icon: <Cash />,
+  },
   // Add more payment providers here
 }
 
@@ -56,6 +64,26 @@ export const isManual = (providerId?: string) => {
 
 export const isOrangeMoney = (providerId?: string) => {
   return providerId?.startsWith("pp_orange-money-manual")
+}
+
+export const isMoovMoney = (providerId?: string) => {
+  return providerId?.startsWith("pp_moov-money-manual")
+}
+
+export const isCashOnDelivery = (providerId?: string) => {
+  return providerId?.startsWith("pp_cash-on-delivery")
+}
+
+// Regroupe les trois providers manuels (aucune saisie de carte, capture
+// manuelle par le marchand dans l'admin) - utilisé pour le bouton générique
+// "Passer la commande" (payment-button) et le filtrage par ville.
+export const isManualPaymentMethod = (providerId?: string) => {
+  return (
+    isManual(providerId) ||
+    isOrangeMoney(providerId) ||
+    isMoovMoney(providerId) ||
+    isCashOnDelivery(providerId)
+  )
 }
 
 // Add currencies that don't need to be divided by 100

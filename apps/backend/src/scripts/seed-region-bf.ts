@@ -66,7 +66,11 @@ export default async function seedRegionBf({
           name: "Burkina Faso",
           currency_code: "xof",
           countries: ["bf"],
-          payment_providers: ["pp_orange-money-manual_orange-money-manual"],
+          payment_providers: [
+            "pp_orange-money-manual_orange-money-manual",
+            "pp_moov-money-manual_moov-money-manual",
+            "pp_cash-on-delivery_cash-on-delivery",
+          ],
         },
       ],
     },

@@ -28,7 +28,7 @@ const FAQ_ITEMS: { question: string; answer: React.ReactNode }[] = [
   {
     question: "Quels moyens de paiement acceptez-vous ?",
     answer:
-      "Le paiement s'effectue par Orange Money, par transfert manuel au numéro indiqué à la dernière étape de la commande. Votre commande est confirmée dès que nous recevons le paiement.",
+      "Le paiement s'effectue par transfert manuel Orange Money ou Moov Money, au numéro indiqué à la dernière étape de la commande, ou en espèces à la réception de votre colis si vous êtes livré à Ouagadougou. Pour un paiement Mobile Money, votre commande est confirmée dès que nous recevons le transfert.",
   },
   {
     question: "Livrez-vous partout au Burkina Faso ?",

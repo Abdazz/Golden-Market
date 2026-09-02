@@ -1,9 +1,21 @@
 import { Container, Heading, Text } from "@modules/common/components/ui"
 
-import { isOrangeMoney, isStripeLike, paymentInfoMap } from "@lib/constants"
+import {
+  isCashOnDelivery,
+  isMoovMoney,
+  isOrangeMoney,
+  isStripeLike,
+  paymentInfoMap,
+} from "@lib/constants"
 import Divider from "@modules/common/components/divider"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
+
+// Un seul et même provider "mobile money manuel" côté affichage : Orange
+// Money et Moov Money partagent exactement la même mécanique (numéro,
+// titulaire, note) - seul le titre change.
+const isMobileMoneyManual = (providerId?: string) =>
+  isOrangeMoney(providerId) || isMoovMoney(providerId)
 
 type PaymentDetailsProps = {
   order: HttpTypes.StoreOrder
@@ -42,30 +54,35 @@ const PaymentDetails = ({ order }: PaymentDetailsProps) => {
                 <Text data-testid="payment-amount">
                   {isStripeLike(payment.provider_id) && payment.data?.card_last4
                     ? `**** **** **** ${payment.data.card_last4}`
-                    : isOrangeMoney(payment.provider_id)
+                    : isMobileMoneyManual(payment.provider_id)
                       ? `${convertToLocale({
                           amount: payment.amount,
                           currency_code: order.currency_code,
                         })} en attente de confirmation`
-                      : `${convertToLocale({
-                          amount: payment.amount,
-                          currency_code: order.currency_code,
-                        })} payé le ${new Date(
-                          payment.created_at ?? ""
-                        ).toLocaleString("fr-FR")}`}
+                      : isCashOnDelivery(payment.provider_id)
+                        ? `${convertToLocale({
+                            amount: payment.amount,
+                            currency_code: order.currency_code,
+                          })} à régler à la livraison`
+                        : `${convertToLocale({
+                            amount: payment.amount,
+                            currency_code: order.currency_code,
+                          })} payé le ${new Date(
+                            payment.created_at ?? ""
+                          ).toLocaleString("fr-FR")}`}
                 </Text>
               </div>
             </div>
           </div>
         )}
 
-        {payment && isOrangeMoney(payment.provider_id) && (
+        {payment && isMobileMoneyManual(payment.provider_id) && (
           <div
             className="mt-4 rounded-lg border border-brand-primary p-4 bg-brand-secondary"
-            data-testid="orange-money-instructions"
+            data-testid="mobile-money-instructions"
           >
             <Text className="txt-medium-plus text-ui-fg-base mb-2">
-              Paiement par Orange Money
+              Paiement par {isOrangeMoney(payment.provider_id) ? "Orange Money" : "Moov Money"}
             </Text>
             <Text className="mb-2">
               Envoyez le montant total au numéro{" "}
@@ -79,6 +96,23 @@ const PaymentDetails = ({ order }: PaymentDetailsProps) => {
             </Text>
             <Text className="text-ui-fg-subtle">
               {String(payment.data?.note ?? "")}
+            </Text>
+          </div>
+        )}
+
+        {payment && isCashOnDelivery(payment.provider_id) && (
+          <div
+            className="mt-4 rounded-lg border border-brand-primary p-4 bg-brand-secondary"
+            data-testid="cash-on-delivery-instructions"
+          >
+            <Text className="txt-medium-plus text-ui-fg-base mb-2">
+              Paiement à la réception
+            </Text>
+            <Text className="text-ui-fg-subtle">
+              {String(
+                payment.data?.note ??
+                  "Vous payez en espèces directement à la réception de votre colis."
+              )}
             </Text>
           </div>
         )}

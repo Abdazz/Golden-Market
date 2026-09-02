@@ -12,7 +12,8 @@ const iconProps = {
 }
 
 // Bandeau de réassurance de la fiche produit (maquette "Golden Market ·
-// Fiche produit") : contenu statique réel (paiement Orange Money manuel,
+// Fiche produit") : contenu statique réel (moyens de paiement manuels
+// disponibles - Orange Money, Moov Money, paiement à la réception à Ouaga -,
 // expédition depuis Ouagadougou, assistance sur le WhatsApp de la marque).
 const ProductTrust = ({
   freeShippingNote,
@@ -51,7 +52,7 @@ const ProductTrust = ({
             <rect x="2" y="5" width="20" height="14" rx="2" />
             <path d="M2 10h20" />
           </svg>
-          <span className="text-gm-ink-muted">Orange Money</span>
+          <span className="text-gm-ink-muted">Mobile Money & à la livraison</span>
         </span>
         <span className="inline-flex items-center gap-2 text-gm-violet">
           <svg {...iconProps}>

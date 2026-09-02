@@ -13,8 +13,8 @@ const iconProps = {
 
 const items = [
   {
-    title: "Paiement Orange Money",
-    detail: "Simple et sécurisé, sans carte bancaire",
+    title: "Paiement flexible",
+    detail: "Orange Money, Moov Money ou à la réception (Ouaga)",
     icon: (
       <svg {...iconProps}>
         <rect x="2" y="5" width="20" height="14" rx="2" />

@@ -68,6 +68,19 @@ module.exports = defineConfig({
               account_name: process.env.ORANGE_MONEY_NAME,
             },
           },
+          {
+            resolve: './src/modules/moov-money-manual',
+            id: 'moov-money-manual',
+            options: {
+              phone_number: process.env.MOOV_MONEY_NUMBER,
+              account_name: process.env.MOOV_MONEY_NAME,
+            },
+          },
+          {
+            resolve: './src/modules/cash-on-delivery',
+            id: 'cash-on-delivery',
+            options: {},
+          },
         ],
       },
     },
