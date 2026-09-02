@@ -7,8 +7,8 @@ type Props = {
   params: Promise<{ id: string }>
 }
 export const metadata: Metadata = {
-  title: "Order Confirmed",
-  description: "You purchase was successful",
+  title: "Commande confirmée",
+  description: "Votre commande a été enregistrée avec succès.",
 }
 
 export default async function OrderConfirmedPage(props: Props) {
