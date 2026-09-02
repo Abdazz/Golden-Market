@@ -16,14 +16,48 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
-2026-09-02 - **⚠️ Site en rupture de stock générale — état intentionnel, pas un bug.**
+2026-09-02 (soir) - **11 nouveaux produits importés (lot 2026-09) sur staging + prod.**
+Fichier source `Golden_Market_New_products.xlsx` (fourni par le propriétaire, copié dans
+`catalog-data/` des deux environnements). Scripts dédiés dans
+`apps/backend/src/scripts/new-products-2026-09/` (lot ponctuel, pas de généralisation
+demandée) : `import-new-products.ts` -> `link-inventory.ts` -> `attach-alibaba-images.ts`,
+exécutés dans cet ordre via `medusa exec` sur chaque backend. Décisions actées avec le
+propriétaire :
+- Tous en collection **« Vente express »** ; titre de variante = titre du produit.
+- **Nouvelle catégorie « Sport »** (1 produit : roue abdominale) ; le plafond de 6
+  catégories sur la home a été retiré (grille 7 colonnes en desktop).
+- `manage_inventory: true` + vraies quantités liées à « Entrepôt Ouagadougou »
+  (20/6/20/20/100/20/4/100/20/20/100). **Ces 11 produits SONT achetables** (contrairement
+  aux 29 de la vague précédente, toujours à 0 — voir plus bas).
+- Prix de détail (colonne « prix en détail ») = prix affiché barré ; **colonne « Prix
+  unitaire promo » -> vraie price list Medusa de type `sale`** (« Lancement — nouveaux
+  produits (2026-09) »), d'où le badge -X% et le prix barré sur le storefront. Rien
+  d'inventé : le mécanisme promo natif de Medusa est utilisé.
+- Tarif de gros conservé (règle de prix sur le variant, groupe « Grossistes »).
+- Colonne « Livraison gratuite » -> **note d'information réelle** en
+  `metadata.free_shipping_note`, affichée en bandeau terracotta sur la fiche produit
+  (`ProductTrust`). **Aucune automatisation panier** (décision explicite, hors périmètre).
+- **Images galerie Alibaba** : pour chacun des 11 produits, les photos de la galerie
+  principale de la fiche fournisseur Alibaba (URLs figées dans `alibaba-images.json`, 65
+  au total ; 1 des 13 liens fournis était cassé et a été ignoré sur consigne) ont été
+  re-hébergées via le module `file` (plus de dépendance au CDN Alibaba à l'exécution) et
+  ajoutées comme images secondaires — la vignette d'origine (Excel) reste en tête.
+  Piège rencontré : `medusa build` ne copie pas les `.json` de `src/scripts` s'ils sont
+  lus par `fs.readFileSync` ; il faut un `import x from "./x.json"` (resolveJsonModule)
+  pour que esbuild l'inline dans le `.js` compilé — sinon ENOENT en prod (`825b79e`).
+Vérifié à l'écran sur `staging.golden-market.co` : catalogue, badges promo, fiche Sport,
+bandeau livraison, galerie. Commits `f23c67e`, `e15ce41`, `a6182ae`, `825b79e` sur `main`.
+
+---
+
+2026-09-02 - **⚠️ Les 29 produits de la 1re vague sont en rupture de stock générale —
+état intentionnel, pas un bug.** (Les 11 du lot 2026-09 ci-dessus ne sont PAS concernés.)
 Suivi d'inventaire Medusa (`manage_inventory`) activé sur les 29 produits en prod à la
 demande explicite du propriétaire, stocks laissés à 0 volontairement en attendant qu'il
 saisisse les vraies quantités (`Admin → Produits → variante → Inventaire`). Tant que ce
-n'est pas fait, **aucun produit n'est achetable** sur `golden-market.co` (bouton
-"Ajouter au panier" désactivé partout, grille catalogue sans bouton "+", badge "Rupture
-de stock" affiché) - normal, ne pas essayer de "corriger" ça sans vérifier d'abord
-l'admin. Au passage : titre de chaque variante renommé pour reprendre le titre du
+n'est pas fait, **ces 29 produits ne sont pas achetables** sur `golden-market.co` (bouton
+"Ajouter au panier" désactivé, pas de bouton "+", badge "Rupture de stock" affiché) -
+normal, ne pas essayer de "corriger" ça sans vérifier d'abord l'admin. Au passage : titre de chaque variante renommé pour reprendre le titre du
 produit (fini "Default Title", `admin/products/*/variants/*` via un script one-shot
 `fetch` exécuté depuis la session admin authentifiée du navigateur - pas de script
 conservé dans le repo, action ponctuelle sur les 29 produits).
@@ -503,6 +537,64 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-09-02 (import du lot de 11 nouveaux produits, 2026-09)** — Demande du
+  propriétaire : importer `Golden_Market_New_products.xlsx` sur staging **et**
+  production. Parseur dédié (`parse-new-products.ts`) car le fichier a un format
+  différent du catalogue d'origine (1 feuille, en-têtes en ligne 3, colonnes
+  Stock / « prix en détail » / « Prix unitaire promo » / « Livraison grauite » [sic],
+  images ancrées par `Math.floor(range.tl.row) + 1`). Trois scripts one-shot dans
+  `apps/backend/src/scripts/new-products-2026-09/`, exécutés dans l'ordre sur chaque
+  backend via `docker compose ... exec -T backend npx medusa exec ./src/scripts/.../X.js` :
+  1. **`import-new-products.ts`** — crée les 11 produits (statut publié, collection
+     « Vente express », catégorie mappée en dur produit->catégorie dont la nouvelle
+     **« Sport »**), variante unique `title = nom du produit` + `manage_inventory: true`,
+     prix détail + prix gros (règle `customer.groups.id` = groupe « Grossistes »), image
+     Excel en vignette, `metadata.free_shipping_note` depuis la colonne livraison. Puis
+     **une price list Medusa de type `sale`** (« Lancement — nouveaux produits (2026-09) »,
+     sans `rules` -> type dérivé auto) avec le prix de la colonne « Prix unitaire promo »
+     par variante -> badge -X% + prix barré natifs sur le storefront, rien inventé.
+     Idempotent (produit existant sauté ; price list retrouvée via `q=` puis
+     `.find(pl => pl.title === ...)` car `FilterablePriceListProps` n'a pas de filtre
+     `title` exact).
+  2. **`link-inventory.ts`** — relit le xlsx pour les vraies quantités, crée un
+     inventory item par variante, le lie à la variante (`batchLinksWorkflow`, comme la
+     route admin) puis à « Entrepôt Ouagadougou » (ciblé **par nom**, pas par unicité —
+     le seed de démo local crée aussi « European Warehouse »). Quantités :
+     20/6/20/20/100/20/4/100/20/20/100. Idempotent (variante déjà stockée -> sautée).
+  3. **`attach-alibaba-images.ts`** — pour chaque produit, `alibaba-images.json` liste
+     les URLs de la galerie principale de la fiche fournisseur Alibaba (extraites au
+     préalable avec Playwright via `window.detailData.globalData.product.mediaItems`,
+     filtre `type==='image' && group==='photos'`, `imageUrl.big`). 65 URLs (6 par
+     produit sauf la roue abdominale : 5 ; **1 des 13 liens fournis était cassé,
+     ignoré sur consigne explicite du propriétaire**). Chaque image est re-téléchargée
+     (le CDN Alibaba renvoie du webp même sur une URL `.jpg` -> on se fie au
+     `Content-Type`) et re-hébergée via `uploadFilesWorkflow` (plus de hotlink Alibaba
+     à l'exécution), puis ajoutée en fin de `product.images` ; les URLs sources
+     traitées sont mémorisées dans `metadata.alibaba_source_images` -> ré-exécution
+     idempotente. La vignette d'origine reste en tête.
+  **Bug corrigé en cours de route (`825b79e`)** : 1re version lisait le JSON par
+  `fs.readFileSync(path.join(__dirname, "alibaba-images.json"))` -> OK en dev,
+  **ENOENT en prod** car `medusa build` compile les `.ts` mais ne copie pas les `.json`
+  de `src/scripts` dans l'image. Corrigé en `import manifest from "./alibaba-images.json"`
+  (`resolveJsonModule: true` déjà activé) : esbuild inline alors le contenu dans le
+  `.js` compilé. Vérifié : `.medusa/server/.../alibaba-images.json` présent après build.
+  **Storefront** : plafond de 6 catégories retiré de la home (`category-grid`, grille 7
+  colonnes desktop, kicker « Rayons » + lien « Toutes les catégories »), icône SVG
+  `sport` ajoutée, `ProductTrust` accepte `freeShippingNote` et rend un bandeau
+  terracotta (camion + « Livraison gratuite : … ») quand la metadata est présente,
+  câblé depuis `products/templates/index.tsx`. `seed-categories-bf.ts` : « Sport »
+  ajouté avec le handle de la roue abdominale.
+  **Déploiement** : commits sur `staging` (`f23c67e` import, `e15ce41` inventaire,
+  `a6182ae` images, `825b79e` correctif JSON), déploiement staging vert, 3 scripts
+  exécutés sur le backend staging (11 produits, stocks liés, 65 images), **vérif
+  visuelle Playwright sur `staging.golden-market.co`** (catalogue avec badges promo,
+  fiche Sport avec fil d'Ariane `Accueil / Sport`, prix `14 500` barré `22 500` +
+  « Économisez 8 000 FCFA », bandeau livraison, 6 vignettes galerie). Puis
+  `git checkout main && git merge staging --ff-only && git push` (`68fd0ee..825b79e`),
+  `scp` du xlsx dans `/opt/golden-market/production/catalog-data/` (md5 vérifié), et —
+  après le déploiement prod — les 3 mêmes scripts sur le backend production, suivis
+  d'une vérif visuelle sur `golden-market.co`.
 
 - **2026-08-31 (conformité aux 6 maquettes, bout en bout jusqu'en prod)** - Le
   propriétaire signale qu'Accueil et Catalogue ne sont pas conformes non plus, contrairement
