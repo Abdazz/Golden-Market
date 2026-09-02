@@ -16,14 +16,16 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
-2026-09-02 (nuit) - **Spec statistiques de visite (Matomo self-hosted) écrite et
-commitée sur `staging`**, en attente de relecture propriétaire avant `writing-plans`
-(voir `docs/superpowers/specs/2026-09-02-statistiques-visite-design.md`). **Nouveau
-backlog de 17 retours propriétaire trié et priorisé** en 4 paliers (voir section
-« Backlog priorisé — retours propriétaire » plus bas) ; ordre confirmé par le
-propriétaire : paliers 1→2→3 (correctifs/petites features bornées, enchaînés sans
-validation point par point) puis, chacun avec son propre brainstorming complet,
-paiements enrichis puis multilingue/contenu éditable.
+2026-09-02 (nuit) - **Paliers 1, 2 et 3 du backlog de 17 retours propriétaire
+terminés** (13 correctifs/petites features/refontes bornées, tous vérifiés
+visuellement en local — voir section « Backlog priorisé » plus bas pour le détail).
+Commits `fa7514c`, `a122af5`, `b6edcca`, `dd60a8d`, `5164af7` sur `staging`. **Palier
+4 (paiements enrichis, puis multilingue/contenu éditable) non commencé** — chacun
+nécessite son propre brainstorming complet avec de vraies décisions du propriétaire
+(choix de prestataires de paiement, CMS vs i18n) ; prompt de reprise écrit plus bas.
+**Spec statistiques de visite (Matomo self-hosted) écrite et commitée sur `staging`**,
+toujours en attente de relecture propriétaire avant `writing-plans` (voir
+`docs/superpowers/specs/2026-09-02-statistiques-visite-design.md`).
 
 2026-09-02 (soir) - **Import du lot de 11 nouveaux produits terminé** (voir entrée
 ci-dessous) ; **prompt de reprise écrit** pour le sujet suivant, observabilité +
@@ -587,24 +589,22 @@ Statut global : **fait** (commit `fa7514c` sur `staging`, vérifié visuellement
       depuis l'admin (aucune donnée inventée).
 
 ### Palier 3 — Refontes bornées (page/flux entier, sans nouvelle intégration externe)
-Statut global : **à faire**
+Statut global : **fait** (commits `b6edcca`, `dd60a8d`, `5164af7` sur `staging`,
+vérifié visuellement en local)
 
-- [ ] Page de confirmation de commande à refondre et traduire (toujours le scaffold
-      Medusa non stylé, en anglais) —
-      `apps/storefront/src/modules/order/templates/order-completed-template.tsx` et
-      composants associés (`order/components/*`). Refonte complète comparable à celle
-      déjà faite sur « Mon compte ».
-- [ ] Formulaire adresse de livraison au checkout : retirer les champs Entreprise et
-      Code postal, ville en liste déroulante avec recherche (villes du Burkina Faso),
-      retirer le champ Pays, rendre l'email facultatif, renommer Téléphone en
-      « Téléphone (WhatsApp) » —
-      `apps/storefront/src/modules/checkout/components/shipping-address/`. **Point à
-      vérifier avant de coder** : le calcul des frais de livraison dépend-il
-      actuellement du code postal ou du pays ? Ne pas retirer un champ dont dépend un
-      mécanisme réel sans l'avoir remplacé.
-- [ ] Section FAQ — si contenu statique en dur (comme les pages CGV/Confidentialité
-      déjà livrées), reste borné ; ne devient un sous-cas du palier 4 (#3) que si le
-      propriétaire veut que le contenu FAQ soit éditable depuis le backoffice.
+- [x] Page de confirmation de commande refondue et traduite — fil d'Ariane, carte
+      gm-*, statuts fulfillment/payment mappés en français (touche aussi
+      `/account/orders/details/[id]`), section aide avec vrais liens WhatsApp/CGV.
+- [x] Formulaire adresse de livraison au checkout simplifié — Entreprise et Code
+      postal retirés, Ville en saisie avec suggestions (`datalist`, villes du Burkina
+      Faso), Pays retiré de l'UI (toujours envoyé en champ caché, dérivé du pays réel
+      de la région), Téléphone renommé « Téléphone (WhatsApp) » et rendu obligatoire.
+      **Écart signalé** : l'email ne peut pas être rendu facultatif comme demandé —
+      testé en local, l'API Medusa rejette la mise à jour du panier avec « Invalid
+      email address » si le champ est vide ; laissé obligatoire pour ne pas casser le
+      checkout (voir détail dans le commit `dd60a8d`).
+- [x] Page FAQ (`/faq`) créée, contenu statique réel (aligné sur CGV/palier 1),
+      réutilise le composant Accordion existant. Lien ajouté dans le footer (« Aide »).
 
 ### Palier 4 — Nouveaux sous-systèmes (chacun un brainstorming complet séparé)
 Statut global : **à faire** — ordre confirmé par le propriétaire : paiements enrichis
@@ -638,6 +638,51 @@ courant (`apps/storefront/src/modules/products/components/related-products/index
 Aucune logique de similarité/score, c'est le code par défaut du starter Next.js
 Medusa, jamais personnalisé sur ce projet. En pratique, comme les produits n'ont pas
 de tags renseignés, le filtre actif est presque toujours « même collection ».
+
+## Prompt de reprise — palier 4 du backlog (paiements enrichis, multilingue) (2026-09-02)
+
+Copier-coller le bloc ci-dessous en premier message d'une nouvelle session Claude Code
+pour reprendre le palier 4. **Rien n'est construit ni conçu** : les paliers 1 à 3 (13
+correctifs/petites features/refontes bornées) sont terminés et vérifiés ; seul le
+palier 4 reste, et il n'a délibérément pas été commencé sans le propriétaire — chaque
+sous-projet touche de vraies décisions (prestataires de paiement, architecture
+multilingue) qu'une session ne peut pas trancher seule.
+
+> Reprends le palier 4 du backlog de 17 retours propriétaire pour Golden Market (voir
+> `HANDOFF.md`, section « Backlog priorisé — retours propriétaire »). Les paliers 1 à
+> 3 sont terminés et vérifiés (commits `fa7514c`, `a122af5`, `b6edcca`, `dd60a8d`,
+> `5164af7` sur `staging`, déjà promus en prod). Il reste deux sous-projets, chacun à
+> traiter dans l'ordre confirmé par le propriétaire (paiements d'abord, multilingue
+> ensuite), chacun via un cycle complet `superpowers:brainstorming` (chemin
+> architectural : questions de cadrage, 2-3 approches, design section par section,
+> spec écrite dans `docs/superpowers/specs/`, revue, puis `writing-plans`) — ne pas
+> deviner les réponses aux questions de cadrage à la place du propriétaire.
+>
+> **Sous-projet 1 — Paiements enrichis** : ajouter paiement à la réception, paiement
+> manuel Mobile Money avec choix Orange Money/Moov Money, paiement Mobile Money **en
+> ligne**, paiement par carte bancaire, proposés selon que la ville de livraison du
+> client est Ouagadougou ou non. Écart majeur avec l'existant : le paiement est
+> aujourd'hui 100 % manuel (Orange Money + validation humaine, décision explicite
+> documentée dans `AGENTS.md` — « Aucun payment provider Mobile Money sans décision
+> explicite »). Nécessite de vraies décisions business que la session doit demander au
+> propriétaire, pas deviner : quel agrégateur Mobile Money en ligne, quel prestataire
+> carte bancaire, existence de contrats marchands déjà signés, budget/délai
+> d'intégration acceptable.
+>
+> **Sous-projet 2 — Multilingue (FR/EN) + contenu éditable depuis le backoffice** :
+> aujourd'hui aucun texte UI/marque du storefront n'est modifiable depuis le
+> backoffice (ni CMS, ni fichier i18n, ni champ admin custom — seules les données
+> produit le sont). À trancher en premier dans le brainstorming de ce sous-projet :
+> CMS complet accessible au propriétaire, ou infra i18n classique (ex. next-intl)
+> traduite par un développeur — impact direct sur la complexité et le coût de
+> maintenance.
+>
+> Règles déjà établies dans ce projet à respecter sans redemander : ne jamais
+> fabriquer de fausses données/mécanismes (signaler l'écart plutôt qu'inventer,
+> comme fait pour l'email facultatif du palier 3 - voir commit `dd60a8d`) ; toujours
+> committer sur `staging` d'abord ; jamais de trailer `Co-Authored-By: Claude` ;
+> commentaires/commits/documentation en français ; vérification visuelle obligatoire
+> (Playwright + captures d'écran réelles) une fois l'implémentation commencée.
 
 ## Statut par phase
 
