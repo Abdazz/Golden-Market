@@ -16,6 +16,15 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-02 (nuit) - **Spec statistiques de visite (Matomo self-hosted) écrite et
+commitée sur `staging`**, en attente de relecture propriétaire avant `writing-plans`
+(voir `docs/superpowers/specs/2026-09-02-statistiques-visite-design.md`). **Nouveau
+backlog de 17 retours propriétaire trié et priorisé** en 4 paliers (voir section
+« Backlog priorisé — retours propriétaire » plus bas) ; ordre confirmé par le
+propriétaire : paliers 1→2→3 (correctifs/petites features bornées, enchaînés sans
+validation point par point) puis, chacun avec son propre brainstorming complet,
+paiements enrichis puis multilingue/contenu éditable.
+
 2026-09-02 (soir) - **Import du lot de 11 nouveaux produits terminé** (voir entrée
 ci-dessous) ; **prompt de reprise écrit** pour le sujet suivant, observabilité +
 statistiques de visite (rien construit ni conçu, self-hosted uniquement, priorité
@@ -522,6 +531,115 @@ le brainstorming a été interrompu avant d'aller plus loin.
 >   l'implémentation commencée — des bugs réels ont déjà été manqués sans ce passage.
 > - Accès SSH VPS déjà en place : `ssh admin@144.91.110.105` (fonctionne en non
 >   interactif avec `BatchMode=yes`).
+
+## Backlog priorisé — retours propriétaire (2026-09-02)
+
+17 observations transmises par le propriétaire en une fois, triées du plus simple au
+plus dur et regroupées en 4 paliers. Ordre d'exécution confirmé par le propriétaire :
+paliers 1→2→3 enchaînés (correctifs/petites features bornées, sans validation point
+par point — ce sont des correctifs évidents déjà décrits précisément ci-dessous),
+**puis** palier 4 traité sous-projet par sous-projet, chacun via son propre cycle
+`brainstorming` → spec → `writing-plans` (jamais enchaîné directement). Un commit par
+point, vérification visuelle systématique, mise à jour du statut ici au fil de l'eau.
+
+### Palier 1 — Correctifs rapides (texte/style/lien)
+Statut global : **à faire**
+
+- [ ] Centrer horizontalement la carte du formulaire de connexion
+      (`apps/storefront/src/modules/account/templates/login-template.tsx` ou le
+      composant `login` qu'il importe) — `/bf/account`.
+- [ ] Texte « Retours faciles » → titre « Satisfait ou remboursé » (nouveau texte à
+      rédiger avec le propriétaire) —
+      `apps/storefront/src/modules/home/components/trust-band/index.tsx` **et**
+      `apps/storefront/src/modules/products/components/product-tabs/index.tsx`
+      (dupliqué aux deux endroits, à mettre à jour ensemble).
+- [ ] Texte livraison Burkina Faso remplacé par : « Livraison partout au Burkina
+      Faso / Si vous êtes à Ouagadougou, nous vous livrons à domicile gratuitement en
+      fonction du produit. / Si vous êtes dans une autre ville, votre colis est
+      expédié depuis Ouagadougou via la compagnie de transport de votre choix. » —
+      mêmes deux fichiers que ci-dessus.
+- [ ] Bouton WhatsApp flottant en bas à droite (toutes pages), ouvre une conversation
+      WhatsApp Golden Market — lien `CONTACT.whatsapp.href`
+      (`apps/storefront/src/lib/contact.ts`, déjà `https://wa.me/22661853737`), déjà
+      disponible, juste un nouveau composant global à créer et brancher dans le
+      layout.
+
+### Palier 2 — Petites fonctionnalités bornées
+Statut global : **à faire**
+
+- [ ] Description de la fiche produit dépliée par défaut, tronquée à X caractères +
+      lien « Lire plus » pour afficher le reste — fiche produit
+      (`apps/storefront/src/modules/products/...`).
+- [ ] Bouton « Ajouter au panier » : après succès, remplacer par « Voir le panier » /
+      « Retour sur la liste des produits » au lieu de laisser le bouton identique —
+      `apps/storefront/src/modules/products/components/product-actions/index.tsx`
+      (état `isAdding` déjà présent, il manque un état « ajouté ») +
+      `mobile-actions.tsx`.
+- [ ] Flèches gauche/droite pour défiler les images sur la fiche produit —
+      `apps/storefront/src/modules/products/components/image-gallery/index.tsx`
+      (vignettes déjà présentes, pas de flèches sur l'image principale).
+- [ ] Traduire les chaînes anglaises résiduelles (ex. « Add address » sur
+      `/bf/account/addresses`) — correctif ponctuel indépendant du sous-projet
+      multilingue (palier 4), à ne pas attendre.
+- [ ] Badge « Livraison Gratuite » paramétrable par produit avec seuil (ex. seuil 1 →
+      « Livraison Gratuite », seuil 3 → « Livraison gratuite à partir de 3 ») —
+      s'appuie sur `metadata.free_shipping_note` déjà existant et déjà éditable
+      nativement dans l'admin Medusa (pas de nouveau module) ; à restructurer en
+      valeur seuil + badge affiché aussi sur la carte catalogue, pas seulement la
+      fiche produit.
+
+### Palier 3 — Refontes bornées (page/flux entier, sans nouvelle intégration externe)
+Statut global : **à faire**
+
+- [ ] Page de confirmation de commande à refondre et traduire (toujours le scaffold
+      Medusa non stylé, en anglais) —
+      `apps/storefront/src/modules/order/templates/order-completed-template.tsx` et
+      composants associés (`order/components/*`). Refonte complète comparable à celle
+      déjà faite sur « Mon compte ».
+- [ ] Formulaire adresse de livraison au checkout : retirer les champs Entreprise et
+      Code postal, ville en liste déroulante avec recherche (villes du Burkina Faso),
+      retirer le champ Pays, rendre l'email facultatif, renommer Téléphone en
+      « Téléphone (WhatsApp) » —
+      `apps/storefront/src/modules/checkout/components/shipping-address/`. **Point à
+      vérifier avant de coder** : le calcul des frais de livraison dépend-il
+      actuellement du code postal ou du pays ? Ne pas retirer un champ dont dépend un
+      mécanisme réel sans l'avoir remplacé.
+- [ ] Section FAQ — si contenu statique en dur (comme les pages CGV/Confidentialité
+      déjà livrées), reste borné ; ne devient un sous-cas du palier 4 (#3) que si le
+      propriétaire veut que le contenu FAQ soit éditable depuis le backoffice.
+
+### Palier 4 — Nouveaux sous-systèmes (chacun un brainstorming complet séparé)
+Statut global : **à faire** — ordre confirmé par le propriétaire : paiements enrichis
+en premier, puis multilingue/contenu éditable. Ni l'un ni l'autre commencé.
+
+- [ ] **Paiements enrichis** (regroupe les demandes carte bancaire et modes de
+      paiement conditionnés à la ville de livraison) : paiement à la réception,
+      paiement manuel Mobile Money avec choix Orange Money/Moov Money, paiement
+      Mobile Money **en ligne**, paiement par carte bancaire — proposés selon que la
+      ville de livraison du client est Ouagadougou ou non. Écart majeur avec
+      l'existant : le paiement est aujourd'hui 100 % manuel (Orange Money + validation
+      humaine, décision explicite documentée dans `AGENTS.md`) — ce sous-projet
+      implique de vraies décisions business (choix d'agrégateur Mobile Money en ligne,
+      choix de prestataire carte bancaire, contrats marchands, conformité) en plus du
+      code. À traiter comme un sous-projet architectural à part entière.
+- [ ] **Multilingue (FR/EN) + contenu éditable depuis le backoffice** : aujourd'hui
+      aucun texte UI/marque du storefront n'est modifiable depuis le backoffice (ni
+      CMS, ni fichier i18n, ni champ admin custom — confirmé par exploration du code ;
+      seules les données produit le sont, ce qui est normal). Construire le
+      multilingue impose d'extraire tous les textes en dur vers des fichiers de
+      traduction, ce qui est la moitié du chemin vers du contenu éditable — mais un
+      vrai CMS accessible au propriétaire depuis le backoffice est un système bien
+      plus lourd qu'une simple infra i18n (next-intl) traduite par un développeur. **À
+      trancher en premier dans le brainstorming de ce sous-projet** : CMS complet ou
+      infra i18n classique ?
+
+### Question déjà répondue (pas un chantier)
+Sélection des « Produits similaires » sur la fiche produit : requête Medusa
+`listProducts` filtrée sur même `collection_id` et/ou mêmes tags que le produit
+courant (`apps/storefront/src/modules/products/components/related-products/index.tsx:21-43`).
+Aucune logique de similarité/score, c'est le code par défaut du starter Next.js
+Medusa, jamais personnalisé sur ce projet. En pratique, comme les produits n'ont pas
+de tags renseignés, le filtre actif est presque toujours « même collection ».
 
 ## Statut par phase
 
