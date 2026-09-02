@@ -16,6 +16,36 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-02 - **⚠️ Site en rupture de stock générale — état intentionnel, pas un bug.**
+Suivi d'inventaire Medusa (`manage_inventory`) activé sur les 29 produits en prod à la
+demande explicite du propriétaire, stocks laissés à 0 volontairement en attendant qu'il
+saisisse les vraies quantités (`Admin → Produits → variante → Inventaire`). Tant que ce
+n'est pas fait, **aucun produit n'est achetable** sur `golden-market.co` (bouton
+"Ajouter au panier" désactivé partout, grille catalogue sans bouton "+", badge "Rupture
+de stock" affiché) - normal, ne pas essayer de "corriger" ça sans vérifier d'abord
+l'admin. Au passage : titre de chaque variante renommé pour reprendre le titre du
+produit (fini "Default Title", `admin/products/*/variants/*` via un script one-shot
+`fetch` exécuté depuis la session admin authentifiée du navigateur - pas de script
+conservé dans le repo, action ponctuelle sur les 29 produits).
+- **Bug trouvé et corrigé en même temps** (`a7d56b6`) : le bouton "+" d'ajout rapide de
+  la grille catalogue (`ProductPreview`/`QuickAddButton`) ne vérifiait pas la
+  disponibilité avant d'appeler `addToCart` -> 500 en direct dès qu'un produit passe à 0
+  stock. Corrigé en répliquant la même règle de disponibilité que `product-actions`
+  (fiche produit) : bouton masqué + badge "Rupture de stock" (déjà prévu par la
+  maquette Catalogue, jamais câblé faute de données réelles avant aujourd'hui).
+- **Découverte technique importante** : `/products/[handle]` utilise
+  `generateStaticParams` (SSG) - un changement de données Medusa (ex. stock, titre) ne
+  se reflète PAS sur un simple `docker compose restart storefront` (le HTML est
+  pré-généré à l'image, la commande `restart` réutilise le même conteneur/writable
+  layer). Il faut un vrai `docker compose build storefront && up -d storefront`
+  (recreate) pour regénérer les pages statiques avec les données à jour. Testé et
+  confirmé sur ce cas précis : restart seul = aucun changement visible ; build+recreate
+  = effet immédiat.
+- Déployé : `staging` puis `main` (déploiements gated désormais rapides, storefront
+  seul reconstruit). `main == staging`, rien en attente côté code.
+
+--- entrée précédente ---
+
 2026-08-31 (soir) - **Conformité aux 6 maquettes claude.ai : TERMINÉ, en prod, vérifié.**
 Les 6 pages (Accueil, Catalogue, Fiche produit, Mon compte, Paiement, Panier) + les
 correctifs transverses sont sur `main` et déployées sur `https://golden-market.co`,
