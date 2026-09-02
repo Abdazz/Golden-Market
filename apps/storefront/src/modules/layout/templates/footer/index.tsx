@@ -6,8 +6,9 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 // Footer conforme à la maquette ("Golden Market · Panier" / "Mon compte",
 // artifacts claude.ai) : marque + tagline, puis colonnes Boutique / Aide /
 // Contact avec les vrais numéros, et une barre inférieure copyright + liens
-// légaux. Les liens Aide sans page dédiée pointent vers les CGV, qui
-// décrivent réellement le paiement Orange Money et la livraison.
+// légaux. "Paiement Orange Money" reste sans page dédiée, pointe vers les
+// CGV qui décrivent réellement le paiement - "Livraison et retours" pointe
+// désormais vers la FAQ (palier 3 du backlog 2026-09-02, item #6).
 const SHOP_LINKS = [
   { label: "Toutes les catégories", href: "/store" },
   { label: "Promotions", href: "/store" },
@@ -16,8 +17,9 @@ const SHOP_LINKS = [
 
 const HELP_LINKS = [
   { label: "Suivre ma commande", href: "/account/orders" },
+  { label: "Questions fréquentes", href: "/faq" },
   { label: "Paiement Orange Money", href: "/conditions-generales" },
-  { label: "Livraison et retours", href: "/conditions-generales" },
+  { label: "Livraison et retours", href: "/faq" },
 ]
 
 export default function Footer() {
