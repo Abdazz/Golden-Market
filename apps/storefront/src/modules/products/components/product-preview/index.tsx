@@ -21,8 +21,19 @@ export default async function ProductPreview({
   // La carte ne peut ajouter au panier directement que pour un produit à
   // variante unique (pas de sélection d'option possible depuis la grille) -
   // le cas de tout le catalogue réel importé (voir import-catalog.ts).
-  const singleVariantId =
-    product.variants?.length === 1 ? product.variants[0].id : undefined
+  const singleVariant =
+    product.variants?.length === 1 ? product.variants[0] : undefined
+
+  // Même règle de disponibilité que la fiche produit (product-actions) :
+  // pas de suivi -> toujours disponible ; suivi + réappro autorisé ->
+  // toujours disponible ; suivi sans réappro -> dépend du stock réel.
+  const inStock = !singleVariant
+    ? false
+    : !singleVariant.manage_inventory
+    ? true
+    : singleVariant.allow_backorder
+    ? true
+    : (singleVariant.inventory_quantity ?? 0) > 0
 
   return (
     <LocalizedClientLink
@@ -39,13 +50,20 @@ export default async function ProductPreview({
             -{cheapestPrice.percentage_diff}%
           </Badge>
         )}
+        {!inStock && singleVariant && (
+          <Badge color="grey" className="absolute top-2.5 left-2.5 z-10">
+            Rupture de stock
+          </Badge>
+        )}
         <Thumbnail
           thumbnail={product.thumbnail}
           images={product.images}
           size="full"
-          className="rounded-none"
+          className={inStock ? "rounded-none" : "rounded-none opacity-60"}
         />
-        {singleVariantId && <QuickAddButton variantId={singleVariantId} />}
+        {singleVariant && inStock && (
+          <QuickAddButton variantId={singleVariant.id} />
+        )}
       </div>
       <div className="flex flex-col gap-2 p-3">
         <span
