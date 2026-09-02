@@ -1,11 +1,14 @@
-import fs from "fs"
-import path from "path"
 import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import {
   updateProductsWorkflow,
   uploadFilesWorkflow,
 } from "@medusajs/medusa/core-flows"
+// Import direct (resolveJsonModule) plutôt que fs.readFileSync : `medusa
+// build` compile les .ts mais ne copie pas les .json de src/scripts dans
+// l'image - l'import est donc inliné dans le .js compilé et disponible en
+// production.
+import manifest from "./alibaba-images.json"
 
 // Troisième passe pour le lot 2026-09 : ajoute aux 11 nouveaux produits les
 // photos de galerie principale de la fiche fournisseur Alibaba (URLs figées
@@ -19,10 +22,6 @@ import {
 //   product.metadata.alibaba_source_images ; une ré-exécution les saute.
 // - fixImageUrl : même correctif que les autres scripts d'import (le provider
 //   file-local renvoie des URLs sur localhost:<port par défaut>).
-
-const MANIFEST_PATH =
-  process.env.ALIBABA_IMAGES_MANIFEST ??
-  path.join(__dirname, "alibaba-images.json")
 
 function fixImageUrl(url: string): string {
   return url.replace(
@@ -59,8 +58,9 @@ export default async function attachAlibabaImages({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const productModuleService = container.resolve(Modules.PRODUCT)
 
-  const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8"))
-  const imagesByTitle: Record<string, string[]> = manifest.images
+  const imagesByTitle: Record<string, string[]> = (
+    manifest as { images: Record<string, string[]> }
+  ).images
 
   let productsUpdated = 0
   let imagesAdded = 0
