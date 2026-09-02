@@ -41,6 +41,8 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M9.5 20v-6h5v6" />
     </>
   ),
+  // Tracé identique à la maquette "Golden Market · Accueil" (glyphe "Sport").
+  sport: <path d="M4 20 12 4l8 16" />,
 }
 
 const FALLBACK = (

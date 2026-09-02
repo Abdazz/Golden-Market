@@ -64,7 +64,13 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
               <ProductActionsWrapper id={product.id} region={region} />
             </Suspense>
 
-            <ProductTrust />
+            <ProductTrust
+              freeShippingNote={
+                typeof product.metadata?.free_shipping_note === "string"
+                  ? product.metadata.free_shipping_note
+                  : null
+              }
+            />
 
             <ProductTabs product={product} />
           </div>

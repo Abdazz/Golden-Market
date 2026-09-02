@@ -6,9 +6,9 @@ import CategoryIcon from "./category-icon"
 const CategoryGrid = async () => {
   const categories = await listCategories()
 
-  const topLevel = (categories || [])
-    .filter((c) => !c.parent_category)
-    .slice(0, 6)
+  // Pas de plafond arbitraire : le magasin a 7 vraies catégories (dont
+  // "Sport", ajoutée en 2026-09) et la grille doit toutes les montrer.
+  const topLevel = (categories || []).filter((c) => !c.parent_category)
 
   if (topLevel.length === 0) {
     return null
@@ -32,7 +32,7 @@ const CategoryGrid = async () => {
           Toutes les catégories →
         </LocalizedClientLink>
       </div>
-      <div className="grid grid-cols-3 xsmall:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-3 xsmall:grid-cols-4 medium:grid-cols-7 gap-3.5">
         {topLevel.map((category) => (
           <LocalizedClientLink
             key={category.id}

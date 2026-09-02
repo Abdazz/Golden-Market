@@ -71,6 +71,14 @@ const CATEGORIES: { name: string; productHandles: string[] }[] = [
       "congélateur-commercial",
     ],
   },
+  {
+    // Ajoutée pour le lot de 11 nouveaux produits (2026-09, script
+    // new-products-2026-09/import-new-products.ts) - la 7e catégorie réelle
+    // du magasin, décidée explicitement par le propriétaire (pas dans la
+    // maquette initiale).
+    name: "Sport",
+    productHandles: ["roue-abdominale-automatique-avec-appui-coudes"],
+  },
 ]
 
 export default async function seedCategoriesBf({ container }: ExecArgs) {
