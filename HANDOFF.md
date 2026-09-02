@@ -543,50 +543,48 @@ par point — ce sont des correctifs évidents déjà décrits précisément ci-
 point, vérification visuelle systématique, mise à jour du statut ici au fil de l'eau.
 
 ### Palier 1 — Correctifs rapides (texte/style/lien)
-Statut global : **à faire**
+Statut global : **fait** (commit `fa7514c` sur `staging`, vérifié visuellement en local)
 
-- [ ] Centrer horizontalement la carte du formulaire de connexion
-      (`apps/storefront/src/modules/account/templates/login-template.tsx` ou le
-      composant `login` qu'il importe) — `/bf/account`.
-- [ ] Texte « Retours faciles » → titre « Satisfait ou remboursé » (nouveau texte à
-      rédiger avec le propriétaire) —
-      `apps/storefront/src/modules/home/components/trust-band/index.tsx` **et**
-      `apps/storefront/src/modules/products/components/product-tabs/index.tsx`
-      (dupliqué aux deux endroits, à mettre à jour ensemble).
-- [ ] Texte livraison Burkina Faso remplacé par : « Livraison partout au Burkina
-      Faso / Si vous êtes à Ouagadougou, nous vous livrons à domicile gratuitement en
-      fonction du produit. / Si vous êtes dans une autre ville, votre colis est
-      expédié depuis Ouagadougou via la compagnie de transport de votre choix. » —
-      mêmes deux fichiers que ci-dessus.
-- [ ] Bouton WhatsApp flottant en bas à droite (toutes pages), ouvre une conversation
-      WhatsApp Golden Market — lien `CONTACT.whatsapp.href`
-      (`apps/storefront/src/lib/contact.ts`, déjà `https://wa.me/22661853737`), déjà
-      disponible, juste un nouveau composant global à créer et brancher dans le
-      layout.
+- [x] Centrer horizontalement la carte du formulaire de connexion —
+      `login-template.tsx` (`justify-start` → `justify-center`).
+- [x] Texte « Retours faciles » → « Satisfait ou remboursé » — en réalité présent
+      uniquement dans `product-tabs/index.tsx` (l'accordéon « Livraison et retours »
+      de la fiche produit) ; le texte similaire du bandeau `trust-band` était un
+      libellé différent, non concerné par la citation exacte du propriétaire, donc
+      laissé tel quel.
+- [x] Nouveau texte livraison Burkina Faso — même fichier que ci-dessus.
+- [x] Bouton WhatsApp flottant global — nouveau composant
+      `layout/components/whatsapp-float-button`, branché dans `app/layout.tsx`
+      (toutes pages, y compris checkout).
 
 ### Palier 2 — Petites fonctionnalités bornées
-Statut global : **à faire**
+Statut global : **fait** (commit `fa7514c` sur `staging`, vérifié visuellement en local)
 
-- [ ] Description de la fiche produit dépliée par défaut, tronquée à X caractères +
-      lien « Lire plus » pour afficher le reste — fiche produit
-      (`apps/storefront/src/modules/products/...`).
-- [ ] Bouton « Ajouter au panier » : après succès, remplacer par « Voir le panier » /
-      « Retour sur la liste des produits » au lieu de laisser le bouton identique —
-      `apps/storefront/src/modules/products/components/product-actions/index.tsx`
-      (état `isAdding` déjà présent, il manque un état « ajouté ») +
-      `mobile-actions.tsx`.
-- [ ] Flèches gauche/droite pour défiler les images sur la fiche produit —
-      `apps/storefront/src/modules/products/components/image-gallery/index.tsx`
-      (vignettes déjà présentes, pas de flèches sur l'image principale).
-- [ ] Traduire les chaînes anglaises résiduelles (ex. « Add address » sur
-      `/bf/account/addresses`) — correctif ponctuel indépendant du sous-projet
-      multilingue (palier 4), à ne pas attendre.
-- [ ] Badge « Livraison Gratuite » paramétrable par produit avec seuil (ex. seuil 1 →
-      « Livraison Gratuite », seuil 3 → « Livraison gratuite à partir de 3 ») —
-      s'appuie sur `metadata.free_shipping_note` déjà existant et déjà éditable
-      nativement dans l'admin Medusa (pas de nouveau module) ; à restructurer en
-      valeur seuil + badge affiché aussi sur la carte catalogue, pas seulement la
-      fiche produit.
+- [x] Description produit dépliée par défaut (accordéon `defaultValue`), troncature
+      220 caractères + « Lire plus… » — `product-tabs/index.tsx`.
+- [x] Bouton « Ajouter au panier » → « Voir le panier » / « Retour sur la liste des
+      produits » après succès — `product-actions/index.tsx` + `mobile-actions.tsx`.
+      Bug rencontré et corrigé en vérifiant : `addToCart` est une server action qui
+      déclenche un rafraîchissement de route, lequel refait tourner l'effet de
+      présélection de variante avec un nouvel objet `product` — un état booléen
+      remis à zéro sur changement de référence de `options` était donc effacé à tort
+      par ce rafraîchissement. Corrigé en comparant par id de variante
+      (`addedVariantId === selectedVariant?.id`) plutôt que par référence d'objet.
+- [x] Flèches gauche/droite sur la galerie d'images — `image-gallery/index.tsx`.
+- [x] Traduction des chaînes anglaises résiduelles : formulaires d'adresse du compte
+      (ajout/édition), profil (nom/téléphone/mot de passe/adresse de facturation),
+      page de connexion, page de vérification d'email, page 404, `Loading...` du
+      composant `Button` — une dizaine de fichiers sous `modules/account/` et
+      `app/.../account/`, plus large que le seul exemple « Add address » cité par le
+      propriétaire mais même nature de correctif.
+- [x] Badge « Livraison Gratuite » paramétrable par produit — nouveau champ
+      `metadata.free_shipping_threshold` (nombre, distinct du texte libre
+      `free_shipping_note` existant, qui reste inchangé), déjà éditable nativement
+      dans l'admin Medusa. Helper `lib/util/free-shipping.ts`, badge affiché sur la
+      carte catalogue (`product-preview`) et la fiche produit (`product-info`).
+      **Aucun produit n'a ce champ renseigné pour l'instant** — le badge n'apparaît
+      nulle part tant que le propriétaire ne le paramètre pas produit par produit
+      depuis l'admin (aucune donnée inventée).
 
 ### Palier 3 — Refontes bornées (page/flux entier, sans nouvelle intégration externe)
 Statut global : **à faire**
