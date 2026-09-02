@@ -2,10 +2,10 @@ import { HttpTypes } from "@medusajs/types"
 import { Container } from "@modules/common/components/ui"
 import Checkbox from "@modules/common/components/checkbox"
 import Input from "@modules/common/components/input"
+import { BURKINA_FASO_CITIES } from "@lib/data/burkina-faso-cities"
 import { mapKeys } from "lodash"
 import React, { useEffect, useMemo, useState } from "react"
 import AddressSelect from "../address-select"
-import CountrySelect from "../country-select"
 
 const ShippingAddress = ({
   customer,
@@ -35,6 +35,13 @@ const ShippingAddress = ({
     () => cart?.region?.countries?.map((c) => c.iso_2),
     [cart?.region]
   )
+
+  // Site mono-région (Burkina Faso) : le champ "Pays" n'a pas de valeur
+  // ajoutée pour le client (un seul choix possible) - on continue toutefois
+  // d'envoyer un country_code réel à Medusa (obligatoire pour l'adresse et
+  // réutilisé comme préfixe de route après soumission, voir setAddresses),
+  // dérivé du pays réel de la région du panier plutôt qu'une valeur en dur.
+  const defaultCountryCode = countriesInRegion?.[0] || "bf"
 
   // check if customer has saved addresses that are in the current region
   const addressesInRegion = useMemo(
@@ -141,40 +148,20 @@ const ShippingAddress = ({
           data-testid="shipping-address-input"
         />
         <Input
-          label="Entreprise (facultatif)"
-          name="shipping_address.company"
-          value={formData["shipping_address.company"]}
-          onChange={handleChange}
-          autoComplete="organization"
-          data-testid="shipping-company-input"
-        />
-        <Input
-          label="Code postal"
-          name="shipping_address.postal_code"
-          autoComplete="postal-code"
-          value={formData["shipping_address.postal_code"]}
-          onChange={handleChange}
-          required
-          data-testid="shipping-postal-code-input"
-        />
-        <Input
           label="Ville"
           name="shipping_address.city"
           autoComplete="address-level2"
           value={formData["shipping_address.city"]}
           onChange={handleChange}
           required
+          list="shipping-city-suggestions"
           data-testid="shipping-city-input"
         />
-        <CountrySelect
-          name="shipping_address.country_code"
-          autoComplete="country"
-          region={cart?.region}
-          value={formData["shipping_address.country_code"]}
-          onChange={handleChange}
-          required
-          data-testid="shipping-country-select"
-        />
+        <datalist id="shipping-city-suggestions">
+          {BURKINA_FASO_CITIES.map((city) => (
+            <option key={city} value={city} />
+          ))}
+        </datalist>
         <Input
           label="Région / Province"
           name="shipping_address.province"
@@ -184,6 +171,12 @@ const ShippingAddress = ({
           data-testid="shipping-province-input"
         />
       </div>
+      <input
+        type="hidden"
+        name="shipping_address.country_code"
+        value={formData["shipping_address.country_code"] || defaultCountryCode}
+        data-testid="shipping-country-code-hidden"
+      />
       <div className="my-8">
         <Checkbox
           label="Utiliser cette adresse pour la facturation"
@@ -198,7 +191,7 @@ const ShippingAddress = ({
           label="E-mail"
           name="email"
           type="email"
-          title="Enter a valid email address."
+          title="Saisissez une adresse email valide."
           autoComplete="email"
           value={formData.email}
           onChange={handleChange}
@@ -206,11 +199,12 @@ const ShippingAddress = ({
           data-testid="shipping-email-input"
         />
         <Input
-          label="Téléphone"
+          label="Téléphone (WhatsApp)"
           name="shipping_address.phone"
           autoComplete="tel"
           value={formData["shipping_address.phone"]}
           onChange={handleChange}
+          required
           data-testid="shipping-phone-input"
         />
       </div>
