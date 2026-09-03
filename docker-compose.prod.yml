@@ -134,8 +134,79 @@ services:
     volumes:
       - matomo_data:/var/www/html
 
+  # Observabilité backend (GlitchTip self-hosted, compatible protocole Sentry) -
+  # staging ET production, contrairement à Matomo (voir spec) : une seule
+  # instance partagée, gatée par le profil "observability" pour ne tourner
+  # qu'une fois (dans le stack production), le backend staging s'y connecte
+  # à distance via SENTRY_DSN. Réutilise le Redis déjà présent dans ce stack
+  # (base numérotée différente via REDIS_URL), pas de nouvelle instance Redis.
+  glitchtip-db:
+    image: postgres:16-alpine
+    container_name: ${ENV_NAME}-golden-market-glitchtip-db
+    restart: unless-stopped
+    profiles: ["observability"]
+    environment:
+      POSTGRES_DB: ${GLITCHTIP_DB_NAME}
+      POSTGRES_USER: ${GLITCHTIP_DB_USER}
+      POSTGRES_PASSWORD: ${GLITCHTIP_DB_PASSWORD}
+    volumes:
+      - glitchtip_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${GLITCHTIP_DB_USER} -d ${GLITCHTIP_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  glitchtip:
+    image: glitchtip/glitchtip:latest
+    container_name: ${ENV_NAME}-golden-market-glitchtip
+    restart: unless-stopped
+    profiles: ["observability"]
+    depends_on:
+      glitchtip-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${GLITCHTIP_DB_USER}:${GLITCHTIP_DB_PASSWORD}@glitchtip-db:5432/${GLITCHTIP_DB_NAME}
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY}
+      # Base Redis 1 (pas 0, déjà utilisée par le backend Medusa sur cette
+      # même instance Redis partagée) - à revérifier au moment du déploiement
+      # que 0 est bien la base du backend Medusa (voir DATABASE_URL du service
+      # backend plus haut dans ce fichier).
+      REDIS_URL: redis://redis:6379/1
+      GLITCHTIP_DOMAIN: https://monitoring.golden-market.co
+      DEFAULT_FROM_EMAIL: ${GLITCHTIP_FROM_EMAIL}
+      EMAIL_URL: ${GLITCHTIP_EMAIL_URL}
+      ENABLE_OBSERVABILITY_API: "false"
+    ports:
+      - "127.0.0.1:${GLITCHTIP_PORT}:8000"
+    volumes:
+      - glitchtip_uploads:/code/uploads
+
+  glitchtip-worker:
+    image: glitchtip/glitchtip:latest
+    container_name: ${ENV_NAME}-golden-market-glitchtip-worker
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ./bin/run-celery-with-beat.sh
+    depends_on:
+      glitchtip-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${GLITCHTIP_DB_USER}:${GLITCHTIP_DB_PASSWORD}@glitchtip-db:5432/${GLITCHTIP_DB_NAME}
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY}
+      REDIS_URL: redis://redis:6379/1
+      GLITCHTIP_DOMAIN: https://monitoring.golden-market.co
+      DEFAULT_FROM_EMAIL: ${GLITCHTIP_FROM_EMAIL}
+      EMAIL_URL: ${GLITCHTIP_EMAIL_URL}
+
 volumes:
   postgres_data:
   redis_data:
   matomo_db_data:
   matomo_data:
+  glitchtip_db_data:
+  glitchtip_uploads:
