@@ -16,6 +16,27 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-03 - **Observabilité backend (GlitchTip self-hosted) : implémentation
+terminée, déployée et vérifiée bout-en-bout en staging ET production** (12/12
+tasks du plan `docs/superpowers/plans/2026-09-03-observabilite-backend.md`).
+Conteneurs `glitchtip`/`glitchtip-db`/`glitchtip-worker` `Up` en production
+(profil Compose `observability`, staging s'y connecte à distance). Deux vrais
+bugs rencontrés et corrigés en route (mot de passe DB non URL-safe cassant
+`DATABASE_URL`, migrations Django jamais appliquées au premier démarrage de
+l'image officielle) — détail dans le plan, Task 6 Step 6. Vérifié avec de
+vraies données : une vraie erreur 404 déclenchée sur staging et production,
+confirmée dans GlitchTip (projets `staging-backend`/`production-backend`) ;
+du vrai trafic tracé avec des durées réelles dans l'écran performance. DNS
+`analytics.golden-market.co` et `monitoring.golden-market.co` propagés,
+vhosts Apache + certbot activés par le propriétaire en session. **Seul
+reste hors périmètre** (documenté, pas construit ici) : le workflow n8n
+webhook → WhatsApp pour les alertes — voir section dédiée plus bas pour le
+format de payload à brancher. Sauvegarde `glitchtip-db` ajoutée au cron
+existant (`backup-postgres.sh`, vérifiée fonctionnelle). Au passage,
+l'activation finale de Matomo (bloquée sur ce même DNS `analytics.` depuis le
+2026-09-03 matin) est donc débloquée — voir la section Matomo pour son statut
+propre.
+
 2026-09-03 (nuit) - **Paliers 1, 2 et 3 du backlog de 17 retours propriétaire
 terminés** (13 correctifs/petites features/refontes bornées, vérifiés visuellement en
 local — voir section « Backlog priorisé » plus bas). **Palier 4 partiellement fait** :
@@ -473,6 +494,81 @@ part dans la nouvelle structure — ne pas les perdre au passage.
 3. Panier, puis Fiche produit, puis Mon compte, puis Paiement — un commit par page,
    vérifié comme décrit dans les règles ci-dessus avant de passer à la suivante.
 
+## Observabilité backend — GlitchTip self-hosted (2026-09-03)
+
+**✅ Terminé, déployé et vérifié bout-en-bout** — code, infra et activation
+complète (contrairement à Matomo au moment d'écrire cette section, ce
+sous-projet n'a **aucun blocage restant** côté DNS/infra). Plan complet :
+`docs/superpowers/plans/2026-09-03-observabilite-backend.md` (12/12 tasks
+cochées), spec : `docs/superpowers/specs/2026-09-03-observabilite-backend-design.md`.
+
+**État vérifié le 2026-09-03** :
+- Conteneurs `production-golden-market-glitchtip`,
+  `-glitchtip-db` (Postgres 16, `healthy`) et `-glitchtip-worker` (Celery+beat)
+  `Up` en production, gatés par le profil Compose `observability`
+  (`COMPOSE_PROFILES=analytics,observability` en production uniquement —
+  staging n'a pas ces conteneurs, s'y connecte à distance via son propre
+  `SENTRY_DSN`).
+- `https://monitoring.golden-market.co` répond `200` (certificat certbot
+  valide), organisation "Golden Market" avec deux projets Node.js :
+  `staging-backend` et `production-backend`, chacun avec son DSN reporté dans
+  le `SENTRY_DSN` du `.env` backend correspondant (staging et production).
+- Backend Medusa (`apps/backend/instrumentation.ts` +
+  `src/api/middlewares.ts`) : capture d'erreur (`Sentry.captureException` sur
+  chaque erreur, fire-and-forget) et tracing de performance (`tracesSampleRate`
+  0.2, 20% des requêtes) actifs sur les deux environnements. Silencieux et
+  sans erreur quand `SENTRY_DSN` est absent (dev local).
+- Vérifié avec de **vraies données**, jamais fabriquées : une vraie erreur 404
+  produit déclenchée sur staging et sur production, confirmée présente dans
+  GlitchTip (bon titre, bon projet) ; du vrai trafic storefront généré,
+  confirmé dans l'écran performance avec des durées réelles (`GET
+  /store/products` : 214ms staging, 354ms production).
+- Sauvegarde : `deploy/backup-postgres.sh` (déjà existant, réutilisé tel
+  quel) ajouté au crontab de l'hôte pour `glitchtip-db`, testé manuellement
+  une fois (dump réel généré, 52 Ko).
+
+**Deux bugs réels rencontrés et corrigés en déployant** (voir plan, Task 6
+Step 6 pour le détail complet) :
+1. `GLITCHTIP_DB_PASSWORD` généré en base64 standard cassait le parsing de
+   `DATABASE_URL` (caractères `/+=` non sûrs en URL sans encodage) — régénéré
+   en hex.
+2. Aucune migration Django appliquée au premier démarrage de l'image
+   `glitchtip/glitchtip:latest` — exécutée manuellement
+   (`./manage.py migrate --noinput`).
+
+**Reste hors périmètre de ce dépôt, à faire séparément** : le workflow n8n
+(déclencheur webhook → mise en forme → message WhatsApp) pour transformer les
+alertes GlitchTip en notification WhatsApp, sur le même pipeline que les
+notifications de commande existantes. Pas construit ici (vit dans
+`n8n_automation` ou directement dans l'UI n8n). Pour le brancher :
+
+1. Dans GlitchTip (`https://monitoring.golden-market.co`), projet
+   `production-backend` → Alerts → "Add An Alert Recipient" → type Webhook →
+   coller l'URL du webhook n8n une fois créé. Répéter pour `staging-backend`
+   si des alertes staging sont souhaitées (à trancher — une erreur staging
+   n'a pas la même urgence qu'une erreur production).
+2. **Format du payload envoyé par GlitchTip** (vérifié via la doc officielle
+   du blog GlitchTip 1.7, format de type Slack) :
+   ```json
+   {
+     "alias": "GlitchTip",
+     "text": "GlitchTip Alert",
+     "attachments": [
+       {
+         "title": "<titre de l'erreur>",
+         "title_link": "<URL vers l'issue dans le dashboard>",
+         "text": "<culprit / fonction en cause>",
+         "image_url": null,
+         "color": "#e52b50"
+       }
+     ]
+   }
+   ```
+   À confirmer contre un vrai envoi de test une fois le workflow n8n en place
+   (GlitchTip a une action "Test webhook" dans les paramètres d'alerte) plutôt
+   que de se fier uniquement à ce format documenté — c'est la source la plus
+   fiable, jamais vérifiée nous-mêmes en conditions réelles pour ce sous-projet.
+
 ## Prompt de reprise — statistiques de visite (Matomo) (2026-09-03)
 
 Copier-coller le bloc ci-dessous en premier message d'une nouvelle session Claude Code
@@ -785,6 +881,29 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-09-03 (observabilité backend, GlitchTip self-hosted)** — Deux leçons
+  génériques à retenir pour tout futur service self-hosted ajouté à ce VPS
+  (au-delà de GlitchTip) :
+  1. **Ne jamais générer un mot de passe destiné à figurer dans une URL de
+     connexion (`postgres://user:PASS@host/db`, `redis://...`, etc.) avec
+     `openssl rand -base64`** — l'alphabet base64 standard produit `/`, `+`,
+     `=`, qui cassent le parsing d'URL sans encodage pourcent explicite
+     (observé concrètement : `ValueError: Port could not be cast to integer
+     value` côté GlitchTip/Django, le mot de passe étant interprété comme
+     faisant partie du couple host:port). Utiliser `openssl rand -hex N`
+     (alphanumérique uniquement, sûr en URL) pour tout secret qui finit dans
+     une URL ; `base64` reste très bien pour un secret qui ne l'est pas
+     (ex. `SECRET_KEY` Django/Sentry).
+  2. **Une image Docker officielle qui expose une base de données neuve ne
+     garantit pas que ses migrations ont été appliquées au premier
+     démarrage** — vérifié faux dans le cas de `glitchtip/glitchtip:latest`
+     (le service web démarre et sert des requêtes normalement, mais toute
+     tâche qui touche une table non encore migrée crashe en boucle). Réflexe
+     à avoir sur tout nouveau service Django/Rails-like self-hosté : lancer
+     la commande de migration manuellement une fois après le tout premier
+     démarrage et vérifier les logs des workers/tâches de fond, pas
+     seulement le service web principal.
 
 - **2026-09-02 (import du lot de 11 nouveaux produits, 2026-09)** — Demande du
   propriétaire : importer `Golden_Market_New_products.xlsx` sur staging **et**
