@@ -16,16 +16,18 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
-2026-09-02 (nuit) - **Paliers 1, 2 et 3 du backlog de 17 retours propriétaire
-terminés** (13 correctifs/petites features/refontes bornées, tous vérifiés
-visuellement en local — voir section « Backlog priorisé » plus bas pour le détail).
-Commits `fa7514c`, `a122af5`, `b6edcca`, `dd60a8d`, `5164af7` sur `staging`. **Palier
-4 (paiements enrichis, puis multilingue/contenu éditable) non commencé** — chacun
-nécessite son propre brainstorming complet avec de vraies décisions du propriétaire
-(choix de prestataires de paiement, CMS vs i18n) ; prompt de reprise écrit plus bas.
-**Spec statistiques de visite (Matomo self-hosted) écrite et commitée sur `staging`**,
-toujours en attente de relecture propriétaire avant `writing-plans` (voir
-`docs/superpowers/specs/2026-09-02-statistiques-visite-design.md`).
+2026-09-03 (nuit) - **Paliers 1, 2 et 3 du backlog de 17 retours propriétaire
+terminés** (13 correctifs/petites features/refontes bornées, vérifiés visuellement en
+local — voir section « Backlog priorisé » plus bas). **Palier 4 partiellement fait** :
+le propriétaire a réduit le scope en session (paiement à la réception + Mobile Money
+manuel Orange/Moov) — livré, testé (local + staging + production réelle), déployé en
+prod (`79692b3`) ; le reste du palier 4 (paiement en ligne, carte bancaire,
+multilingue) reste différé sur décision explicite. **Spec statistiques de visite
+(Matomo self-hosted) validée par le propriétaire, plan d'implémentation écrit**
+(`docs/superpowers/plans/2026-09-03-matomo-analytics.md`) et **implémentation en
+cours** (Task 1/11 du plan committée - client de reporting Matomo côté backend,
+testé) — voir la section « Prompt de reprise — statistiques de visite (Matomo) » plus
+bas pour reprendre exactement là où c'est arrêté.
 
 2026-09-02 (soir) - **Import du lot de 11 nouveaux produits terminé** (voir entrée
 ci-dessous) ; **prompt de reprise écrit** pour le sujet suivant, observabilité +
@@ -469,70 +471,41 @@ part dans la nouvelle structure — ne pas les perdre au passage.
 3. Panier, puis Fiche produit, puis Mon compte, puis Paiement — un commit par page,
    vérifié comme décrit dans les règles ci-dessus avant de passer à la suivante.
 
-## Prompt de reprise — observabilité et statistiques de visite (2026-09-02)
+## Prompt de reprise — statistiques de visite (Matomo) (2026-09-03)
 
 Copier-coller le bloc ci-dessous en premier message d'une nouvelle session Claude Code
-pour reprendre exactement où la discussion s'est arrêtée. **Rien n'est encore construit
-ni même conçu** : seule une classification de priorité a été actée avec le propriétaire,
-le brainstorming a été interrompu avant d'aller plus loin.
+pour reprendre exactement où l'implémentation s'est arrêtée. **Le cadrage et le design
+sont terminés et validés par le propriétaire** — spec écrite
+(`docs/superpowers/specs/2026-09-02-statistiques-visite-design.md`), plan
+d'implémentation écrit (`docs/superpowers/plans/2026-09-03-matomo-analytics.md`,
+11 tasks). **Task 1/11 committée** (client de reporting Matomo côté backend, testé,
+commit `3f561e5` sur `staging`, pas encore poussé sur `origin/staging` au moment
+d'écrire ceci — vérifier avec `git log --oneline origin/staging..staging`).
 
-> Reprends le sujet observabilité/statistiques de visite pour Golden Market, resté en
-> suspens depuis le 2026-09-02 (interrompu par le lot d'import de 11 nouveaux produits,
-> lui-même terminé et promu en prod — voir le journal du 2026-09-02 juste en dessous).
-> Lis d'abord `HANDOFF.md` en entier (cette section + le journal du 2026-09-02) et
-> `AGENTS.md`. Ce sujet est un **nouveau sous-système** (pas un correctif borné) : invoque
-> la skill `superpowers:brainstorming` et suis son chemin « architectural » en entier
-> (questions de cadrage, 2-3 approches avec compromis, design section par section,
-> spec écrite dans `docs/superpowers/specs/`, revue, puis `writing-plans`) — ne saute
-> aucune étape sous prétexte que le sujet a l'air simple.
+> Reprends l'implémentation des statistiques de visite (Matomo self-hosted) pour
+> Golden Market. Lis d'abord `docs/superpowers/plans/2026-09-03-matomo-analytics.md`
+> en entier (le plan complet, déjà écrit et approuvé) et
+> `docs/superpowers/specs/2026-09-02-statistiques-visite-design.md` (la spec dont il
+> découle). Invoque `superpowers:executing-plans` et poursuis à partir de la Task 2 —
+> vérifie d'abord l'état réel des commits (`git log --oneline` sur `staging`) pour
+> confirmer que la Task 1 est bien la dernière terminée avant de continuer.
 >
-> **Contexte déjà établi, à ne pas re-découvrir :**
-> - Le propriétaire a demandé quelle techno avait été ajoutée à la stack pour (a)
->   l'observabilité applicative (traces/erreurs backend) et (b) les statistiques de
->   visite (nombre de vues, pages visitées, etc.) côté storefront. Réponse : **aucune des
->   deux n'existe aujourd'hui.** `apps/backend/instrumentation.ts` contient le scaffold
->   Medusa/OpenTelemetry par défaut mais entièrement commenté (jamais activé, aucun
->   exporter choisi) ; le storefront Next.js n'a aucun tracking de visite, ni SaaS ni
->   maison.
-> - **Contrainte explicite et non négociable du propriétaire : self-hosted uniquement.**
->   Aucune solution SaaS (pas de Google Analytics, pas de Plausible/Umami/Sentry en mode
->   cloud, pas de Vercel Analytics, etc.) — seules des solutions qui tournent sur le VPS
->   du projet sont acceptables.
-> - Face à deux besoins possibles (observabilité backend type erreurs/traces, et
->   statistiques de visite storefront), le propriétaire a tranché l'ordre :
->   **« Statistiques de visite d'abord »**. Traiter ce sous-projet avant l'observabilité
->   backend, qui reste un besoin réel mais différé (à re-proposer une fois les stats de
->   visite conçues/livrées, pas avant).
-> - Une tentative d'installer un MCP Medusa pour faciliter l'accès à la doc a été
->   explorée puis abandonnée : le seul MCP disponible (`plugin:medusa-dev:MedusaDocs`)
->   exige un compte Medusa Cloud (HTTP 402 sinon) ; le propriétaire a confirmé ne pas
->   vouloir de Medusa Cloud. L'entrée de config inutilisée a été retirée. **Le backend
->   self-hosted n'a pas de serveur MCP natif** — ne pas re-proposer cette piste sans
->   nouvelle info.
-> - Aucune approche (outil précis, schéma de données, granularité, rétention, RGPD/vie
->   privée pour une clientèle burkinabè, etc.) n'a été discutée ni tranchée — tout reste
->   à cadrer depuis zéro dans le brainstorming. Ne pas présumer d'un outil (ex. ne pas
->   partir du principe qu'il faut Umami/Plausible self-hosted sans l'avoir proposé et
->   fait choisir).
-> - **Marge VPS à respecter dans le dimensionnement** (mesurée le 2026-09-02, à
->   revérifier au moment de concevoir — les 11 nouveaux produits/images l'ont un peu
->   entamée) : ~5,8 Gio de RAM disponible sur 11 Gio, ~32 Gio d'espace disque libre sur
->   197 Gio (84 % utilisé). Le VPS héberge déjà `staging` + `production` (Postgres,
->   Redis, backend, storefront ×2) sur la même machine — toute solution ajoutée
->   (conteneur supplémentaire, base de données dédiée, etc.) doit rester légère.
+> **Point de blocage réel signalé dans le plan (Task 10)** : `analytics.golden-market.co`
+> ne résout vers aucune IP (`dig +short analytics.golden-market.co A` vide au
+> 2026-09-03, contrairement à `staging.` et au domaine racine qui résolvent déjà vers
+> `144.91.110.105`). L'enregistrement DNS doit être ajouté par le propriétaire chez le
+> fournisseur DNS du domaine — hors de portée d'un accès SSH au VPS. Toutes les tasks
+> qui n'en dépendent pas (1-9, code applicatif + infra Docker + Apache préparé) restent
+> exécutables sans ce DNS ; seules les Task 10 (Steps 3-5) et Task 11 (Steps 7-8)
+> restent bloquées tant qu'il n'est pas ajouté — revérifier la résolution DNS au début
+> de cette session, elle a peut-être été ajoutée entre-temps.
 >
-> **Règles déjà établies dans ce projet à respecter sans redemander :**
-> - Ne jamais fabriquer de fausses données ni de métriques inventées — construire le
->   vrai mécanisme de collecte, sinon signaler l'écart plutôt que d'inventer.
-> - Toujours committer sur `staging` d'abord, jamais directement sur `main`
->   (`git checkout staging` → commit → `git checkout main` → `git merge staging
->   --ff-only` → `git push origin main`).
-> - Jamais de trailer `Co-Authored-By: Claude` dans les commits.
-> - Commentaires, messages de commit, documentation : en français.
-> - Vérification visuelle obligatoire (Playwright + captures d'écran réelles) une fois
->   l'implémentation commencée — des bugs réels ont déjà été manqués sans ce passage.
-> - Accès SSH VPS déjà en place : `ssh admin@144.91.110.105` (fonctionne en non
->   interactif avec `BatchMode=yes`).
+> Règles déjà établies dans ce projet à respecter sans redemander : ne jamais fabriquer
+> de fausses données/métriques (signaler l'écart plutôt qu'inventer) ; toujours
+> committer sur `staging` d'abord ; jamais de trailer `Co-Authored-By: Claude` ;
+> commentaires/commits/documentation en français ; vérification visuelle obligatoire
+> (Playwright + captures d'écran réelles) ; accès SSH VPS `ssh admin@144.91.110.105`
+> (`BatchMode=yes`, droits sudo complets).
 
 ## Backlog priorisé — retours propriétaire (2026-09-02)
 
@@ -606,21 +579,42 @@ vérifié visuellement en local)
 - [x] Page FAQ (`/faq`) créée, contenu statique réel (aligné sur CGV/palier 1),
       réutilise le composant Accordion existant. Lien ajouté dans le footer (« Aide »).
 
-### Palier 4 — Nouveaux sous-systèmes (chacun un brainstorming complet séparé)
-Statut global : **à faire** — ordre confirmé par le propriétaire : paiements enrichis
-en premier, puis multilingue/contenu éditable. Ni l'un ni l'autre commencé.
+### Palier 4 — Nouveaux sous-systèmes
+Statut global : **partiellement fait** — le propriétaire a réduit le scope du
+sous-projet paiements le soir même (message direct, pas de brainstorming complet vu la
+taille réduite : réutilisation directe du pattern `orange-money-manual` existant) :
+paiement à la réception + Mobile Money manuel (Orange **et** Moov Money) livrés et
+déployés en production ; paiement en ligne, carte bancaire et multilingue **restent
+différés**, sur décision explicite du propriétaire.
 
-- [ ] **Paiements enrichis** (regroupe les demandes carte bancaire et modes de
-      paiement conditionnés à la ville de livraison) : paiement à la réception,
-      paiement manuel Mobile Money avec choix Orange Money/Moov Money, paiement
-      Mobile Money **en ligne**, paiement par carte bancaire — proposés selon que la
-      ville de livraison du client est Ouagadougou ou non. Écart majeur avec
-      l'existant : le paiement est aujourd'hui 100 % manuel (Orange Money + validation
-      humaine, décision explicite documentée dans `AGENTS.md`) — ce sous-projet
-      implique de vraies décisions business (choix d'agrégateur Mobile Money en ligne,
-      choix de prestataire carte bancaire, contrats marchands, conformité) en plus du
-      code. À traiter comme un sous-projet architectural à part entière.
-- [ ] **Multilingue (FR/EN) + contenu éditable depuis le backoffice** : aujourd'hui
+- [x] **Paiement à la réception + Mobile Money manuel enrichi** (Orange Money +
+      Moov Money) — commit `813bb97` sur `staging`, promu en production
+      (`79692b3`). Deux nouveaux providers de paiement (`moov-money-manual.ts`,
+      `cash-on-delivery.ts`), calqués exactement sur `orange-money-manual.ts` (même
+      mécanique manuelle : session → autorisation → capture par le marchand dans
+      l'admin). Paiement à la réception filtré côté storefront : n'apparaît que si la
+      ville de livraison est Ouagadougou. Script idempotent
+      `link-payment-providers-bf.ts` exécuté sur les 3 environnements (local,
+      staging, production) — nécessaire car `seed-region-bf.ts` ne retouche jamais sa
+      liste de `payment_providers` une fois la région déjà créée. Numéros réels
+      fournis directement par le propriétaire en session : Orange Money 64947373
+      (déjà en place), Moov Money 61853737 (nouveau, ajouté aux `.env` staging et
+      production). Vérifié visuellement en local (2 commandes de test complètes) et
+      en production (les 3 méthodes s'affichent correctement à Ouagadougou, pas de
+      commande de test soumise en prod). **Écart signalé** : l'email au checkout ne
+      peut pas être rendu facultatif comme initialement demandé au palier 3 — l'API
+      Medusa rejette une adresse sans email valide (voir commit `dd60a8d`) ; sans
+      lien avec ce point paiement mais mentionné ici car découvert dans le même
+      flux.
+- [ ] **Paiement Mobile Money en ligne + carte bancaire** — différé par le
+      propriétaire (message du 2026-09-02 soir : « nous allons juste implémenter le
+      paiement à la réception et le mobile monnaie manuel pour l'instant »). Reste un
+      sous-projet architectural à part entière quand repris : nécessite de vraies
+      décisions business (choix d'agrégateur Mobile Money en ligne, choix de
+      prestataire carte bancaire, contrats marchands, conformité).
+- [ ] **Multilingue (FR/EN) + contenu éditable depuis le backoffice** — différé par
+      le propriétaire le même soir (« le deuxième point relatif multilingue, ça sera
+      également pour plus tard »). Aujourd'hui
       aucun texte UI/marque du storefront n'est modifiable depuis le backoffice (ni
       CMS, ni fichier i18n, ni champ admin custom — confirmé par exploration du code ;
       seules les données produit le sont, ce qui est normal). Construire le
