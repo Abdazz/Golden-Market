@@ -518,7 +518,7 @@ en boucle). Un problème réel et différent est apparu à la place :
 Après ces deux corrections : les 3 conteneurs stables (`Up`, `glitchtip-db`
 `healthy`), logs propres des deux côtés.
 
-- [ ] **Step 7: Créer le compte super-admin GlitchTip**
+- [x] **Step 7: Créer le compte super-admin GlitchTip**
 
 ```bash
 ssh admin@144.91.110.105 'docker exec -it production-golden-market-glitchtip ./manage.py createsuperuser'
@@ -532,7 +532,7 @@ terminal"). Délégué au propriétaire via `ssh -t ...` à exécuter directemen
 son terminal (préfixe `!` en session interactive Claude Code) plutôt qu'un mot de
 passe généré et relayé par l'assistant.
 
-- [ ] **Step 8: Créer les deux organisations/projets et récupérer les DSN (via l'interface web, une fois le vhost actif - Task 5 Steps 4-5 complétées)**
+- [x] **Step 8: Créer les deux organisations/projets et récupérer les DSN (via l'interface web, une fois le vhost actif - Task 5 Steps 4-5 complétées)**
 
 Se connecter sur `https://monitoring.golden-market.co` avec le compte super-admin,
 créer une organisation "Golden Market", puis deux projets : `staging-backend` et
@@ -544,7 +544,18 @@ jusqu'à ce que le propriétaire ajoute l'enregistrement DNS - signaler l'écart
 que d'inventer des DSN, et documenter le reste des steps comme prêts à exécuter dès
 que ce blocage est levé.
 
-- [ ] **Step 9: Reporter les DSN dans les `.env` backend des deux environnements**
+**Résultat réel (2026-09-03)** : DNS propagé, vhosts `analytics`/`monitoring`
+activés et certificats certbot obtenus par le propriétaire (délégué, même
+limitation `sudo` interactif que Step 7). Organisation "Golden Market" et les
+deux projets créés via `./manage.py shell` (ORM Django directement dans le
+conteneur) plutôt que l'interface web - même résultat fonctionnel (mêmes
+modèles, mêmes signaux de création de `ProjectKey`), pas de compte web utilisé
+donc pas besoin des identifiants du super-admin créé au Step 7. DSN obtenus :
+`staging-backend` → `https://<clé>@monitoring.golden-market.co/1`,
+`production-backend` → `https://<clé>@monitoring.golden-market.co/2` (valeurs
+réelles dans les `.env` respectifs, jamais committées).
+
+- [x] **Step 9: Reporter les DSN dans les `.env` backend des deux environnements**
 
 ```bash
 ssh admin@144.91.110.105 "echo 'SENTRY_DSN=<DSN production-backend>' >> /opt/golden-market/production/apps/backend/.env"
@@ -557,7 +568,7 @@ ssh admin@144.91.110.105 'cd /opt/golden-market/production && docker compose -f 
 ssh admin@144.91.110.105 'cd /opt/golden-market/staging && docker compose -f docker-compose.prod.yml --env-file .env.deploy up -d backend'
 ```
 
-- [ ] **Step 10: Vérification visuelle complète — déclencher une vraie erreur sur staging**
+- [x] **Step 10: Vérification visuelle complète — déclencher une vraie erreur sur staging**
 
 ```bash
 curl -s https://staging.golden-market.co/store/products/ce-produit-nexiste-pas -H "x-publishable-api-key: <clé staging>"
@@ -568,11 +579,25 @@ vérification côté production avec une requête qui ne modifie aucune donnée 
 (même prudence que pour les commandes de test - ne jamais fabriquer de données,
 mais une requête GET en erreur ne crée rien).
 
-- [ ] **Step 11: Vérifier l'écran performance**
+**Résultat réel (2026-09-03)** : vérifié par requête directe à la base GlitchTip
+(`Issue.objects.filter(project=p)`, pas de session web disponible) plutôt que
+via l'interface - une erreur 404 réelle (`Product with id: ... was not found`)
+confirmée présente pour `staging-backend` **et** `production-backend`, avec le
+bon titre et le bon horodatage. Vérification visuelle du dashboard laissée au
+propriétaire (pas d'identifiants de connexion côté assistant, création faite en
+ORM au Step 8).
+
+- [x] **Step 11: Vérifier l'écran performance**
 
 Naviguer sur le storefront (quelques pages, une recherche produit) pour générer du
 trafic réel tracé, puis vérifier dans GlitchTip que des transactions HTTP
 apparaissent avec des durées réelles.
+
+**Résultat réel (2026-09-03)** : trafic réel généré (`GET /store/products` x15
+par environnement, `tracesSampleRate` 0.2 donc échantillonnage partiel attendu).
+Confirmé via `TransactionGroup` en base : `GET /store/products` présent des deux
+côtés avec des durées réelles (214ms staging, 354ms production), plus des spans
+internes réels (`redis-connect`, `redis-evalsha`, `workflow:create-defaults`).
 
 - [ ] **Step 12: Mettre à jour HANDOFF.md**
 
