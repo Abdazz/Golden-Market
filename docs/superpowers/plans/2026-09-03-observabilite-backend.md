@@ -426,14 +426,14 @@ ssh admin@144.91.110.105 'sudo certbot --apache -d monitoring.golden-market.co'
 
 **Files:** aucun nouveau fichier — déploiement des Tasks 1-5.
 
-- [ ] **Step 1: Vérification locale complète**
+- [x] **Step 1: Vérification locale complète**
 
 ```bash
 cd apps/backend && npx tsc --noEmit -p tsconfig.json && npx medusa lint && npx jest --silent=false
 ```
 Expected: tout passe (les tests existants ne touchent pas à Sentry/GlitchTip, aucune régression attendue)
 
-- [ ] **Step 2: Générer les secrets réels**
+- [x] **Step 2: Générer les secrets réels**
 
 ```bash
 openssl rand -base64 32   # GLITCHTIP_SECRET_KEY
@@ -441,7 +441,7 @@ openssl rand -base64 24   # GLITCHTIP_DB_PASSWORD
 ```
 Jamais de valeur devinée ou de placeholder laissé en production.
 
-- [ ] **Step 3: Ajouter les variables au `.env.deploy` de production (SSH, manuel)**
+- [x] **Step 3: Ajouter les variables au `.env.deploy` de production (SSH, manuel)**
 
 ```bash
 ssh admin@144.91.110.105 'cat >> /opt/golden-market/production/.env.deploy <<EOF
@@ -463,7 +463,7 @@ Resend (déjà utilisé par le backend Medusa, voir `RESEND_API_KEY` dans
 `apps/backend/.env.template`) expose un endpoint SMTP compatible `EMAIL_URL`, sinon
 signaler au propriétaire plutôt que d'inventer des identifiants SMTP.
 
-- [ ] **Step 4: Push staging, vérifier le déploiement vert, vérifier qu'aucun conteneur GlitchTip n'existe encore côté staging**
+- [x] **Step 4: Push staging, vérifier le déploiement vert, vérifier qu'aucun conteneur GlitchTip n'existe encore côté staging**
 
 ```bash
 git push origin staging
@@ -475,7 +475,7 @@ ssh admin@144.91.110.105 'docker ps --filter "name=staging" --format "table {{.N
 Expected : pas de `staging-golden-market-glitchtip*` (le profil `observability` n'est
 actif que côté production).
 
-- [ ] **Step 5: Merge vers main, push, vérifier le déploiement production vert**
+- [x] **Step 5: Merge vers main, push, vérifier le déploiement production vert**
 
 ```bash
 git checkout main && git merge staging --ff-only && git push origin main
