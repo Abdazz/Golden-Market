@@ -18,6 +18,7 @@ import SideMenu from "@modules/layout/components/side-menu"
 // dédié dans ce catalogue).
 const DESKTOP_NAV_LINKS = [
   { label: "Accueil", href: "/" },
+  { label: "Nos produits", href: "/store" },
   { label: "Catégories", href: "/store" },
   { label: "Promotions", href: "/store" },
   { label: "Suivre ma commande", href: "/account/orders" },

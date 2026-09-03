@@ -58,9 +58,10 @@ test.describe("Header (conformité maquette)", () => {
     await expect(page.getByTestId("nav-account-link")).toBeVisible()
     await expect(page.getByTestId("nav-cart-link")).toBeVisible()
     const desktopLinks = page.getByTestId("nav-desktop-link")
-    await expect(desktopLinks).toHaveCount(4)
+    await expect(desktopLinks).toHaveCount(5)
     await expect(desktopLinks).toContainText([
       "Accueil",
+      "Nos produits",
       "Catégories",
       "Promotions",
       "Suivre ma commande",

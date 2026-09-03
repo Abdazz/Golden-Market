@@ -19,6 +19,13 @@ export default async function ProductRail({
     queryParams: {
       collection_id: collection.id,
       fields: "*variants.calculated_price",
+      // /store/products ne garantit aucun ordre stable par défaut (constaté
+      // en production - ni chronologique ni alphabétique). Trier côté API
+      // (pas après coup côté client) est indispensable ici : ce rail limite
+      // à 12 produits par défaut, une collection peut en contenir bien plus
+      // (33 en local) - trier après une pagination déjà tronquée dans un
+      // ordre arbitraire n'aurait pas garanti les vrais plus récents.
+      order: "-created_at",
     },
   })
 

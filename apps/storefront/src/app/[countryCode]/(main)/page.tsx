@@ -37,6 +37,21 @@ export default async function Home(props: {
     return null
   }
 
+  // L'API /store/collections ne garantit aucun ordre stable (ni par date de
+  // création, ni alphabétique - constaté en production) : "Vente express"
+  // doit toujours précéder "Vente sur commande" sur la page d'accueil,
+  // donc on l'impose explicitement plutôt que de dépendre de l'ordre reçu.
+  // Les autres collections éventuelles gardent leur ordre relatif d'origine.
+  const COLLECTION_HANDLE_PRIORITY: Record<string, number> = {
+    "vente-express": 0,
+    "vente-sur-commande": 1,
+  }
+  const sortedCollections = [...collections].sort((a, b) => {
+    const priorityA = COLLECTION_HANDLE_PRIORITY[a.handle] ?? Infinity
+    const priorityB = COLLECTION_HANDLE_PRIORITY[b.handle] ?? Infinity
+    return priorityA - priorityB
+  })
+
   const featuredProduct = featuredList.response.products[0]
   let featured: HeroFeatured | null = null
   if (featuredProduct) {
@@ -58,9 +73,9 @@ export default async function Home(props: {
       <Hero featured={featured} />
       <TrustBand />
       <CategoryGrid />
-      {collections.length > 0 && (
+      {sortedCollections.length > 0 && (
         <ul className="flex flex-col">
-          <FeaturedProducts collections={collections} region={region} />
+          <FeaturedProducts collections={sortedCollections} region={region} />
         </ul>
       )}
     </>
