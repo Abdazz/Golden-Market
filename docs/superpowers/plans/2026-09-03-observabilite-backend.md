@@ -482,7 +482,7 @@ git checkout main && git merge staging --ff-only && git push origin main
 ```
 Surveiller via `gh run watch <run-id> --exit-status`.
 
-- [ ] **Step 6: Vérifier que les conteneurs GlitchTip tournent en production**
+- [x] **Step 6: Vérifier que les conteneurs GlitchTip tournent en production**
 
 ```bash
 ssh admin@144.91.110.105 'docker ps --filter "name=production-golden-market-glitchtip" --format "table {{.Names}}\t{{.Status}}"'
@@ -493,6 +493,31 @@ commande worker) s'avère incorrect, `docker logs` du conteneur en échec le ré
 ici - corriger `docker-compose.prod.yml` en conséquence et redéployer avant de
 continuer.
 
+**Résultat réel (2026-09-03)** : les deux points laissés ouverts se sont avérés
+**corrects** (port interne 8000 confirmé par le log `Listening at: http://0.0.0.0:8000`,
+commande worker confirmée par les logs Celery+beat traitant `uptime-dispatch-checks`
+en boucle). Un problème réel et différent est apparu à la place :
+
+1. **`GLITCHTIP_DB_PASSWORD` généré via `openssl rand -base64 24` a cassé le parsing
+   de `DATABASE_URL`** (`ValueError: Port could not be cast to integer value as
+   '<fragment du mot de passe>'`) - l'alphabet base64 standard peut produire `/`,
+   `+`, `=`, non sûrs tels quels dans une URL `postgres://user:PASS@host:port/db`
+   sans encodage pourcent. Corrigé en régénérant avec `openssl rand -hex 24`
+   (alphanumérique uniquement, donc sûr en URL) - `GLITCHTIP_SECRET_KEY` (Django,
+   jamais dans une URL) n'a pas ce problème et reste en base64.
+   Mot de passe aligné côté rôle Postgres (`ALTER USER glitchtip WITH PASSWORD
+   ...` dans le conteneur `glitchtip-db`, transmis via scp + fichier temporaire
+   détruit après usage, jamais affiché en clair) et côté `.env.deploy`, puis
+   `glitchtip`/`glitchtip-worker` recréés.
+2. **Aucune migration Django appliquée au premier démarrage** (l'image
+   `glitchtip/glitchtip:latest` ne migre pas automatiquement au démarrage du
+   service web) - le worker crashait en boucle sur `relation "uptime_monitor"
+   does not exist`. Corrigé avec `docker exec production-golden-market-glitchtip
+   ./manage.py migrate --noinput`, puis redémarrage du worker.
+
+Après ces deux corrections : les 3 conteneurs stables (`Up`, `glitchtip-db`
+`healthy`), logs propres des deux côtés.
+
 - [ ] **Step 7: Créer le compte super-admin GlitchTip**
 
 ```bash
@@ -500,6 +525,12 @@ ssh admin@144.91.110.105 'docker exec -it production-golden-market-glitchtip ./m
 ```
 Un vrai mot de passe fort, saisi interactivement par le propriétaire ou la session
 (jamais un mot de passe deviné/par défaut laissé tel quel).
+
+**Note (2026-09-03)** : `docker exec -it` échoue dans cette session (pas de TTY
+alloué - "cannot attach stdin to a TTY-enabled container because stdin is not a
+terminal"). Délégué au propriétaire via `ssh -t ...` à exécuter directement dans
+son terminal (préfixe `!` en session interactive Claude Code) plutôt qu'un mot de
+passe généré et relayé par l'assistant.
 
 - [ ] **Step 8: Créer les deux organisations/projets et récupérer les DSN (via l'interface web, une fois le vhost actif - Task 5 Steps 4-5 complétées)**
 
