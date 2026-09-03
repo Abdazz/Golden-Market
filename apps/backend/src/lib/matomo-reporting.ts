@@ -58,12 +58,15 @@ export async function fetchAnalyticsSummary(
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   try {
+    // token_auth dans le corps de la requête, pas dans l'URL : une URL avec
+    // le jeton finirait en clair dans les journaux d'accès (Apache, proxy
+    // Docker, etc.), même en interne au réseau Docker.
     const response = await fetchImpl(
-      `${reportingUrl}/index.php?module=API&method=API.getBulkRequest&format=JSON&token_auth=${apiToken}`,
+      `${reportingUrl}/index.php?module=API&method=API.getBulkRequest&format=JSON`,
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
+        body: `token_auth=${encodeURIComponent(apiToken)}&${body}`,
         signal: controller.signal,
       }
     )
