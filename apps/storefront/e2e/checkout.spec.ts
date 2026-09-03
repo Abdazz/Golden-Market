@@ -2,9 +2,10 @@ import { expect, test } from "@playwright/test"
 
 // Handle réel du catalogue Golden Market, produit à variante unique (pas de
 // sélection Taille/Couleur à gérer) - voir apps/backend/src/scripts/
-// import-catalog.ts. Région Burkina Faso : le seul moyen de paiement
-// disponible est Orange Money (paiement manuel, voir
-// apps/backend/src/modules/orange-money-manual).
+// import-catalog.ts. Région Burkina Faso : 3 moyens de paiement manuels
+// (Orange Money, Moov Money, paiement à la réception à Ouagadougou - voir
+// apps/backend/src/modules/{orange-money-manual,moov-money-manual,cash-on-delivery}.ts).
+// Ce test couvre Orange Money ; les deux autres suivent le même flux.
 const REAL_PRODUCT_HANDLE = "diffuser-deau-de-cuisine"
 
 test.describe("Parcours d'achat complet (Orange Money)", () => {
@@ -30,11 +31,11 @@ test.describe("Parcours d'achat complet (Orange Money)", () => {
       await page.getByTestId("shipping-first-name-input").fill("Playwright")
       await page.getByTestId("shipping-last-name-input").fill("Test")
       await page.getByTestId("shipping-address-input").fill("Rue de test")
-      await page.getByTestId("shipping-postal-code-input").fill("01000")
       await page.getByTestId("shipping-city-input").fill("Ouagadougou")
-      // Une seule option de livraison existe pour la région BF ("Livraison —
-      // à convenir avec le marchand", 0 FCFA) - le sélecteur de pays n'a donc
-      // pas besoin d'être touché, déjà fixé sur Burkina Faso par la région.
+      await page.getByTestId("shipping-phone-input").fill("+22670000000")
+      // Champs Entreprise/Code postal/Pays retirés du formulaire (palier 3 du
+      // backlog 2026-09-02) ; une seule option de livraison existe pour la
+      // région BF ("Livraison — à convenir avec le marchand", 0 FCFA).
       await page.getByTestId("submit-address-button").click()
     })
 
@@ -45,17 +46,17 @@ test.describe("Parcours d'achat complet (Orange Money)", () => {
     })
 
     await test.step("Choisir Orange Money et voir les instructions de paiement", async () => {
-      // Sélecteur précis : la page de paiement affiche désormais le footer
-      // complet, qui contient aussi un lien "Paiement Orange Money".
+      // Sélecteur précis : la page de paiement affiche aussi le footer
+      // complet, qui contient d'autres mentions de moyens de paiement.
       await page
         .getByTestId("checkout-container")
         .getByText("Orange Money", { exact: true })
         .click()
-      await expect(page.getByTestId("orange-money-instructions")).toBeVisible()
+      await expect(page.getByTestId("mobile-money-instructions")).toBeVisible()
       // Le numéro Orange Money diffère par environnement (ORANGE_MONEY_NUMBER
       // dans apps/backend/.env) - on vérifie le nom du titulaire, constant
       // partout, plutôt qu'une valeur codée en dur pour un seul environnement.
-      await expect(page.getByTestId("orange-money-instructions")).toContainText(
+      await expect(page.getByTestId("mobile-money-instructions")).toContainText(
         "Golden Market"
       )
       await page.getByTestId("submit-payment-button").click()
