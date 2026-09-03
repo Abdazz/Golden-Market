@@ -7,7 +7,9 @@ import ProductTabs from "@modules/products/components/product-tabs"
 import ProductTrust from "@modules/products/components/product-trust"
 import RelatedProducts from "@modules/products/components/related-products"
 import ProductInfo from "@modules/products/templates/product-info"
+import ProductViewTracker from "@modules/analytics/components/product-view-tracker"
 import SkeletonRelatedProducts from "@modules/skeletons/templates/skeleton-related-products"
+import { getProductPrice } from "@lib/util/get-product-price"
 import { notFound } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
 
@@ -39,9 +41,15 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
     { label: product.title },
   ]
 
+  const { cheapestPrice } = getProductPrice({ product })
+
   return (
     <>
       <div className="content-container" data-testid="product-container">
+        <ProductViewTracker
+          product={product}
+          price={cheapestPrice?.calculated_price_number ?? 0}
+        />
         <Breadcrumb items={crumbs} />
 
         <div className="grid grid-cols-1 gap-10 pb-16 small:grid-cols-[1.05fr_1fr] small:items-start">

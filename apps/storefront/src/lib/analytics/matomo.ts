@@ -137,5 +137,9 @@ export const trackOrder = (order: {
   order.items.forEach((item) => {
     push("addEcommerceItem", item.id, item.name, "", item.price, item.quantity)
   })
-  push("trackEcommerceOrder", order.id, order.total, order.subtotal, undefined, order.shipping)
+  // 0 plutôt qu'undefined pour la taxe (4e paramètre) : Matomo sérialise un
+  // paramètre undefined en la chaîne littérale "undefined" dans l'URL de
+  // tracking (ec_tx=undefined), constaté en vérifiant une vraie commande de
+  // test contre un conteneur Matomo local.
+  push("trackEcommerceOrder", order.id, order.total, order.subtotal, 0, order.shipping)
 }

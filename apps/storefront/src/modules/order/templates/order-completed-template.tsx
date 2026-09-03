@@ -7,6 +7,7 @@ import Help from "@modules/order/components/help"
 import Items from "@modules/order/components/items"
 import OnboardingCta from "@modules/order/components/onboarding-cta"
 import OrderDetails from "@modules/order/components/order-details"
+import OrderTracker from "@modules/analytics/components/order-tracker"
 import ShippingDetails from "@modules/order/components/shipping-details"
 import PaymentDetails from "@modules/order/components/payment-details"
 import { HttpTypes } from "@medusajs/types"
@@ -24,6 +25,20 @@ export default async function OrderCompletedTemplate({
 
   return (
     <div className="content-container py-6 min-h-[calc(100vh-64px)]">
+      <OrderTracker
+        order={{
+          id: order.id,
+          items: (order.items ?? []).map((item) => ({
+            id: item.id,
+            title: item.product_title ?? item.title,
+            unit_price: item.unit_price,
+            quantity: item.quantity,
+          })),
+          total: order.total,
+          subtotal: order.subtotal ?? 0,
+          shipping_total: order.shipping_total ?? 0,
+        }}
+      />
       <Breadcrumb
         items={[
           { label: "Accueil", href: "/" },
