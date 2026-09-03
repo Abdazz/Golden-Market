@@ -205,7 +205,7 @@ git commit -m "Ajoute la capture d'erreur Sentry/GlitchTip (middleware)"
 
 **Interfaces:** aucune.
 
-- [ ] **Step 1: Ajouter la variable au template**
+- [x] **Step 1: Ajouter la variable au template**
 
 Ouvrir `apps/backend/.env.template`, après le bloc `MATOMO_API_TOKEN=`, ajouter :
 
@@ -218,7 +218,7 @@ Ouvrir `apps/backend/.env.template`, après le bloc `MATOMO_API_TOKEN=`, ajouter
 SENTRY_DSN=
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add apps/backend/.env.template
