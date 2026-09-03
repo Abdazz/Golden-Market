@@ -93,6 +93,49 @@ services:
     ports:
       - "127.0.0.1:${STOREFRONT_PORT}:8000"
 
+  # Statistiques de visite (Matomo self-hosted) - production uniquement, voir
+  # docs/superpowers/specs/2026-09-02-statistiques-visite-design.md. Gaté par
+  # le profil "analytics" : n'existe tout simplement pas sur un environnement
+  # (staging) dont le .env.deploy ne définit pas COMPOSE_PROFILES=analytics.
+  matomo-db:
+    image: mariadb:11.4
+    container_name: ${ENV_NAME}-golden-market-matomo-db
+    restart: unless-stopped
+    profiles: ["analytics"]
+    environment:
+      MYSQL_DATABASE: ${MATOMO_DB_NAME}
+      MYSQL_USER: ${MATOMO_DB_USER}
+      MYSQL_PASSWORD: ${MATOMO_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MATOMO_DB_ROOT_PASSWORD}
+    volumes:
+      - matomo_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  matomo:
+    image: matomo:5-apache
+    container_name: ${ENV_NAME}-golden-market-matomo
+    restart: unless-stopped
+    profiles: ["analytics"]
+    depends_on:
+      matomo-db:
+        condition: service_healthy
+    environment:
+      MATOMO_DATABASE_HOST: matomo-db
+      MATOMO_DATABASE_ADAPTER: mysql
+      MATOMO_DATABASE_USERNAME: ${MATOMO_DB_USER}
+      MATOMO_DATABASE_PASSWORD: ${MATOMO_DB_PASSWORD}
+      MATOMO_DATABASE_DBNAME: ${MATOMO_DB_NAME}
+    ports:
+      - "127.0.0.1:${MATOMO_PORT}:80"
+    volumes:
+      - matomo_data:/var/www/html
+
 volumes:
   postgres_data:
   redis_data:
+  matomo_db_data:
+  matomo_data:
