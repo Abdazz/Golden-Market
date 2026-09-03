@@ -138,6 +138,12 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|images|assets|png|svg|jpg|jpeg|gif|webp).*)",
+    // opengraph-image/twitter-image (générés dynamiquement via next/og, voir
+    // lib/og-image.tsx) : contrairement à un fichier statique, une route de
+    // génération d'image passe par le middleware - sans cette exclusion,
+    // cette redirection i18n la fait 404 (le fichier n'existe qu'à la racine
+    // /app, pas sous /[countryCode]). Bug réel constaté en local le
+    // 2026-09-03 en vérifiant le correctif après coup.
+    "/((?!api|_next/static|_next/image|favicon.ico|images|assets|png|svg|jpg|jpeg|gif|webp|opengraph-image|twitter-image).*)",
   ],
 }

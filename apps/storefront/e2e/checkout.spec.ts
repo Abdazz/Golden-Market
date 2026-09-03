@@ -6,7 +6,14 @@ import { expect, test } from "@playwright/test"
 // (Orange Money, Moov Money, paiement à la réception à Ouagadougou - voir
 // apps/backend/src/modules/{orange-money-manual,moov-money-manual,cash-on-delivery}.ts).
 // Ce test couvre Orange Money ; les deux autres suivent le même flux.
-const REAL_PRODUCT_HANDLE = "diffuser-deau-de-cuisine"
+//
+// Doit rester un produit réellement en stock (manage_inventory activé pour
+// tout le catalogue, voir activate-stock-tracking-old-catalog.ts) - l'ancien
+// handle "diffuser-deau-de-cuisine" fait partie des 29 anciens produits
+// intentionnellement en rupture (alignement staging/production, 2026-09-03),
+// donc plus utilisable ici. Choisi parmi les produits récents réellement
+// approvisionnés.
+const REAL_PRODUCT_HANDLE = "roue-abdominale-automatique-avec-appui-coudes"
 
 test.describe("Parcours d'achat complet (Orange Money)", () => {
   test("panier → livraison → Orange Money → commande confirmée", async ({ page }) => {
