@@ -30,6 +30,7 @@ export default async function OrderCompletedTemplate({
           id: order.id,
           items: (order.items ?? []).map((item) => ({
             id: item.id,
+            variant_id: item.variant_id ?? null,
             title: item.product_title ?? item.title,
             unit_price: item.unit_price,
             quantity: item.quantity,

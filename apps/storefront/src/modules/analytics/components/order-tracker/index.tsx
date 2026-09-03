@@ -6,7 +6,13 @@ import { trackOrder } from "@lib/analytics/matomo"
 type OrderTrackerProps = {
   order: {
     id: string
-    items: { id: string; title: string; unit_price: number; quantity: number }[]
+    items: {
+      id: string
+      variant_id: string | null
+      title: string
+      unit_price: number
+      quantity: number
+    }[]
     total: number
     subtotal: number
     shipping_total: number
@@ -37,8 +43,16 @@ const OrderTracker = ({ order }: OrderTrackerProps) => {
 
     trackOrder({
       id: order.id,
+      // variant_id plutôt que l'id de la ligne de commande : c'est ce même
+      // id que trackAddToCart a déjà poussé dans le "panier" interne du
+      // tracker Matomo (state client-side, jamais rechargé entre les pages
+      // panier -> paiement -> confirmation sur ce Next.js App Router sans
+      // rechargement complet) - un id différent ici créerait une deuxième
+      // entrée au lieu de mettre à jour la même, doublant la quantité/le
+      // revenu déclarés. Constaté et corrigé en vérifiant une vraie
+      // commande de test contre le Ecommerce Log Matomo (2026-09-03).
       items: order.items.map((item) => ({
-        id: item.id,
+        id: item.variant_id ?? item.id,
         name: item.title,
         price: item.unit_price,
         quantity: item.quantity,
