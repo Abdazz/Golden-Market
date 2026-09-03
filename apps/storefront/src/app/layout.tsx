@@ -2,6 +2,9 @@ import { getBaseURL } from "@lib/util/env"
 import { Metadata } from "next"
 import { Baloo_2, Inter } from "next/font/google"
 import WhatsAppFloatButton from "@modules/layout/components/whatsapp-float-button"
+import ConsentBanner from "@modules/analytics/components/consent-banner"
+import MatomoTracker from "@modules/analytics/components/matomo-tracker"
+import { Suspense } from "react"
 import "styles/globals.css"
 
 const inter = Inter({
@@ -31,6 +34,10 @@ export default function RootLayout(props: { children: React.ReactNode }) {
       <body>
         <main className="relative">{props.children}</main>
         <WhatsAppFloatButton />
+        <Suspense fallback={null}>
+          <MatomoTracker />
+        </Suspense>
+        <ConsentBanner />
       </body>
     </html>
   )
