@@ -1,7 +1,14 @@
-import { defineMiddlewares } from "@medusajs/framework/http"
+import { defineMiddlewares, errorHandler } from "@medusajs/framework/http"
 import type { MedusaRequest, MedusaResponse, MedusaNextFunction } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import * as Sentry from "@sentry/node"
 import { checkRateLimit } from "./middlewares/rate-limiter"
+
+// Observabilité backend (GlitchTip self-hosted) : capture chaque erreur avant de
+// déléguer au comportement par défaut de Medusa - ne remplace rien de l'existant,
+// ajoute uniquement l'envoi à Sentry/GlitchTip. Sentry.captureException est un
+// no-op silencieux tant que SENTRY_DSN est absent (voir instrumentation.ts).
+const originalErrorHandler = errorHandler()
 
 const RESET_PASSWORD_MAX_REQUESTS = 5
 const RESET_PASSWORD_WINDOW_SECONDS = 15 * 60
@@ -66,4 +73,8 @@ export default defineMiddlewares({
       middlewares: [resetPasswordRateLimitMiddleware],
     },
   ],
+  errorHandler: (error: any, req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
+    Sentry.captureException(error)
+    return originalErrorHandler(error, req, res, next)
+  },
 })
