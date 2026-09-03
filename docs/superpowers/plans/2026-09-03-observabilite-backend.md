@@ -43,46 +43,65 @@
 
 **Interfaces:** aucune (configuration d'initialisation, pas de code métier appelable).
 
-- [ ] **Step 1: Installer les dépendances**
+- [x] **Step 1: Installer les dépendances**
 
-Run: `cd apps/backend && npm install @sentry/node @opentelemetry/api @opentelemetry/exporter-trace-otlp-grpc @sentry/opentelemetry-node @opentelemetry/core@1.x @opentelemetry/sdk-trace-base@1.x @opentelemetry/semantic-conventions@1.x`
+Run: `cd apps/backend && npm install @sentry/node @opentelemetry/api @opentelemetry/exporter-trace-otlp-grpc @sentry/opentelemetry @opentelemetry/core@1.x @opentelemetry/sdk-trace-base@1.x @opentelemetry/semantic-conventions@1.x`
 
-- [ ] **Step 2: Écrire `instrumentation.ts`**
+> **Correction post-exécution (2026-09-03) :** le guide officiel Medusa référence
+> `@sentry/opentelemetry-node`, le pont OTel de l'ancien SDK Sentry v7 —
+> incompatible avec `@sentry/node@^10.73.0` (Sentry est passé à une architecture
+> OTel-native en v8+, ce package est retiré). Le paquet correct est
+> `@sentry/opentelemetry` (déjà présent transitivement à la même version). Le
+> Step 1 ci-dessus a été corrigé pour l'installer directement.
+
+- [x] **Step 2: Écrire `instrumentation.ts`**
 
 ```typescript
 // apps/backend/instrumentation.ts
 
 // Observabilité backend (GlitchTip self-hosted, compatible protocole Sentry).
-// Voir docs/superpowers/specs/2026-09-03-observabilite-backend-design.md et le
-// guide officiel Medusa : https://docs.medusajs.com/resources/integrations/guides/sentry
+// Voir docs/superpowers/specs/2026-09-03-observabilite-backend-design.md.
+//
+// Le guide officiel Medusa (docs.medusajs.com/resources/integrations/guides/sentry)
+// référence @sentry/opentelemetry-node, le pont OTel de l'ancien SDK Sentry v7 -
+// incompatible avec @sentry/node v10 installé ici (Sentry est passé à une
+// architecture OTel-native en v8+, ce package est retiré). Pattern actuel :
+// "Using Your Existing OpenTelemetry Setup" de la doc Sentry v10
+// (docs.sentry.io/platforms/javascript/guides/node/opentelemetry/custom-setup/),
+// adapté pour brancher ses 4 briques (contextManager, sampler, spanProcessors,
+// textMapPropagator) sur registerOtel (déjà scaffoldé par Medusa) plutôt que sur
+// un NodeTracerProvider séparé - un seul NodeSDK doit exister, celui de Medusa.
 //
 // SENTRY_DSN absent (dev local, ou avant que l'instance GlitchTip existe) ->
 // Sentry.init reçoit dsn: undefined, qui désactive silencieusement l'envoi
 // (comportement documenté du SDK Sentry) - pas de branche conditionnelle à
 // maintenir ici.
 import * as Sentry from "@sentry/node"
-import otelApi from "@opentelemetry/api"
 import { registerOtel } from "@medusajs/medusa"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc"
 import {
-  SentrySpanProcessor,
   SentryPropagator,
-} from "@sentry/opentelemetry-node"
+  SentrySampler,
+  SentrySpanProcessor,
+} from "@sentry/opentelemetry"
 
-Sentry.init({
+const sentryClient = Sentry.init({
   dsn: process.env.SENTRY_DSN,
   // Réduit par rapport à l'exemple officiel (1.0 = 100% des requêtes tracées) :
   // ce VPS a une marge disque tendue (voir spec), pas besoin de tracer chaque
   // requête pour repérer les endpoints lents.
   tracesSampleRate: process.env.SENTRY_DSN ? 0.2 : 0,
-  instrumenter: "otel",
+  // Le NodeSDK OpenTelemetry est celui de Medusa (registerOtel ci-dessous) - on
+  // empêche Sentry.init de créer le sien en plus, qui entrerait en conflit.
+  skipOpenTelemetrySetup: true,
 })
-
-otelApi.propagation.setGlobalPropagator(new SentryPropagator())
 
 export function register() {
   registerOtel({
     serviceName: "medusa",
+    contextManager: new Sentry.SentryContextManager(),
+    textMapPropagator: new SentryPropagator(),
+    sampler: sentryClient ? new SentrySampler(sentryClient) : undefined,
     spanProcessors: [new SentrySpanProcessor()],
     traceExporter: new OTLPTraceExporter(),
     instrument: {
@@ -91,20 +110,24 @@ export function register() {
       query: true,
     },
   })
+
+  if (process.env.SENTRY_DSN) {
+    Sentry.validateOpenTelemetrySetup()
+  }
 }
 ```
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `npx tsc --noEmit -p tsconfig.json`
 Expected: aucune erreur
 
-- [ ] **Step 4: Vérifier le démarrage local (sans SENTRY_DSN, doit rester silencieux)**
+- [x] **Step 4: Vérifier le démarrage local (sans SENTRY_DSN, doit rester silencieux)**
 
 Run: `npx medusa develop` (ou observer le serveur déjà lancé redémarrer via le watcher)
 Expected: le backend démarre normalement, aucune erreur liée à Sentry/OTel dans les logs (DSN absent en local -> désactivé silencieusement, comme documenté au Step 2)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/package.json apps/backend/package-lock.json apps/backend/instrumentation.ts
@@ -122,12 +145,12 @@ git commit -m "Active le scaffold Sentry/OpenTelemetry (GlitchTip)"
 - Consumes: `Sentry` initialisé par Task 1 (import direct `@sentry/node`, pas de dépendance de fichier).
 - Produces: rien de consommé par d'autres tasks — point d'entrée terminal (câblé automatiquement par Medusa via la convention de fichier `src/api/middlewares.ts`).
 
-- [ ] **Step 1: Vérifier qu'aucun `src/api/middlewares.ts` n'existe déjà**
+- [x] **Step 1: Vérifier qu'aucun `src/api/middlewares.ts` n'existe déjà**
 
 Run: `test -f apps/backend/src/api/middlewares.ts && echo EXISTS || echo ABSENT`
 Expected: `ABSENT` — si le fichier existe déjà, lire son contenu et fusionner ce step avec l'existant plutôt que l'écraser (ne jamais perdre un middleware déjà en place).
 
-- [ ] **Step 2: Écrire le middleware**
+- [x] **Step 2: Écrire le middleware**
 
 ```typescript
 // apps/backend/src/api/middlewares.ts
@@ -156,17 +179,17 @@ export default defineMiddlewares({
 })
 ```
 
-- [ ] **Step 3: Typecheck et lint**
+- [x] **Step 3: Typecheck et lint**
 
 Run: `cd apps/backend && npx tsc --noEmit -p tsconfig.json && npx medusa lint`
 Expected: aucune erreur
 
-- [ ] **Step 4: Vérification manuelle locale (déclencher une vraie erreur)**
+- [x] **Step 4: Vérification manuelle locale (déclencher une vraie erreur)**
 
 Run: `curl -s http://localhost:9002/store/products/does-not-exist -H "x-publishable-api-key: <clé locale>"`
 Expected: une réponse d'erreur HTTP normale côté client (comportement inchangé) ; dans les logs backend, aucun crash lié au middleware lui-même. `Sentry.captureException` est un no-op silencieux tant que `SENTRY_DSN` est absent (Task 1) - la vérification qu'une erreur remonte *réellement* dans GlitchTip se fait à la Task 6, une fois une vraie instance déployée.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/api/middlewares.ts
