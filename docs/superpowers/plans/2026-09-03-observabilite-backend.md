@@ -235,7 +235,7 @@ git commit -m "Documente SENTRY_DSN dans .env.template"
 
 **Interfaces:** aucune (infrastructure).
 
-- [ ] **Step 1: Ajouter les services**
+- [x] **Step 1: Ajouter les services**
 
 Dans `docker-compose.prod.yml`, ajouter avant la section `volumes:` finale (après les services Matomo) :
 
@@ -324,7 +324,7 @@ observés) n'ont pas été confirmés contre l'image `glitchtip/glitchtip:latest
 au moment d'écrire ce plan - `docker logs` après le premier démarrage confirmera ou
 infirmera ces deux valeurs, à corriger ici si besoin avant de continuer.
 
-- [ ] **Step 2: Documenter les nouvelles variables**
+- [x] **Step 2: Documenter les nouvelles variables**
 
 Ajouter à la fin de `.env.deploy.example` :
 
@@ -346,7 +346,7 @@ Ajouter à la fin de `.env.deploy.example` :
 # GLITCHTIP_EMAIL_URL=smtp://user:password@smtp.example.com:587
 ```
 
-- [ ] **Step 3: Vérifier que le fichier compose parse correctement**
+- [x] **Step 3: Vérifier que le fichier compose parse correctement**
 
 Run:
 ```bash
@@ -354,7 +354,7 @@ ENV_NAME=test COMPOSE_PROJECT_NAME=test BACKEND_PORT=9999 STOREFRONT_PORT=9998 P
 ```
 Expected: liste incluant `glitchtip`, `glitchtip-db`, `glitchtip-worker` en plus des services existants, sans erreur.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docker-compose.prod.yml .env.deploy.example
@@ -376,13 +376,13 @@ toujours non résolu à cette date). Ce fichier est préparé et committé, son
 activation (Steps 3-5) reste bloquée tant que ce DNS n'est pas ajouté par le
 propriétaire.
 
-- [ ] **Step 1: Vérifier l'état du DNS avant de commencer**
+- [x] **Step 1: Vérifier l'état du DNS avant de commencer**
 
 Run: `dig +short monitoring.golden-market.co A` et `dig +short analytics.golden-market.co A`
 Si l'un des deux résout déjà vers `144.91.110.105`, ajuster les steps suivants en
 conséquence (l'activation peut être immédiate plutôt que différée).
 
-- [ ] **Step 2: Écrire le vhost**
+- [x] **Step 2: Écrire le vhost**
 
 ```apache
 <VirtualHost *:80>
@@ -401,7 +401,7 @@ conséquence (l'activation peut être immédiate plutôt que différée).
 Le port `9091` correspond à `GLITCHTIP_PORT` dans `.env.deploy.example` (Task 4) - à
 ajuster ici si une valeur différente est retenue au moment du déploiement réel.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add deploy/apache/monitoring.golden-market.co.conf
