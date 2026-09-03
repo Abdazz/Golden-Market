@@ -608,11 +608,18 @@ redéploiement : une seule ligne d'article, quantité correcte.
 Vérification finale : bandeau de consentement visible et fonctionnel sur
 `https://golden-market.co`, deux commandes de test réelles passées (funnel complet
 produit → panier → paiement à la réception), les deux visibles dans le vrai dashboard
-Matomo (`https://analytics.golden-market.co`) avec les bonnes données. Widget admin
-(`MATOMO_REPORTING_URL`/`MATOMO_API_TOKEN`) câblé mais pas revérifié visuellement dans
-cette session (couvert par la vérification du plan Task 3 à l'implémentation) — à
-confirmer visuellement dans l'admin Medusa (`https://golden-market.co/app/orders`) à
-la prochaine occasion.
+Matomo (`https://analytics.golden-market.co`) avec les bonnes données.
+
+**Widget admin — bug réel trouvé et corrigé le 2026-09-03 (session suivante)** :
+revérifié visuellement dans l'admin Medusa (`https://golden-market.co/app/orders`),
+affichait « Statistiques indisponibles pour le moment. » au lieu des vraies données.
+Cause : `MATOMO_SITE_ID` n'avait jamais été ajouté au `.env` backend de production
+(seuls `MATOMO_REPORTING_URL`/`MATOMO_API_TOKEN` l'avaient été lors de l'activation) —
+`route.ts` du widget lit les trois variables, la troisième manquante suffisait à faire
+échouer `fetchAnalyticsSummary`. Ajouté (`MATOMO_SITE_ID=1`), backend redémarré,
+widget revérifié : affiche désormais « Visites aujourd'hui : 0 », « Visites cette
+semaine : 0 » (valeurs réelles, cohérentes — le site vient d'être activé, aucun vrai
+trafic organique encore reçu au-delà des commandes de test de cette session).
 
 ## Backlog priorisé — retours propriétaire (2026-09-02)
 
