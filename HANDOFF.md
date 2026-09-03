@@ -23,11 +23,13 @@ le propriétaire a réduit le scope en session (paiement à la réception + Mobi
 manuel Orange/Moov) — livré, testé (local + staging + production réelle), déployé en
 prod (`79692b3`) ; le reste du palier 4 (paiement en ligne, carte bancaire,
 multilingue) reste différé sur décision explicite. **Spec statistiques de visite
-(Matomo self-hosted) validée par le propriétaire, plan d'implémentation écrit**
-(`docs/superpowers/plans/2026-09-03-matomo-analytics.md`) et **implémentation en
-cours** (Task 1/11 du plan committée - client de reporting Matomo côté backend,
-testé) — voir la section « Prompt de reprise — statistiques de visite (Matomo) » plus
-bas pour reprendre exactement là où c'est arrêté.
+(Matomo self-hosted) : **implémentation terminée et déployée** (11/11 tasks du plan
+`docs/superpowers/plans/2026-09-03-matomo-analytics.md`), conteneurs Matomo/MariaDB
+`Up`/`healthy` en production. **Activation finale bloquée sur un vrai DNS manquant**
+(`analytics.golden-market.co` ne résout pas encore) — tout le reste (code storefront/
+backend, infra Docker, vhost Apache préparé, sauvegarde) est prêt et attend uniquement
+ce DNS pour être branché ; voir la section « Prompt de reprise — statistiques de
+visite (Matomo) » plus bas pour la suite exacte.
 
 2026-09-02 (soir) - **Import du lot de 11 nouveaux produits terminé** (voir entrée
 ci-dessous) ; **prompt de reprise écrit** pour le sujet suivant, observabilité +
@@ -474,31 +476,48 @@ part dans la nouvelle structure — ne pas les perdre au passage.
 ## Prompt de reprise — statistiques de visite (Matomo) (2026-09-03)
 
 Copier-coller le bloc ci-dessous en premier message d'une nouvelle session Claude Code
-pour reprendre exactement où l'implémentation s'est arrêtée. **Le cadrage et le design
-sont terminés et validés par le propriétaire** — spec écrite
-(`docs/superpowers/specs/2026-09-02-statistiques-visite-design.md`), plan
-d'implémentation écrit (`docs/superpowers/plans/2026-09-03-matomo-analytics.md`,
-11 tasks). **Task 1/11 committée** (client de reporting Matomo côté backend, testé,
-commit `3f561e5` sur `staging`, pas encore poussé sur `origin/staging` au moment
-d'écrire ceci — vérifier avec `git log --oneline origin/staging..staging`).
+pour finir l'activation, une fois le DNS ajouté. **Code et infra entièrement livrés et
+déployés** (Tasks 1-11 du plan `docs/superpowers/plans/2026-09-03-matomo-analytics.md`
+terminées et committées sur `staging` puis `main` — dernier commit `7918b11` +
+correctif de sécurité `47832c4` inclus). Conteneurs `production-golden-market-matomo`
+et `production-golden-market-matomo-db` tournent en production (vérifiés `Up`/`healthy`
+le 2026-09-03). **Seule l'activation finale reste bloquée sur le DNS**, volontairement
+désactivée entre-temps pour ne pas montrer un bandeau de consentement pour une
+fonctionnalité pas encore utilisable :
 
-> Reprends l'implémentation des statistiques de visite (Matomo self-hosted) pour
-> Golden Market. Lis d'abord `docs/superpowers/plans/2026-09-03-matomo-analytics.md`
-> en entier (le plan complet, déjà écrit et approuvé) et
-> `docs/superpowers/specs/2026-09-02-statistiques-visite-design.md` (la spec dont il
-> découle). Invoque `superpowers:executing-plans` et poursuis à partir de la Task 2 —
-> vérifie d'abord l'état réel des commits (`git log --oneline` sur `staging`) pour
-> confirmer que la Task 1 est bien la dernière terminée avant de continuer.
+- `analytics.golden-market.co` ne résout vers aucune IP (`dig +short
+  analytics.golden-market.co A` vide au 2026-09-03, contrairement à `staging.` et au
+  domaine racine qui résolvent déjà vers `144.91.110.105`). L'enregistrement DNS doit
+  être ajouté par le propriétaire chez le fournisseur DNS du domaine — hors de portée
+  d'un accès SSH au VPS.
+- En conséquence, `NEXT_PUBLIC_MATOMO_URL`/`NEXT_PUBLIC_MATOMO_SITE_ID` ont été
+  **commentées** dans `/opt/golden-market/production/.env.deploy` (le storefront les
+  aurait sinon rendues actives immédiatement — bandeau de consentement affiché aux
+  vrais visiteurs, script `matomo.js` en échec silencieux faute de DNS). Le storefront
+  production a été reconstruit sans ces variables (`docker compose build storefront &&
+  up -d storefront`), vérifié : plus de bandeau, plus d'erreur console.
+- `MATOMO_REPORTING_URL`/`MATOMO_API_TOKEN` (backend, widget admin) n'ont pas non plus
+  été renseignés — dépendent de l'assistant d'installation Matomo (création du compte
+  super-admin + génération du jeton), qui se fait via le navigateur sur le domaine
+  public, donc lui aussi bloqué sur ce même DNS.
+
+> Termine l'activation des statistiques de visite (Matomo) pour Golden Market. Lis
+> d'abord `docs/superpowers/plans/2026-09-03-matomo-analytics.md` (Task 10 Steps 3-5 et
+> Task 11 Steps 7-8, les seules étapes restantes) et cette section de `HANDOFF.md`.
+> Vérifie d'abord `dig +short analytics.golden-market.co A` — si le DNS résout
+> maintenant vers `144.91.110.105`, exécute dans l'ordre : activation du vhost Apache +
+> certbot (Task 10 Step 3-5), assistant d'installation Matomo via navigateur (créer le
+> compte super-admin avec un vrai mot de passe fort, créer le site avec l'URL
+> `https://golden-market.co`, générer un jeton d'authentification), report du jeton et
+> de `MATOMO_REPORTING_URL=http://production-golden-market-matomo` dans
+> `apps/backend/.env` de production puis redémarrage du backend, puis décommenter
+> `NEXT_PUBLIC_MATOMO_URL`/`NEXT_PUBLIC_MATOMO_SITE_ID` dans `.env.deploy` de
+> production et reconstruire le storefront. Termine par la vérification visuelle
+> complète décrite dans le plan (Task 11 Step 8 : bandeau, commande de test réelle,
+> vérification dans le vrai dashboard Matomo et le widget admin).
 >
-> **Point de blocage réel signalé dans le plan (Task 10)** : `analytics.golden-market.co`
-> ne résout vers aucune IP (`dig +short analytics.golden-market.co A` vide au
-> 2026-09-03, contrairement à `staging.` et au domaine racine qui résolvent déjà vers
-> `144.91.110.105`). L'enregistrement DNS doit être ajouté par le propriétaire chez le
-> fournisseur DNS du domaine — hors de portée d'un accès SSH au VPS. Toutes les tasks
-> qui n'en dépendent pas (1-9, code applicatif + infra Docker + Apache préparé) restent
-> exécutables sans ce DNS ; seules les Task 10 (Steps 3-5) et Task 11 (Steps 7-8)
-> restent bloquées tant qu'il n'est pas ajouté — revérifier la résolution DNS au début
-> de cette session, elle a peut-être été ajoutée entre-temps.
+> Si le DNS ne résout toujours pas, ne relance pas ce sous-projet : signale-le au
+> propriétaire et attends qu'il confirme l'avoir ajouté avant de continuer.
 >
 > Règles déjà établies dans ce projet à respecter sans redemander : ne jamais fabriquer
 > de fausses données/métriques (signaler l'écart plutôt qu'inventer) ; toujours
