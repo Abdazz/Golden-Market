@@ -34,8 +34,10 @@ webhook → WhatsApp pour les alertes — voir section dédiée plus bas pour le
 format de payload à brancher. Sauvegarde `glitchtip-db` ajoutée au cron
 existant (`backup-postgres.sh`, vérifiée fonctionnelle). Au passage,
 l'activation finale de Matomo (bloquée sur ce même DNS `analytics.` depuis le
-2026-09-03 matin) est donc débloquée — voir la section Matomo pour son statut
-propre.
+2026-09-03 matin) a été débloquée et terminée dans la foulée (voir plus bas) — un
+vrai bug de doublon d'articles dans les commandes trackées a été trouvé et corrigé au
+passage (commit `2910529`), détecté en vérifiant une vraie commande de test contre le
+vrai Ecommerce Log Matomo plutôt que par une simple relecture de code.
 
 2026-09-03 (nuit) - **Paliers 1, 2 et 3 du backlog de 17 retours propriétaire
 terminés** (13 correctifs/petites features/refontes bornées, vérifiés visuellement en
@@ -569,58 +571,48 @@ notifications de commande existantes. Pas construit ici (vit dans
    que de se fier uniquement à ce format documenté — c'est la source la plus
    fiable, jamais vérifiée nous-mêmes en conditions réelles pour ce sous-projet.
 
-## Prompt de reprise — statistiques de visite (Matomo) (2026-09-03)
+## Statistiques de visite (Matomo self-hosted) (2026-09-03)
 
-Copier-coller le bloc ci-dessous en premier message d'une nouvelle session Claude Code
-pour finir l'activation, une fois le DNS ajouté. **Code et infra entièrement livrés et
-déployés** (Tasks 1-11 du plan `docs/superpowers/plans/2026-09-03-matomo-analytics.md`
-terminées et committées sur `staging` puis `main` — dernier commit `7918b11` +
-correctif de sécurité `47832c4` inclus). Conteneurs `production-golden-market-matomo`
-et `production-golden-market-matomo-db` tournent en production (vérifiés `Up`/`healthy`
-le 2026-09-03). **Seule l'activation finale reste bloquée sur le DNS**, volontairement
-désactivée entre-temps pour ne pas montrer un bandeau de consentement pour une
-fonctionnalité pas encore utilisable :
+**✅ Terminé, activé et vérifié bout-en-bout** — conservé ci-dessous pour référence
+historique. Code et infra livrés (Tasks 1-11 du plan
+`docs/superpowers/plans/2026-09-03-matomo-analytics.md`), puis DNS
+`analytics.golden-market.co` propagé, vhost Apache + certbot activés par le
+propriétaire, assistant d'installation Matomo complété (session courante, navigateur) :
 
-- `analytics.golden-market.co` ne résout vers aucune IP (`dig +short
-  analytics.golden-market.co A` vide au 2026-09-03, contrairement à `staging.` et au
-  domaine racine qui résolvent déjà vers `144.91.110.105`). L'enregistrement DNS doit
-  être ajouté par le propriétaire chez le fournisseur DNS du domaine — hors de portée
-  d'un accès SSH au VPS.
-- En conséquence, `NEXT_PUBLIC_MATOMO_URL`/`NEXT_PUBLIC_MATOMO_SITE_ID` ont été
-  **commentées** dans `/opt/golden-market/production/.env.deploy` (le storefront les
-  aurait sinon rendues actives immédiatement — bandeau de consentement affiché aux
-  vrais visiteurs, script `matomo.js` en échec silencieux faute de DNS). Le storefront
-  production a été reconstruit sans ces variables (`docker compose build storefront &&
-  up -d storefront`), vérifié : plus de bandeau, plus d'erreur console.
-- `MATOMO_REPORTING_URL`/`MATOMO_API_TOKEN` (backend, widget admin) n'ont pas non plus
-  été renseignés — dépendent de l'assistant d'installation Matomo (création du compte
-  super-admin + génération du jeton), qui se fait via le navigateur sur le domaine
-  public, donc lui aussi bloqué sur ce même DNS.
+- Compte super-admin créé (login `admin`, mot de passe fort généré par l'assistant,
+  jamais affiché en clair côté infra — communiqué au propriétaire en session).
+- Site "Golden Market" créé avec `idSite=1` (correspond à `NEXT_PUBLIC_MATOMO_SITE_ID`
+  côté storefront), fuseau horaire Burkina Faso, mode Ecommerce activé, devise corrigée
+  de "US Dollar" (défaut du wizard) à "West African CFA Franc (F CFA)".
+- Jeton API généré (description "Backend Medusa - widget admin analytics-summary",
+  expiration désactivée volontairement — un jeton expirant silencieusement casserait le
+  widget admin sans alerte pour ce projet sans équipe ops dédiée), reporté dans
+  `MATOMO_API_TOKEN`/`MATOMO_REPORTING_URL` (`.env` backend production, URL interne
+  Docker `http://production-golden-market-matomo`, pas le domaine public).
+- `NEXT_PUBLIC_MATOMO_URL`/`NEXT_PUBLIC_MATOMO_SITE_ID` décommentées dans
+  `.env.deploy` de production, storefront reconstruit et redéployé.
 
-> Termine l'activation des statistiques de visite (Matomo) pour Golden Market. Lis
-> d'abord `docs/superpowers/plans/2026-09-03-matomo-analytics.md` (Task 10 Steps 3-5 et
-> Task 11 Steps 7-8, les seules étapes restantes) et cette section de `HANDOFF.md`.
-> Vérifie d'abord `dig +short analytics.golden-market.co A` — si le DNS résout
-> maintenant vers `144.91.110.105`, exécute dans l'ordre : activation du vhost Apache +
-> certbot (Task 10 Step 3-5), assistant d'installation Matomo via navigateur (créer le
-> compte super-admin avec un vrai mot de passe fort, créer le site avec l'URL
-> `https://golden-market.co`, générer un jeton d'authentification), report du jeton et
-> de `MATOMO_REPORTING_URL=http://production-golden-market-matomo` dans
-> `apps/backend/.env` de production puis redémarrage du backend, puis décommenter
-> `NEXT_PUBLIC_MATOMO_URL`/`NEXT_PUBLIC_MATOMO_SITE_ID` dans `.env.deploy` de
-> production et reconstruire le storefront. Termine par la vérification visuelle
-> complète décrite dans le plan (Task 11 Step 8 : bandeau, commande de test réelle,
-> vérification dans le vrai dashboard Matomo et le widget admin).
->
-> Si le DNS ne résout toujours pas, ne relance pas ce sous-projet : signale-le au
-> propriétaire et attends qu'il confirme l'avoir ajouté avant de continuer.
->
-> Règles déjà établies dans ce projet à respecter sans redemander : ne jamais fabriquer
-> de fausses données/métriques (signaler l'écart plutôt qu'inventer) ; toujours
-> committer sur `staging` d'abord ; jamais de trailer `Co-Authored-By: Claude` ;
-> commentaires/commits/documentation en français ; vérification visuelle obligatoire
-> (Playwright + captures d'écran réelles) ; accès SSH VPS `ssh admin@144.91.110.105`
-> (`BatchMode=yes`, droits sudo complets).
+**Bug réel trouvé et corrigé pendant la vérification** (commit `2910529`) : la
+première commande de test réelle passée après activation contenait un article en
+double dans le Ecommerce Log Matomo (quantité et revenu comptés deux fois). Cause :
+`trackAddToCart` utilisait l'id de variante, `trackOrder` utilisait l'id de ligne de
+commande — deux SKU différents pour Matomo. Sur ce site Next.js App Router, la
+navigation produit → panier → paiement → confirmation ne recharge jamais la page,
+donc l'état interne `addEcommerceItem` du tracker (`window._paq`) persiste d'une page
+à l'autre dans la même visite, créant deux entrées au lieu d'une mise à jour. Corrigé
+en utilisant systématiquement l'id de variante dans `trackOrder` (`addEcommerceItem`
+remplace toute entrée existante avec le même SKU, comportement documenté du SDK
+Matomo). Revérifié avec une **deuxième** commande de test réelle après correctif et
+redéploiement : une seule ligne d'article, quantité correcte.
+
+Vérification finale : bandeau de consentement visible et fonctionnel sur
+`https://golden-market.co`, deux commandes de test réelles passées (funnel complet
+produit → panier → paiement à la réception), les deux visibles dans le vrai dashboard
+Matomo (`https://analytics.golden-market.co`) avec les bonnes données. Widget admin
+(`MATOMO_REPORTING_URL`/`MATOMO_API_TOKEN`) câblé mais pas revérifié visuellement dans
+cette session (couvert par la vérification du plan Task 3 à l'implémentation) — à
+confirmer visuellement dans l'admin Medusa (`https://golden-market.co/app/orders`) à
+la prochaine occasion.
 
 ## Backlog priorisé — retours propriétaire (2026-09-02)
 
