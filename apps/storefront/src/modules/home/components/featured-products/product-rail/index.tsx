@@ -18,7 +18,16 @@ export default async function ProductRail({
     regionId: region.id,
     queryParams: {
       collection_id: collection.id,
-      fields: "*variants.calculated_price",
+      // Pas de `fields` ici (volontairement) : un `fields` explicite dans
+      // queryParams remplace entièrement le jeu de champs par défaut de
+      // `listProducts` (spread après le défaut) au lieu de s'y ajouter -
+      // bug réel trouvé en vérifiant un signalement du propriétaire
+      // (produits en stock affichés "Rupture de stock" sur la page
+      // d'accueil) : l'ancien `fields: "*variants.calculated_price"` ici
+      // supprimait silencieusement `+variants.inventory_quantity` (utilisé
+      // par `inStock` dans ProductPreview) et `+metadata` (badge livraison
+      // gratuite). Le défaut de `listProducts` couvre déjà tout ce dont
+      // ProductPreview a besoin.
       // /store/products ne garantit aucun ordre stable par défaut (constaté
       // en production - ni chronologique ni alphabétique). Trier côté API
       // (pas après coup côté client) est indispensable ici : ce rail limite
