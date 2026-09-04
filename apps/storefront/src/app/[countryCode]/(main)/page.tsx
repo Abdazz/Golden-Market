@@ -25,11 +25,24 @@ export default async function Home(props: {
 
   const region = await getRegion(countryCode)
 
+  // Produit vedette du hero : sélection explicite par handle plutôt que
+  // "premier résultat d'une requête sans tri" - même bug que celui déjà
+  // corrigé pour le rail "Vente express" (/store/products ne garantit aucun
+  // ordre stable), mais ici sans filtre de stock possible côté API, donc
+  // un choix explicite est la seule façon fiable d'éviter un produit en
+  // rupture. Changé le 2026-09-04 (signalé par le propriétaire : l'ancien
+  // choix implicite affichait "Diffuser d'eau de cuisine", en rupture).
+  const HERO_PRODUCT_HANDLE = "serpillière-auto-essorante-à-éponge"
+
   const [{ collections }, featuredList] = await Promise.all([
     listCollections({ fields: "id, handle, title" }),
     listProducts({
       countryCode,
-      queryParams: { limit: 1, fields: "*variants.calculated_price" },
+      queryParams: {
+        handle: HERO_PRODUCT_HANDLE,
+        limit: 1,
+        fields: "*variants.calculated_price",
+      },
     }),
   ])
 
