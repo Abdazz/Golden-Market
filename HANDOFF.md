@@ -16,6 +16,38 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-04 - **Quatre correctifs demandés par le propriétaire, vérifiés visuellement
+et déployés en staging + production** :
+- Produit vedette de la hero-section remplacé (l'ancien était en rupture de stock,
+  root cause : `products[0]` d'une requête `limit:1` sans tri ni filtre — fixé par un
+  filtre `handle` explicite, commit `40a1a07`).
+- Doublon catalogue trouvé en creusant un désaccord avec le propriétaire sur le stock
+  du balais-éponge (deux produits distincts avec "éponge" dans le nom, un ancien à 0
+  stock et un plus récent à 100) — l'ancien (`prod_01M17QG22H4V6SR4H45EWYJTYV` staging,
+  `prod_01M1807SYEXXYT3WBTGWJ76SBW` production) supprimé via script idempotent
+  `delete-duplicate-balais-eponge.ts`, exécuté sur les deux environnements réels.
+- Champ Ville du checkout : le `<datalist>` natif était jugé peu ergonomique (liste mal
+  positionnée, filtrage as-you-type peu fiable) — remplacé par un combobox maison
+  (`city-autocomplete`), recherche insensible aux accents, 45 suggestions (chefs-lieux
+  de province BF, pas le niveau commune) mais champ resté libre.
+- Email rendu facultatif au checkout (beaucoup de clients au Burkina Faso n'ont pas
+  d'adresse email ; le téléphone WhatsApp, déjà obligatoire, est le vrai identifiant).
+  Root cause du blocage tracée dans le vrai code Medusa installé : le schéma Zod
+  `UpdateCart.email` rejette la chaîne vide (`""`) même si `.nullish()` accepte
+  `null`/absent — `setAddresses()` envoyait `""` au lieu d'omettre la clé. Un deuxième
+  blocage, trouvé seulement via les tests e2e : `PaymentButton` avait son propre calcul
+  `notReady` qui exigeait encore `cart.email`, désactivant silencieusement "Passer la
+  commande" sur tout parcours sans email — corrigé au même endroit partagé par tous les
+  moyens de paiement plutôt que dans chaque appelant.
+  Commit `cbe3ee5` (avec le correctif Ville, `c1afdea`, fast-forward mergés ensemble).
+- **Nouveau sujet ouvert par le propriétaire, pas encore scopé** : envoyer la
+  confirmation de commande par WhatsApp plutôt que par email (l'email étant désormais
+  facultatif, le WhatsApp — déjà collecté et obligatoire — est le canal réel). À
+  investiguer : mécanisme actuel d'envoi de confirmation (email uniquement pour
+  l'instant ?), et faisabilité WhatsApp (lien `wa.me` pré-rempli côté client vs. API
+  WhatsApp Business côté serveur, qui impliquerait un compte Meta Business et des
+  coûts/limites d'envoi).
+
 2026-09-03 - **Observabilité backend (GlitchTip self-hosted) : implémentation
 terminée, déployée et vérifiée bout-en-bout en staging ET production** (12/12
 tasks du plan `docs/superpowers/plans/2026-09-03-observabilite-backend.md`).
