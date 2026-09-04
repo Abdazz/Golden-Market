@@ -344,6 +344,16 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
       throw new Error("No existing cart found when setting addresses")
     }
 
+    // email est facultatif (Burkina Faso : beaucoup de clients n'ont pas
+    // d'adresse email, le téléphone WhatsApp - déjà obligatoire ci-dessous -
+    // est l'identifiant réel de contact). Le schéma Medusa (StoreUpdateCart)
+    // accepte l'absence du champ mais rejette une chaîne vide avec "Invalid
+    // email" (email().nullish() - nullish autorise null/undefined, pas "") :
+    // on omet donc la clé plutôt que d'envoyer formData.get("email") tel
+    // quel quand le champ est laissé vide.
+    const rawEmail = formData.get("email")
+    const email = typeof rawEmail === "string" && rawEmail.trim() ? rawEmail : undefined
+
     const data = {
       shipping_address: {
         first_name: formData.get("shipping_address.first_name"),
@@ -357,7 +367,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
         province: formData.get("shipping_address.province"),
         phone: formData.get("shipping_address.phone"),
       },
-      email: formData.get("email"),
+      ...(email ? { email } : {}),
     } as any
 
     const sameAsBilling = formData.get("same_as_billing")

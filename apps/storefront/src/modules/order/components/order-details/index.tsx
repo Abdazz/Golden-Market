@@ -37,16 +37,18 @@ const OrderDetails = ({ order, showStatus }: OrderDetailsProps) => {
 
   return (
     <div>
-      <Text>
-        Nous avons envoyé les détails de confirmation de commande à{" "}
-        <span
-          className="text-ui-fg-medium-plus font-semibold"
-          data-testid="order-email"
-        >
-          {order.email}
-        </span>
-        .
-      </Text>
+      {order.email && (
+        <Text>
+          Nous avons envoyé les détails de confirmation de commande à{" "}
+          <span
+            className="text-ui-fg-medium-plus font-semibold"
+            data-testid="order-email"
+          >
+            {order.email}
+          </span>
+          .
+        </Text>
+      )}
       <Text className="mt-2">
         Date de la commande :{" "}
         <span data-testid="order-date">

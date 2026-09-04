@@ -80,4 +80,60 @@ test.describe("Parcours d'achat complet (Orange Money)", () => {
       await expect(page.getByTestId("order-email")).toContainText(uniqueEmail)
     })
   })
+
+  // Email facultatif (2026-09-04) : beaucoup de clients au Burkina Faso n'ont
+  // pas d'adresse email, le téléphone (obligatoire) est l'identifiant réel.
+  // Produit différent du test ci-dessus pour ne pas se disputer le même
+  // stock ; paiement à la réception (filtré sur Ouagadougou, déjà utilisé
+  // comme ville de test ci-dessus).
+  test("panier → livraison sans email → paiement à la réception → commande confirmée", async ({
+    page,
+  }) => {
+    await test.step("Ajouter un produit réel au panier", async () => {
+      await page.goto(`/bf/products/serpillière-auto-essorante-à-éponge`)
+      await page.getByTestId("add-product-button").click()
+      await expect(page.getByTestId("cart-item").first()).toBeVisible()
+    })
+
+    await test.step("Aller au panier puis démarrer le checkout", async () => {
+      await page.getByTestId("go-to-cart-button").click()
+      await expect(page).toHaveURL(/\/bf\/cart/)
+      await page.getByTestId("checkout-button").click()
+      await expect(page).toHaveURL(/\/bf\/checkout/)
+    })
+
+    await test.step("Renseigner l'adresse de livraison sans email", async () => {
+      await page.getByTestId("shipping-first-name-input").fill("Playwright")
+      await page.getByTestId("shipping-last-name-input").fill("SansEmail")
+      await page.getByTestId("shipping-address-input").fill("Rue de test")
+      await page.getByTestId("shipping-city-input").fill("Ouagadougou")
+      await page.getByTestId("shipping-phone-input").fill("+22670000001")
+      await page.getByTestId("submit-address-button").click()
+    })
+
+    await test.step("Choisir l'unique option de livraison", async () => {
+      await expect(page.getByTestId("delivery-options-container")).toBeVisible()
+      await page.getByTestId("delivery-option-radio").first().click()
+      await page.getByTestId("submit-delivery-option-button").click()
+    })
+
+    await test.step("Choisir Paiement à la réception", async () => {
+      await page
+        .getByTestId("checkout-container")
+        .getByText("Paiement à la réception", { exact: true })
+        .click()
+      await page.getByTestId("submit-payment-button").click()
+    })
+
+    await test.step("Confirmer la commande", async () => {
+      await page.getByTestId("submit-order-button").click()
+      await expect(page).toHaveURL(/\/bf\/order\/.+\/confirmed/, { timeout: 15_000 })
+    })
+
+    await test.step("Vérifier que la confirmation ne mentionne aucun email", async () => {
+      await expect(page.getByTestId("order-complete-container")).toBeVisible()
+      await expect(page.getByTestId("order-id")).toBeVisible()
+      await expect(page.getByTestId("order-email")).not.toBeVisible()
+    })
+  })
 })
