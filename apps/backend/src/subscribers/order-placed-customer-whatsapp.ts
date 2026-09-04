@@ -7,6 +7,7 @@ type OrderConfirmationData = {
   display_id: number
   currency_code: string
   total: number
+  metadata?: Record<string, unknown> | null
   shipping_address?: { first_name?: string; phone?: string }
   items?: Array<{ product_title?: string }>
   payment_collections?: Array<{
@@ -77,6 +78,7 @@ export default async function orderPlacedCustomerWhatsappHandler({
         "display_id",
         "currency_code",
         "total",
+        "metadata",
         "shipping_address.first_name",
         "shipping_address.phone",
         "items.product_title",
@@ -93,6 +95,13 @@ export default async function orderPlacedCustomerWhatsappHandler({
     if (!phone) {
       logger.info(
         `Commande ${typedOrder.id} placée — pas de téléphone sur l'adresse de livraison, confirmation WhatsApp ignorée`
+      )
+      return
+    }
+
+    if (typedOrder.metadata?.source === "whatsapp") {
+      logger.info(
+        `Commande ${typedOrder.id} placée depuis WhatsApp — confirmation déjà donnée dans la conversation, template ignoré`
       )
       return
     }

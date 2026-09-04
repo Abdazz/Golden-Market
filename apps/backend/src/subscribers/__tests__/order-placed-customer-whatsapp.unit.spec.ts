@@ -171,6 +171,32 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     expect(graph).not.toHaveBeenCalled()
   })
 
+  it("skips sending when the order originates from WhatsApp itself (metadata.source)", async () => {
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_123",
+          display_id: 42,
+          currency_code: "xof",
+          total: 8500,
+          metadata: { source: "whatsapp" },
+          shipping_address: { first_name: "Aminata", phone: "+22670000000" },
+          items: [{ product_title: "Produit A" }],
+          payment_collections: [{ payments: [{ amount: 8500 }] }],
+        },
+      ],
+    })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_123" } } as any,
+      container: container as any,
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it("skips sending when the order has no phone", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 
