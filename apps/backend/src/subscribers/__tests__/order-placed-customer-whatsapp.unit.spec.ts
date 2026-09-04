@@ -70,6 +70,33 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     )
   })
 
+  it("retries when the computed total is still 0 right after order.placed", async () => {
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+
+    const staleOrder = {
+      id: "order_123",
+      display_id: 42,
+      currency_code: "xof",
+      total: 0,
+      shipping_address: { first_name: "Aminata", phone: "+22670000000" },
+      items: [{ product_title: "Serpillière auto-essorante à éponge" }],
+      payment_collections: [],
+    }
+    graph
+      .mockResolvedValueOnce({ data: [staleOrder] })
+      .mockResolvedValueOnce({ data: [{ ...staleOrder, total: 15000 }] })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_123" } } as any,
+      container: container as any,
+    })
+
+    expect(graph).toHaveBeenCalledTimes(2)
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.total).toBe(formatAmount(15000, "xof"))
+  })
+
   it("summarizes as N articles when the order has more than one item", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 

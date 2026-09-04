@@ -73,6 +73,34 @@ describe("orderPlacedCustomerEmailHandler", () => {
     )
   })
 
+  it("retries when the computed total is still 0 right after order.placed", async () => {
+    retrieveOrder
+      .mockResolvedValueOnce({
+        id: "order_123",
+        display_id: 42,
+        email: "client@example.com",
+        currency_code: "xof",
+        total: 0,
+      })
+      .mockResolvedValueOnce({
+        id: "order_123",
+        display_id: 42,
+        email: "client@example.com",
+        currency_code: "xof",
+        total: 15000,
+      })
+
+    await orderPlacedCustomerEmailHandler({
+      event: { data: { id: "order_123" } } as any,
+      container: container as any,
+    })
+
+    expect(retrieveOrder).toHaveBeenCalledTimes(2)
+    expect(createNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ total: 15000 }) })
+    )
+  })
+
   it("skips sending when the order has no email", async () => {
     retrieveOrder.mockResolvedValue({ id: "order_123", email: null })
 

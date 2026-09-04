@@ -1,6 +1,7 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { formatAmount } from "../modules/resend/templates"
+import { retryWhile } from "../lib/retry-while"
 
 type OrderConfirmationData = {
   id: string
@@ -58,23 +59,32 @@ export default async function orderPlacedCustomerWhatsappHandler({
     // (total, dérivé de order_summary — reste à 0 sans la relation summary)
     // ni payment_collections (lien inter-modules Order/Payment, pas une
     // relation du module Order) : query.graph est nécessaire pour les deux.
-    const {
-      data: [order],
-    } = await query.graph({
-      entity: "order",
-      fields: [
-        "id",
-        "display_id",
-        "currency_code",
-        "total",
-        "summary.current_order_total",
-        "shipping_address.first_name",
-        "shipping_address.phone",
-        "items.product_title",
-        "payment_collections.payments.provider_id",
-      ],
-      filters: { id: event.data.id },
-    })
+    //
+    // Le total peut rester à 0 juste après order.placed : order_summary
+    // n'est pas toujours matérialisé au moment exact où l'événement se
+    // déclenche (constaté en conditions réelles le 2026-09-04 - correct
+    // quelques secondes plus tard sans changement de code). On réessaie
+    // brièvement plutôt que d'envoyer un montant faux au client.
+    const { data } = await retryWhile(
+      () =>
+        query.graph({
+          entity: "order",
+          fields: [
+            "id",
+            "display_id",
+            "currency_code",
+            "total",
+            "summary.current_order_total",
+            "shipping_address.first_name",
+            "shipping_address.phone",
+            "items.product_title",
+            "payment_collections.payments.provider_id",
+          ],
+          filters: { id: event.data.id },
+        }),
+      (result) => !result.data[0]?.total
+    )
+    const [order] = data
 
     const typedOrder = order as unknown as OrderConfirmationData
     const phone = typedOrder.shipping_address?.phone

@@ -1,5 +1,6 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { retryWhile } from "../lib/retry-while"
 
 /**
  * Email de confirmation de commande au client (distinct du subscriber
@@ -14,13 +15,21 @@ export default async function orderPlacedCustomerEmailHandler({
   const notificationModuleService = container.resolve(Modules.NOTIFICATION)
 
   try {
-    const order = await orderModuleService.retrieveOrder(event.data.id, {
-      select: ["id", "display_id", "email", "currency_code", "total"],
-      // "total" est un champ calculé dérivé de order_summary - sans cette
-      // relation, Medusa le renvoie à 0 (confirmé contre order_summary en
-      // base : tous les emails de confirmation affichaient 0 FCFA).
-      relations: ["summary"],
-    })
+    // "total" est un champ calculé dérivé de order_summary - sans la
+    // relation "summary", Medusa le renvoie à 0 (confirmé : tous les emails
+    // de confirmation affichaient 0 FCFA). Même avec la relation, il peut
+    // rester à 0 juste après order.placed si order_summary n'est pas encore
+    // matérialisé à cet instant précis (constaté en conditions réelles le
+    // 2026-09-04, correct quelques secondes plus tard sans changement de
+    // code) - on réessaie brièvement plutôt que d'envoyer un montant faux.
+    const order = await retryWhile(
+      () =>
+        orderModuleService.retrieveOrder(event.data.id, {
+          select: ["id", "display_id", "email", "currency_code", "total"],
+          relations: ["summary"],
+        }),
+      (result) => !result.total
+    )
 
     if (!order.email) {
       logger.info(
