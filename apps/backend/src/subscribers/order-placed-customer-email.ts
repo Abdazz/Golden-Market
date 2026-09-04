@@ -16,6 +16,10 @@ export default async function orderPlacedCustomerEmailHandler({
   try {
     const order = await orderModuleService.retrieveOrder(event.data.id, {
       select: ["id", "display_id", "email", "currency_code", "total"],
+      // "total" est un champ calculé dérivé de order_summary - sans cette
+      // relation, Medusa le renvoie à 0 (confirmé contre order_summary en
+      // base : tous les emails de confirmation affichaient 0 FCFA).
+      relations: ["summary"],
     })
 
     if (!order.email) {

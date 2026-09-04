@@ -3,7 +3,7 @@ export type EmailTemplate = (data: Record<string, unknown>) => {
   html: string
 }
 
-function formatAmount(amount: unknown, currencyCode: string) {
+export function formatAmount(amount: unknown, currencyCode: string) {
   const numericAmount =
     typeof amount === "string" ? parseFloat(amount) : Number(amount)
 

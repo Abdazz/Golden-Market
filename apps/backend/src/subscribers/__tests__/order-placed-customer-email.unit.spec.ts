@@ -53,6 +53,26 @@ describe("orderPlacedCustomerEmailHandler", () => {
     })
   })
 
+  it("requests the summary relation so the computed total resolves (sinon 0 FCFA)", async () => {
+    retrieveOrder.mockResolvedValue({
+      id: "order_123",
+      display_id: 42,
+      email: "client@example.com",
+      currency_code: "xof",
+      total: 15000,
+    })
+
+    await orderPlacedCustomerEmailHandler({
+      event: { data: { id: "order_123" } } as any,
+      container: container as any,
+    })
+
+    expect(retrieveOrder).toHaveBeenCalledWith(
+      "order_123",
+      expect.objectContaining({ relations: expect.arrayContaining(["summary"]) })
+    )
+  })
+
   it("skips sending when the order has no email", async () => {
     retrieveOrder.mockResolvedValue({ id: "order_123", email: null })
 
