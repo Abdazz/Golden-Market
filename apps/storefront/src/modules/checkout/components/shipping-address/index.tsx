@@ -2,6 +2,7 @@ import { HttpTypes } from "@medusajs/types"
 import { Container } from "@modules/common/components/ui"
 import Checkbox from "@modules/common/components/checkbox"
 import Input from "@modules/common/components/input"
+import CityAutocomplete from "@modules/common/components/city-autocomplete"
 import { BURKINA_FASO_CITIES } from "@lib/data/burkina-faso-cities"
 import { mapKeys } from "lodash"
 import React, { useEffect, useMemo, useState } from "react"
@@ -147,21 +148,16 @@ const ShippingAddress = ({
           required
           data-testid="shipping-address-input"
         />
-        <Input
+        <CityAutocomplete
           label="Ville"
           name="shipping_address.city"
           autoComplete="address-level2"
           value={formData["shipping_address.city"]}
           onChange={handleChange}
+          suggestions={BURKINA_FASO_CITIES}
           required
-          list="shipping-city-suggestions"
           data-testid="shipping-city-input"
         />
-        <datalist id="shipping-city-suggestions">
-          {BURKINA_FASO_CITIES.map((city) => (
-            <option key={city} value={city} />
-          ))}
-        </datalist>
         <Input
           label="Région / Province"
           name="shipping_address.province"
