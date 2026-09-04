@@ -1,7 +1,6 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { formatAmount } from "../modules/resend/templates"
-import { retryWhile } from "../lib/retry-while"
 
 type OrderConfirmationData = {
   id: string
@@ -11,7 +10,7 @@ type OrderConfirmationData = {
   shipping_address?: { first_name?: string; phone?: string }
   items?: Array<{ product_title?: string }>
   payment_collections?: Array<{
-    payments?: Array<{ provider_id?: string }>
+    payments?: Array<{ provider_id?: string; amount?: number }>
   }>
 }
 
@@ -56,35 +55,36 @@ export default async function orderPlacedCustomerWhatsappHandler({
 
   try {
     // orderModuleService.retrieveOrder ne résout ni les champs calculés
-    // (total, dérivé de order_summary — reste à 0 sans la relation summary)
-    // ni payment_collections (lien inter-modules Order/Payment, pas une
-    // relation du module Order) : query.graph est nécessaire pour les deux.
+    // (order.total, dérivé de order_summary) ni payment_collections (lien
+    // inter-modules Order/Payment, pas une relation du module Order) :
+    // query.graph est nécessaire pour les deux.
     //
-    // Le total peut rester à 0 juste après order.placed : order_summary
-    // n'est pas toujours matérialisé au moment exact où l'événement se
-    // déclenche (constaté en conditions réelles le 2026-09-04 - correct
-    // quelques secondes plus tard sans changement de code). On réessaie
-    // brièvement plutôt que d'envoyer un montant faux au client.
-    const { data } = await retryWhile(
-      () =>
-        query.graph({
-          entity: "order",
-          fields: [
-            "id",
-            "display_id",
-            "currency_code",
-            "total",
-            "summary.current_order_total",
-            "shipping_address.first_name",
-            "shipping_address.phone",
-            "items.product_title",
-            "payment_collections.payments.provider_id",
-          ],
-          filters: { id: event.data.id },
-        }),
-      (result) => !result.data[0]?.total
-    )
-    const [order] = data
+    // order.total/summary.current_order_total peuvent rester à 0 juste
+    // après order.placed, et pas seulement au tout premier essai (constaté
+    // en conditions réelles le 2026-09-04 sur deux commandes distinctes,
+    // y compris après plusieurs tentatives espacées de retryWhile - le
+    // problème n'est donc pas une simple latence de matérialisation).
+    // payment.amount (fixé explicitement à l'autorisation du paiement,
+    // jamais recalculé) est une source fiable pour un montant total fiable
+    // ici, car Golden Market n'a qu'un seul paiement par commande, sans
+    // paiement partiel.
+    const {
+      data: [order],
+    } = await query.graph({
+      entity: "order",
+      fields: [
+        "id",
+        "display_id",
+        "currency_code",
+        "total",
+        "shipping_address.first_name",
+        "shipping_address.phone",
+        "items.product_title",
+        "payment_collections.payments.provider_id",
+        "payment_collections.payments.amount",
+      ],
+      filters: { id: event.data.id },
+    })
 
     const typedOrder = order as unknown as OrderConfirmationData
     const phone = typedOrder.shipping_address?.phone
@@ -102,8 +102,9 @@ export default async function orderPlacedCustomerWhatsappHandler({
         ? typedOrder.items[0].product_title
         : `${typedOrder.items?.length ?? 0} articles`
 
-    const providerId =
-      typedOrder.payment_collections?.[0]?.payments?.[0]?.provider_id
+    const payment = typedOrder.payment_collections?.[0]?.payments?.[0]
+    const providerId = payment?.provider_id
+    const amount = payment?.amount ?? typedOrder.total
 
     const response = await fetch(webhookUrl, {
       method: "POST",
@@ -115,7 +116,7 @@ export default async function orderPlacedCustomerWhatsappHandler({
         phone,
         first_name: firstName || "",
         product_summary: productSummary,
-        total: formatAmount(typedOrder.total, typedOrder.currency_code),
+        total: formatAmount(amount, typedOrder.currency_code),
         display_id: String(typedOrder.display_id),
         payment_method: paymentMethodLabel(providerId),
       }),

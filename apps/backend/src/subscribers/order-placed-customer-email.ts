@@ -1,6 +1,16 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { retryWhile } from "../lib/retry-while"
+
+type OrderEmailData = {
+  id: string
+  display_id: number
+  email?: string | null
+  currency_code: string
+  total: number
+  payment_collections?: Array<{
+    payments?: Array<{ amount?: number }>
+  }>
+}
 
 /**
  * Email de confirmation de commande au client (distinct du subscriber
@@ -11,41 +21,53 @@ export default async function orderPlacedCustomerEmailHandler({
   container,
 }: SubscriberArgs<{ id: string }>) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
-  const orderModuleService = container.resolve(Modules.ORDER)
   const notificationModuleService = container.resolve(Modules.NOTIFICATION)
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
 
   try {
-    // "total" est un champ calculé dérivé de order_summary - sans la
-    // relation "summary", Medusa le renvoie à 0 (confirmé : tous les emails
-    // de confirmation affichaient 0 FCFA). Même avec la relation, il peut
-    // rester à 0 juste après order.placed si order_summary n'est pas encore
-    // matérialisé à cet instant précis (constaté en conditions réelles le
-    // 2026-09-04, correct quelques secondes plus tard sans changement de
-    // code) - on réessaie brièvement plutôt que d'envoyer un montant faux.
-    const order = await retryWhile(
-      () =>
-        orderModuleService.retrieveOrder(event.data.id, {
-          select: ["id", "display_id", "email", "currency_code", "total"],
-          relations: ["summary"],
-        }),
-      (result) => !result.total
-    )
+    // order.total (champ calculé dérivé d'order_summary) peut rester à 0
+    // juste après order.placed - constaté en conditions réelles le
+    // 2026-09-04 sur plusieurs commandes, y compris avec une relation
+    // "summary" explicite et des tentatives espacées. payment.amount est
+    // fixé explicitement à l'autorisation du paiement (jamais recalculé) :
+    // source fiable ici, Golden Market n'ayant qu'un seul paiement par
+    // commande, sans paiement partiel.
+    const {
+      data: [order],
+    } = await query.graph({
+      entity: "order",
+      fields: [
+        "id",
+        "display_id",
+        "email",
+        "currency_code",
+        "total",
+        "payment_collections.payments.amount",
+      ],
+      filters: { id: event.data.id },
+    })
 
-    if (!order.email) {
+    const typedOrder = order as unknown as OrderEmailData
+
+    if (!typedOrder.email) {
       logger.info(
-        `Commande ${order.id} placée — pas d'email client, confirmation ignorée`
+        `Commande ${typedOrder.id} placée — pas d'email client, confirmation ignorée`
       )
       return
     }
 
+    const amount =
+      typedOrder.payment_collections?.[0]?.payments?.[0]?.amount ??
+      typedOrder.total
+
     await notificationModuleService.createNotifications({
-      to: order.email,
+      to: typedOrder.email,
       channel: "email",
       template: "order-placed",
       data: {
-        display_id: order.display_id,
-        total: order.total,
-        currency_code: order.currency_code,
+        display_id: typedOrder.display_id,
+        total: amount,
+        currency_code: typedOrder.currency_code,
         orange_money_number: process.env.ORANGE_MONEY_NUMBER,
         orange_money_account_name: process.env.ORANGE_MONEY_NAME,
       },

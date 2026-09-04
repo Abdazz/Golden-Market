@@ -1,16 +1,15 @@
-import { Modules } from "@medusajs/framework/utils"
 import orderPlacedCustomerEmailHandler from "../order-placed-customer-email"
 
 describe("orderPlacedCustomerEmailHandler", () => {
   const logger = { info: jest.fn(), error: jest.fn() }
-  const retrieveOrder = jest.fn()
+  const graph = jest.fn()
   const createNotifications = jest.fn()
 
   const container = {
     resolve: jest.fn((key: string) => {
       if (key === "logger") return logger
-      if (key === Modules.ORDER) return { retrieveOrder }
-      if (key === Modules.NOTIFICATION) return { createNotifications }
+      if (key === "query") return { graph }
+      if (key === "notification") return { createNotifications }
       throw new Error(`Unexpected resolve: ${key}`)
     }),
   }
@@ -22,16 +21,21 @@ describe("orderPlacedCustomerEmailHandler", () => {
     process.env = { ...originalEnv }
   })
 
-  it("sends an order confirmation email when the order has an email", async () => {
+  it("sends an order confirmation email using payment.amount", async () => {
     process.env.ORANGE_MONEY_NUMBER = "07 00 00 00 00"
     process.env.ORANGE_MONEY_NAME = "Golden Market"
 
-    retrieveOrder.mockResolvedValue({
-      id: "order_123",
-      display_id: 42,
-      email: "client@example.com",
-      currency_code: "xof",
-      total: 15000,
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_123",
+          display_id: 42,
+          email: "client@example.com",
+          currency_code: "xof",
+          total: 0, // order.total peut rester stale juste après order.placed
+          payment_collections: [{ payments: [{ amount: 15000 }] }],
+        },
+      ],
     })
 
     await orderPlacedCustomerEmailHandler({
@@ -53,13 +57,18 @@ describe("orderPlacedCustomerEmailHandler", () => {
     })
   })
 
-  it("requests the summary relation so the computed total resolves (sinon 0 FCFA)", async () => {
-    retrieveOrder.mockResolvedValue({
-      id: "order_123",
-      display_id: 42,
-      email: "client@example.com",
-      currency_code: "xof",
-      total: 15000,
+  it("falls back to order.total when no payment record is present", async () => {
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_123",
+          display_id: 42,
+          email: "client@example.com",
+          currency_code: "xof",
+          total: 15000,
+          payment_collections: [],
+        },
+      ],
     })
 
     await orderPlacedCustomerEmailHandler({
@@ -67,42 +76,13 @@ describe("orderPlacedCustomerEmailHandler", () => {
       container: container as any,
     })
 
-    expect(retrieveOrder).toHaveBeenCalledWith(
-      "order_123",
-      expect.objectContaining({ relations: expect.arrayContaining(["summary"]) })
-    )
-  })
-
-  it("retries when the computed total is still 0 right after order.placed", async () => {
-    retrieveOrder
-      .mockResolvedValueOnce({
-        id: "order_123",
-        display_id: 42,
-        email: "client@example.com",
-        currency_code: "xof",
-        total: 0,
-      })
-      .mockResolvedValueOnce({
-        id: "order_123",
-        display_id: 42,
-        email: "client@example.com",
-        currency_code: "xof",
-        total: 15000,
-      })
-
-    await orderPlacedCustomerEmailHandler({
-      event: { data: { id: "order_123" } } as any,
-      container: container as any,
-    })
-
-    expect(retrieveOrder).toHaveBeenCalledTimes(2)
     expect(createNotifications).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ total: 15000 }) })
     )
   })
 
   it("skips sending when the order has no email", async () => {
-    retrieveOrder.mockResolvedValue({ id: "order_123", email: null })
+    graph.mockResolvedValue({ data: [{ id: "order_123", email: null }] })
 
     await orderPlacedCustomerEmailHandler({
       event: { data: { id: "order_123" } } as any,
@@ -112,8 +92,8 @@ describe("orderPlacedCustomerEmailHandler", () => {
     expect(createNotifications).not.toHaveBeenCalled()
   })
 
-  it("logs and does not throw when retrieveOrder fails", async () => {
-    retrieveOrder.mockRejectedValue(new Error("db down"))
+  it("logs and does not throw when the order lookup fails", async () => {
+    graph.mockRejectedValue(new Error("db down"))
 
     await expect(
       orderPlacedCustomerEmailHandler({
