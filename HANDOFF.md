@@ -738,6 +738,17 @@ différés**, sur décision explicite du propriétaire.
       plus lourd qu'une simple infra i18n (next-intl) traduite par un développeur. **À
       trancher en premier dans le brainstorming de ce sous-projet** : CMS complet ou
       infra i18n classique ?
+- [ ] **Application mobile Android/iOS** — évoqué par le propriétaire le 2026-09-04,
+      à traiter plus tard. Trois options discutées :
+      1. PWA (manifest + service worker sur le storefront existant) — le moins cher,
+         pas dans les stores, notifications push limitées sur iOS.
+      2. **React Native / Expo (recommandé)** — réutilise le SDK `@medusajs/js-sdk`
+         déjà utilisé par le storefront et une bonne partie de la logique métier
+         (panier, checkout, paiements manuels) ; vraie app native dans les deux
+         stores ; chemin documenté officiellement par Medusa pour le mobile.
+      3. Wrapper WebView (Capacitor) — rapide mais reste une webview déguisée,
+         souvent mal reçu par l'App Store.
+      Rien construit ni conçu — juste noté comme chantier futur.
 
 ### Question déjà répondue (pas un chantier)
 Sélection des « Produits similaires » sur la fiche produit : requête Medusa
