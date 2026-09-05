@@ -115,8 +115,45 @@ Admin/Store Medusa en interne pour `variant.inventory_quantity`) plutôt que
 réimplémenter le calcul de disponibilité ; confirmation que `calculated_price`
 ne se résout de façon sûre qu'en interrogeant `product` en racine (pas
 `product_variant`), d'où une résolution en deux requêtes dans
-`meta-catalog-sync.ts`. **Prochaine étape : exécuter le plan** (pas encore
-commencé).
+`meta-catalog-sync.ts`.
+
+**Plan exécuté et mergé sur `staging`** (`superpowers:subagent-driven-development`,
+worktree `.worktrees/meta-catalog-sync`, commits `dfc3b2a..3f55475`, 97/97
+tests passants). Les 7 tâches (mapping pur, client Batch API Meta, module de
+résolution `query.graph`/orchestration, route de flux CSV, subscribers
+prix/stock, doc `.env.template`) sont implémentées, chacune revue
+individuellement (spec + qualité) sans blocage. La revue finale
+multi-tâches (modèle le plus capable) a trouvé 5 vrais problèmes
+d'intégration invisibles au niveau tâche par tâche, corrigés en une seule
+vague de correctifs puis revérifiés propres :
+- **Critique** : le chemin temps réel ne filtrait pas `status: "published"`
+  sur le produit (contrairement au flux périodique) — un produit brouillon
+  dont le prix/stock est modifié aurait pu être poussé en direct sur Meta.
+  Corrigé (filtre ajouté dans `loadVariantCatalogData`).
+- Le subscriber stock ne écoutait que `inventory-level.updated`, ratant
+  `.created` (le tout premier stock défini pour un emplacement — exactement
+  le cas "retour en stock" que le temps réel est censé capter) et
+  `.deleted`. Corrigé (les 3 événements du niveau d'inventaire routent
+  maintenant vers `retrieveInventoryLevel`, `.deleted` traité comme
+  `reservation-item.deleted` déjà l'était — pas de cas spécial, filet de
+  sécurité du flux périodique).
+- Le client Meta ne loggait que le code HTTP en cas d'échec, jamais le
+  corps d'erreur réel de Meta (un item rejeté avec `200 OK` + erreur dans le
+  corps se serait loggé comme un succès). Corrigé.
+- Un prix non résolu (`calculated_price` null) poussait `"0 XOF"` **et**
+  laissait la disponibilité calculée normalement — un article publié et en
+  stock avec un prix non résolu aurait pu apparaître comme gratuit et
+  achetable sur Meta. Corrigé : disponibilité forcée à `"out of stock"`
+  quand le prix ne se résout pas (décision du contrôleur, pas dans la spec
+  initiale — cf. plan pour le détail).
+- La liste des 13 champs `query.graph` était dupliquée à l'identique entre
+  `meta-catalog-sync.ts` et la route de flux — dédupliquée (export partagé).
+
+Pas encore poussé sur `origin` (mergé localement uniquement, sur demande du
+propriétaire — décision de push à prendre séparément). **Prochaine étape :
+étapes manuelles côté Meta** (créer le Commerce Catalog, enregistrer l'URL
+de flux, lier au compte WhatsApp Business — voir spec) puis vérification
+manuelle en staging (section "Manual verification" du plan).
 2026-09-04 (soir) - **Commande réelle via le chatbot WhatsApp (workflow n8n
 `i6KGA9BvK9unjxxj`) : les anciens tools `check_stock`/`get_price`/`create_order`
 (qui interrogeaient un schéma Postgres fantôme, jamais branché sur le vrai Medusa)
