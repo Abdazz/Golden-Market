@@ -95,18 +95,43 @@ la fréquence de récupération choisie côté Meta.
 Même pattern que `order-placed-customer-whatsapp.ts` (try/catch, logger,
 jamais de throw) :
 
-- `product-variant-price-updated-meta-catalog.ts` — déclenché sur
-  changement de prix d'une variante. Pousse le nouveau `price` pour l'item
-  concerné.
-- `product-variant-stock-updated-meta-catalog.ts` — déclenché quand la
-  disponibilité calculée (via la même logique in-stock que le storefront)
-  bascule. Pousse la nouvelle `availability`.
+- `product-variant-price-updated-meta-catalog.ts` — `config.event =
+  "product-variant.updated"`. Pousse le nouveau `price` pour l'item concerné.
+- `product-variant-stock-updated-meta-catalog.ts` — `config.event = ["inventory-level.updated",
+  "reservation-item.created", "reservation-item.updated",
+  "reservation-item.deleted"]` (un subscriber Medusa accepte un tableau
+  d'événements). Recalcule la disponibilité (même logique in-stock que le
+  storefront) et pousse la nouvelle `availability` si elle a changé.
 
-Les noms d'événements Medusa exacts (prix : `product-variant.updated` a
-priori ; stock : événement du module Inventory, à confirmer) sont à vérifier
-pendant l'implémentation — Medusa v2 sépare le module Inventory du module
-Product, et le nom précis de l'événement de changement de quantité n'a pas
-été vérifié dans ce document.
+**Noms d'événements confirmés** (lus directement dans
+`@medusajs/core-flows@2.18.0`, code réellement exécuté par les workflows —
+pas les constantes `PricingEvents`/`InventoryEvents` de `@medusajs/utils`,
+qui sont mortes, commentées dans le code source avec un TODO "à réactiver
+plus tard", et ne sont émises par aucun workflow) :
+
+- **Prix** : `product-variant.updated` (payload `{ id }`, id de la variante
+  uniquement). C'est le seul événement émis par `updateProductVariantsWorkflow`
+  — celui que l'admin API appelle pour modifier le prix d'une variante — que
+  le changement porte sur le prix ou sur un autre champ. Le subscriber doit
+  donc se déclencher sur cet événement générique et recalculer/repousser le
+  prix à chaque fois (pas de moyen de filtrer "uniquement si le prix a
+  changé" à la source ; coût négligeable, cohérent avec le pattern existant
+  des subscribers WhatsApp qui ne relancent jamais).
+- **Stock** : deux événements distincts sont nécessaires pour couvrir tous les
+  cas réels de changement de disponibilité :
+  - `inventory-level.updated` (payload `{ id, order_id? }`, id du niveau
+    d'inventaire) — édition directe de `stocked_quantity`/`reserved_quantity`
+    (ex. admin "Modifier le stock").
+  - `reservation-item.created` / `.updated` / `.deleted` (payload
+    `{ id, order_id? }`, id de la réservation) — une commande passée en
+    checkout crée une réservation qui réduit la quantité *disponible* sans
+    toucher à `inventory-level`, donc sans déclencher l'événement ci-dessus.
+
+Dans les deux familles, le payload ne contient que l'id de l'entité
+Medusa concernée (jamais l'id de variante/produit, ni la nouvelle valeur) —
+le subscriber doit toujours recharger l'entité via `query.graph` pour
+retrouver la variante concernée et sa valeur actuelle avant de pousser vers
+Meta.
 
 ## Granularité et mapping des champs
 
@@ -190,7 +215,5 @@ Mêmes conventions que `order-placed-customer-whatsapp.unit.spec.ts` :
 
 ## Risques / points à vérifier pendant l'implémentation
 
-- Noms exacts des événements Medusa v2 pour le changement de quantité de
-  stock (module Inventory) — non vérifiés dans ce document.
 - Confirmer si `WHATSAPP_ACCESS_TOKEN` couvre la permission
   `catalog_management`, ou si un token dédié est nécessaire.

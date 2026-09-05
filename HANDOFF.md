@@ -83,17 +83,40 @@ synchro côté Medusa (pas n8n) ; flux périodique complet (tous les champs, y
 compris images) que Meta vient récupérer sur une URL à créer
 (`/store/meta-catalog-feed`) ; push temps réel uniquement sur prix et
 disponibilité stock (nouveau produit/image/titre → attend le prochain flux
-périodique, délai assumé). **Prochaine étape : écrire le plan
-d'implémentation avec `superpowers:writing-plans`** — interrompu en pleine
-recherche des noms d'événements Medusa v2 réels (prix de variante,
-changement de quantité de stock) pour éviter de les deviner dans le plan.
-Un grep dans `node_modules/@medusajs/**` n'a rien donné (les constantes ne
-sont peut-être pas exposées sous cette forme littérale) — à creuser via la
-doc Medusa (le MCP `medusa-dev:MedusaDocs` a échoué à se connecter pendant
-cette session, code 402, à réessayer) avant d'écrire les subscribers
-temps réel. Le reste de la spec (client Meta Catalog, route de flux, mapping
-des champs, granularité variante=item) est prêt à être transformé en tâches.
+périodique, délai assumé).
 
+**Blocage résolu (2026-09-05, reprise de session)** : noms d'événements
+Medusa v2 réels trouvés en lisant directement le code compilé de
+`@medusajs/core-flows@2.18.0` (pas la doc, MCP `medusa-dev:MedusaDocs`
+toujours en échec 402) — les constantes `PricingEvents`/`InventoryEvents` de
+`@medusajs/utils` que le premier grep avait ratées sont en fait mortes
+(commentées, TODO "à réactiver plus tard", aucun workflow ne les émet).
+Les vrais événements, confirmés dans les workflows qui appellent
+`emitEventStep` :
+- Prix : `product-variant.updated` (payload `{ id }` variante uniquement,
+  émis pour tout changement de variante, pas seulement le prix).
+- Stock : `inventory-level.updated` (édition directe de stock) **+**
+  `reservation-item.created`/`.updated`/`.deleted` (réservations de
+  checkout, qui changent la dispo sans toucher `inventory-level`) — les deux
+  familles sont nécessaires, un seul subscriber peut écouter les 4 événements
+  via `config.event: string[]`.
+Spec mise à jour en conséquence (section "Subscribers temps réel" +
+suppression du risque correspondant).
+
+**Plan d'implémentation écrit** :
+`docs/superpowers/plans/2026-09-05-meta-catalog-sync.md` (7 tâches TDD,
+`superpowers:writing-plans`). Recherche supplémentaire pendant l'écriture du
+plan : format exact de l'API Batch Meta (`POST /{catalog_id}/items_batch`)
+confirmé via la doc officielle (multipart/form-data, `id` imbriqué dans
+`data`, pas au niveau racine de la requête — deux sources indépendantes
+concordantes) ; réutilisation de `getTotalVariantAvailability` (déjà exportée
+par `@medusajs/framework/utils`, c'est exactement ce qu'utilise l'API
+Admin/Store Medusa en interne pour `variant.inventory_quantity`) plutôt que
+réimplémenter le calcul de disponibilité ; confirmation que `calculated_price`
+ne se résout de façon sûre qu'en interrogeant `product` en racine (pas
+`product_variant`), d'où une résolution en deux requêtes dans
+`meta-catalog-sync.ts`. **Prochaine étape : exécuter le plan** (pas encore
+commencé).
 2026-09-04 (soir) - **Commande réelle via le chatbot WhatsApp (workflow n8n
 `i6KGA9BvK9unjxxj`) : les anciens tools `check_stock`/`get_price`/`create_order`
 (qui interrogeaient un schéma Postgres fantôme, jamais branché sur le vrai Medusa)
