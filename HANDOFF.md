@@ -16,6 +16,144 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-05 - **Session de stabilisation post-lancement du chatbot WhatsApp
+(production réelle, numéro de test `22677406101`) : 5 bugs réels trouvés et
+corrigés en testant en conditions réelles, plus le démarrage d'un nouveau
+projet (synchro catalogue Meta).**
+
+Bugs corrigés (tous dans le workflow n8n `i6KGA9BvK9unjxxj` sauf mention
+contraire — republiés en production à chaque fois) :
+- **Toutes les conversations de tous les clients étaient fusionnées en une
+  seule** : le node `SQL_query_1` (upsert de `conversations`) avait
+  `queryReplacement: "from"` (texte brut) au lieu de `={{ $json.from }}`
+  (expression — il manquait le `=`). Chaque message, de n'importe quel
+  numéro, s'upsertait donc sur la même ligne (`phone_number = 'from'`
+  littéralement). Corrigé. Table `conversations`/`messages` **entièrement
+  vidée** (`TRUNCATE ... RESTART IDENTITY CASCADE`) pour repartir propre
+  après coup — aucune vraie donnée de commande perdue (la table `orders`
+  locale qui a cascadé avec est un reliquat de l'ancienne architecture
+  "shadow tools", jamais utilisée par le `place_order` actuel qui parle
+  directement à l'API Medusa).
+- **Sens du paiement à la réception inversé** : l'IA (Groq, modèle
+  principal) a un jour dit à une cliente que "le livreur va lui remettre"
+  l'argent, alors que c'est l'inverse en COD. Corrigé par une règle
+  explicite + formulation imposée dans le system prompt du node `AI Agent`.
+- **Tableaux markdown bruts + `variant_id` interne exposés au client** :
+  WhatsApp n'affiche pas les tableaux markdown (barres `|` littérales à
+  l'écran), et l'IA recopiait l'id technique renvoyé par `find_products`.
+  Corrigé : `find_products` (workflow `s6Ef6xBRxBeF6dgW`) renvoie maintenant
+  un lien produit partageable (`https://golden-market.co/bf/products/{handle}`,
+  même domaine que l'API Medusa — pas de nouvelle variable d'env nécessaire),
+  et le prompt interdit tableaux + IDs techniques.
+- **Accusés de statut WhatsApp (sent/delivered) traités comme de vrais
+  messages** par le workflow, plantant sur l'envoi (`to: null`). Corrigé par
+  un node `Is Real Message` juste après la vérification de signature, qui ne
+  laisse passer que les payloads avec un vrai `messages[]`.
+- **Historique de conversation parfois dans le désordre** (une réponse
+  apparaissant avant la question qui l'a déclenchée) : `SQL_query_2` triait
+  sur `created_at`, or la ligne `user` et la ligne `assistant` d'un même tour
+  sont insérées dans la **même transaction** (`now()` identique) — l'ordre
+  entre les deux n'est alors pas garanti. Ça a fait ignorer un message client
+  ("1" en réponse à une question de quantité) par l'agent, qui a rejoué
+  l'ancien tour. Corrigé par une colonne `messages.seq BIGSERIAL` (ordre
+  d'insertion réel) + `ORDER BY seq`. Appliqué en base ET dans
+  `schema.sql` (VPS + repo `n8n-ai-automation`, commit `5df191c`).
+- (Ajustement UX, pas un bug de données) : l'IA re-servait la liste complète
+  des infos demandées (prénom/adresse/ville/paiement) quand le client
+  répondait juste "Ok" sans info nouvelle. Prompt ajusté pour accuser
+  réception brièvement et attendre au lieu de reformuler.
+
+**Template WhatsApp dédié aux commandes chatbot** : `order_confirmation_from_whatsapp`
+(sans "Bonjour X", approuvé par Meta) créé en parallèle de
+`order_confirmation_from_website` existant. `order-placed-customer-whatsapp.ts`
+choisit maintenant le bon template + jeu de paramètres selon
+`order.metadata.source` (commit `f02ea01`, mergé et déployé en production).
+Le workflow n8n `pse4PNU4MF5OMGHB` (webhook de confirmation) a été généralisé
+pour accepter `template_name` + `params[]` au lieu d'être câblé en dur sur un
+seul template.
+
+**Nouveau projet démarré (pas encore implémenté) : synchronisation du
+catalogue Medusa vers Meta Commerce Manager**, pour exploiter le catalogue
+natif WhatsApp + les pubs dynamiques Facebook/Instagram (le propriétaire va
+lancer des pubs Facebook). Spec écrite et committée :
+`docs/superpowers/specs/2026-09-05-meta-catalog-sync-design.md` (commit
+`6fe65b5`, sur `staging`, pas encore mergée sur `main` — c'est un commit
+docs-only, aucun déploiement à déclencher). Décisions actées dans la spec :
+synchro côté Medusa (pas n8n) ; flux périodique complet (tous les champs, y
+compris images) que Meta vient récupérer sur une URL à créer
+(`/store/meta-catalog-feed`) ; push temps réel uniquement sur prix et
+disponibilité stock (nouveau produit/image/titre → attend le prochain flux
+périodique, délai assumé). **Prochaine étape : écrire le plan
+d'implémentation avec `superpowers:writing-plans`** — interrompu en pleine
+recherche des noms d'événements Medusa v2 réels (prix de variante,
+changement de quantité de stock) pour éviter de les deviner dans le plan.
+Un grep dans `node_modules/@medusajs/**` n'a rien donné (les constantes ne
+sont peut-être pas exposées sous cette forme littérale) — à creuser via la
+doc Medusa (le MCP `medusa-dev:MedusaDocs` a échoué à se connecter pendant
+cette session, code 402, à réessayer) avant d'écrire les subscribers
+temps réel. Le reste de la spec (client Meta Catalog, route de flux, mapping
+des champs, granularité variante=item) est prêt à être transformé en tâches.
+
+2026-09-04 (soir) - **Commande réelle via le chatbot WhatsApp (workflow n8n
+`i6KGA9BvK9unjxxj`) : les anciens tools `check_stock`/`get_price`/`create_order`
+(qui interrogeaient un schéma Postgres fantôme, jamais branché sur le vrai Medusa)
+remplacés par `find_products`/`place_order`/`get_payment_instructions`/
+`mark_payment_reported` appelant directement le Store/Admin API Medusa réel — sans
+serveur MCP, cf. `docs/superpowers/specs/2026-09-04-whatsapp-checkout-design.md`**.
+Vérifié bout-en-bout sur staging avec de vraies commandes créées (#7, #8, #9) via
+une conversation WhatsApp simulée complète (recherche produit → confirmation →
+création commande → instructions de paiement). Trois vrais bugs trouvés et corrigés
+en cours de route, aucun visible en relecture de code :
+- Les nodes tool `find_products`/`place_order` n'avaient pas le bloc `schema`
+  explicite que portent les tools plus anciens — sans lui, `$fromAI('product_name', …)`
+  ne se liait à aucun argument nommé et recevait `null`, donc **toute recherche
+  produit retournait silencieusement le catalogue par défaut non filtré**, quel que
+  soit ce que le client demandait (bug invisible : le LLM improvisait une réponse
+  plausible à partir de ces mauvais résultats).
+- L'historique de conversation (`SQL_query_2` du workflow principal) faisait
+  `ORDER BY created_at ASC LIMIT 20` — récupérait donc les 20 **premiers** messages
+  de la conversation, pas les 20 derniers ; l'agent "oubliait" systématiquement ce
+  qui venait d'être dit dès qu'une conversation dépassait 20 messages. Fixé par une
+  sous-requête `DESC LIMIT 20` re-triée `ASC`.
+- Groq (modèle principal après épuisement des crédits Anthropic) échouait tout
+  appel de tool avec « tool not in request.tools » tant que les noms de node ne
+  correspondaient pas exactement aux noms de tools annoncés dans le system prompt.
+- Séparément, l'API Medusa a révélé (pas un bug, un vrai comportement) qu'une clé
+  secrète admin doit être envoyée en **HTTP Basic Auth**, pas en Bearer token —
+  message d'erreur explicite de Medusa, credential n8n recréée en conséquence
+  (`Staging Medusa Admin API (Basic)`).
+Écriture `metadata.source = "whatsapp"` ajoutée à `place_order` (déclenche le garde
+anti-doublon déjà présent dans `order-placed-customer-whatsapp.ts`, commit
+`3d03811`) et à `mark_payment_reported` (node `Update Order Metadata`, jusque-là
+désactivé/débranché faute de credential admin).
+
+**Bascule staging/production ajoutée** (demande du propriétaire : garder le jeu de
+valeurs staging existant, ajouter la production à côté, une seule variable pour
+choisir) : `MEDUSA_ENV=staging|production` sur le conteneur n8n pilote maintenant
+tous les 4 tool workflows (`find_products`, `get_payment_instructions`,
+`place_order`, `mark_payment_reported`), y compris l'authentification admin —
+`MEDUSA_ADMIN_KEY_STAGING`/`MEDUSA_ADMIN_KEY_PRODUCTION` sont des variables
+d'environnement brutes (cohérent avec `WHATSAPP_ACCESS_TOKEN` déjà géré ainsi,
+pas via le vault credential n8n), transformées en header `Authorization: Basic`
+par un petit node Code (`Resolve Medusa Admin Auth`) placé juste avant chaque
+appel admin — **découverte en testant** : `Buffer` est disponible dans un node
+Code n8n mais silencieusement absent dans les expressions `{{ }}` d'un champ de
+node HTTP Request (renvoie `null` sans erreur), d'où l'obligation de précalculer
+le header ailleurs. Toute la mécanique vérifiée en forçant temporairement chaque
+branche via de vraies requêtes (recherche produit, écriture de métadonnées) contre
+le staging ET la production réels, sans jamais créer de fausse commande en
+production. `docker-compose.yml` du repo n8n mis à jour et déployé (commit
+`ffda7e2`), `.env` du VPS complété avec les 6 nouvelles variables (bascule par
+défaut : `staging`, ne rien changer tant que le propriétaire ne passe pas
+`MEDUSA_ENV` à `production`). Workflow principal republié en production.
+**`MEDUSA_ENV=production` activé** (demande explicite du propriétaire, même
+session) — le chatbot WhatsApp sert désormais réellement le catalogue et prend
+de vraies commandes sur `golden-market.co`, plus sur staging. Reconfirmé après
+bascule par une recherche produit réelle en direct (résultats et IDs de
+production). Pour revenir en arrière : repasser `MEDUSA_ENV` à `staging` dans
+le `.env` du VPS et recréer le conteneur n8n (aucune modification de workflow
+nécessaire, c'est le seul point de bascule).
+
 2026-09-04 - **Quatre correctifs demandés par le propriétaire, vérifiés visuellement
 et déployés en staging + production** :
 - Produit vedette de la hero-section remplacé (l'ancien était en rupture de stock,
