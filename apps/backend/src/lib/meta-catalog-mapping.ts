@@ -88,7 +88,12 @@ export function buildCatalogItem(
         ? `${product.title} - ${variant.title}`
         : product.title,
     description: product.description ?? "",
-    availability: computeAvailability(variant, availableQuantity),
+    // Prix non résolu (bug de contexte de prix, ou variante réellement sans
+    // prix) : on ne peut pas laisser Meta afficher l'article comme achetable
+    // à "0 XOF" - on force "out of stock" quel que soit le stock réel.
+    availability: price
+      ? computeAvailability(variant, availableQuantity)
+      : "out of stock",
     condition: "new",
     price: price
       ? formatMetaPrice(price.calculated_amount, price.currency_code)

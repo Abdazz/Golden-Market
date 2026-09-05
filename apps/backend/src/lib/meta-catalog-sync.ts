@@ -2,7 +2,7 @@ import { QueryContext, getTotalVariantAvailability } from "@medusajs/framework/u
 import { buildCatalogItem, type CatalogProduct, type CatalogVariant } from "./meta-catalog-mapping"
 import { upsertCatalogItem, type MetaCatalogConfig } from "./meta-catalog-client"
 
-const PRODUCT_FIELDS = [
+export const PRODUCT_FIELDS = [
   "id",
   "title",
   "description",
@@ -51,7 +51,7 @@ export async function loadVariantCatalogData(
     {
       entity: "product",
       fields: PRODUCT_FIELDS,
-      filters: { id: variantRef.product_id },
+      filters: { id: variantRef.product_id, status: "published" },
       context: {
         variants: { calculated_price: QueryContext({ currency_code: "xof" }) },
       },

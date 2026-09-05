@@ -1,6 +1,7 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, QueryContext, getTotalVariantAvailability } from "@medusajs/framework/utils"
 import { buildCatalogItem, type CatalogProduct, type CatalogVariant, type MetaCatalogItem } from "../../../lib/meta-catalog-mapping"
+import { PRODUCT_FIELDS } from "../../../lib/meta-catalog-sync"
 
 const CSV_HEADER =
   "id,title,description,availability,condition,price,link,image_link,brand,item_group_id"
@@ -36,21 +37,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
   const { data: products } = await query.graph({
     entity: "product",
-    fields: [
-      "id",
-      "title",
-      "description",
-      "handle",
-      "thumbnail",
-      "images.url",
-      "variants.id",
-      "variants.title",
-      "variants.manage_inventory",
-      "variants.allow_backorder",
-      "variants.images.url",
-      "variants.calculated_price.calculated_amount",
-      "variants.calculated_price.currency_code",
-    ],
+    fields: PRODUCT_FIELDS,
     filters: { status: "published" },
     context: {
       variants: { calculated_price: QueryContext({ currency_code: "xof" }) },
@@ -62,7 +49,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   >
 
   const allVariantIds = typedProducts.flatMap((product) =>
-    product.variants.map((variant) => variant.id)
+    (product.variants ?? []).map((variant) => variant.id)
   )
 
   const availability =
@@ -71,7 +58,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
       : {}
 
   const rows = typedProducts.flatMap((product) =>
-    product.variants.map((variant) =>
+    (product.variants ?? []).map((variant) =>
       toCsvRow(
         buildCatalogItem(
           product,

@@ -26,14 +26,20 @@ export default async function productVariantStockUpdatedMetaCatalogHandler({
   const inventoryModuleService = container.resolve(Modules.INVENTORY)
 
   try {
-    // reservation-item.deleted : la ligne est déjà soft-supprimée
-    // (softDeleteReservationItems) au moment où ce subscriber tourne -
-    // retrieveReservationItem peut légitimement lever "not found" ici. On ne
-    // le traite pas à part : ça tombe dans le catch général ci-dessous,
+    // reservation-item.deleted et inventory-level.deleted : la ligne est déjà
+    // soft-supprimée (softDeleteReservationItems / suppression du niveau)
+    // au moment où ce subscriber tourne - retrieveReservationItem /
+    // retrieveInventoryLevel peuvent légitimement lever "not found" ici. On
+    // ne les traite pas à part : ça tombe dans le catch général ci-dessous,
     // loggé comme un échec de synchro parmi d'autres, rattrapé par le flux
     // périodique au prochain passage - le filet de sécurité prévu par la
     // spec pour exactement ce genre de cas.
-    const isInventoryLevelEvent = event.name === InventoryLevelWorkflowEvents.UPDATED
+    const inventoryLevelEvents: string[] = [
+      InventoryLevelWorkflowEvents.CREATED,
+      InventoryLevelWorkflowEvents.UPDATED,
+      InventoryLevelWorkflowEvents.DELETED,
+    ]
+    const isInventoryLevelEvent = inventoryLevelEvents.includes(event.name)
     const inventoryItemId = isInventoryLevelEvent
       ? (await inventoryModuleService.retrieveInventoryLevel(event.data.id)).inventory_item_id
       : (await inventoryModuleService.retrieveReservationItem(event.data.id)).inventory_item_id
@@ -57,7 +63,9 @@ export default async function productVariantStockUpdatedMetaCatalogHandler({
 
 export const config: SubscriberConfig = {
   event: [
+    InventoryLevelWorkflowEvents.CREATED,
     InventoryLevelWorkflowEvents.UPDATED,
+    InventoryLevelWorkflowEvents.DELETED,
     ReservationItemWorkflowEvents.CREATED,
     ReservationItemWorkflowEvents.UPDATED,
     ReservationItemWorkflowEvents.DELETED,

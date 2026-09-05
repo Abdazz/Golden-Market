@@ -62,10 +62,17 @@ describe("upsertCatalogItem", () => {
   })
 
   it("throws when Meta responds with a non-ok status", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 401 })
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: jest.fn().mockResolvedValue('{"error":{"message":"Invalid parameter"}}'),
+    })
 
     await expect(
       upsertCatalogItem(item, config, fetchMock as unknown as typeof fetch)
     ).rejects.toThrow(/401/)
+    await expect(
+      upsertCatalogItem(item, config, fetchMock as unknown as typeof fetch)
+    ).rejects.toThrow(/Invalid parameter/)
   })
 })

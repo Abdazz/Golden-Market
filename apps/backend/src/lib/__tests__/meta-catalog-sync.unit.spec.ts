@@ -14,7 +14,7 @@ describe("loadVariantCatalogData", () => {
     })
     graph.mockImplementationOnce(async ({ entity, filters, context }: any) => {
       expect(entity).toBe("product")
-      expect(filters).toEqual({ id: "prod_1" })
+      expect(filters).toEqual({ id: "prod_1", status: "published" })
       expect(context).toBeDefined()
       return {
         data: [
@@ -58,6 +58,21 @@ describe("loadVariantCatalogData", () => {
       .fn()
       .mockResolvedValueOnce({ data: [{ id: "variant_1", product_id: "prod_1" }] })
       .mockResolvedValueOnce({ data: [] })
+    const result = await loadVariantCatalogData({ graph } as any, "variant_1")
+    expect(result).toBeNull()
+  })
+
+  it("returns null when the product is a draft (not published), even though the variant->product_id lookup succeeded", async () => {
+    const graph = jest.fn()
+    graph.mockImplementationOnce(async () => ({
+      data: [{ id: "variant_1", product_id: "prod_1" }],
+    }))
+    graph.mockImplementationOnce(async ({ filters }: any) => {
+      expect(filters).toEqual({ id: "prod_1", status: "published" })
+      // Draft product: the status-filtered query.graph call returns nothing.
+      return { data: [] }
+    })
+
     const result = await loadVariantCatalogData({ graph } as any, "variant_1")
     expect(result).toBeNull()
   })

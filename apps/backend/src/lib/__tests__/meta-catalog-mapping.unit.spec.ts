@@ -145,4 +145,19 @@ describe("buildCatalogItem", () => {
 
     expect(buildCatalogItem(product, variant, null).price).toBe("0 XOF")
   })
+
+  it("forces availability to 'out of stock' when price could not be resolved, even for an otherwise in-stock variant", () => {
+    const variant: CatalogVariant = {
+      id: "variant_4",
+      title: "Default Title",
+      manage_inventory: false, // would normally always be "in stock"
+      allow_backorder: false,
+      images: [],
+      calculated_price: null,
+    }
+
+    const item = buildCatalogItem(product, variant, null)
+    expect(item.availability).toBe("out of stock")
+    expect(item.price).toBe("0 XOF")
+  })
 })

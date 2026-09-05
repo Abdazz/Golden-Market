@@ -44,6 +44,13 @@ export async function upsertCatalogItem(
   )
 
   if (!response.ok) {
-    throw new Error(`Meta Catalog API (items_batch) a répondu ${response.status}`)
+    // Le Batch API de Meta peut renvoyer un corps d'erreur détaillé même sur
+    // un statut non-ok - on le remonte tel quel (pas de parsing JSON, pas de
+    // schéma supposé) pour que l'opérateur voie l'erreur réelle de Meta, pas
+    // juste le code HTTP.
+    const bodyText = await response.text().catch(() => "")
+    throw new Error(
+      `Meta Catalog API (items_batch) a répondu ${response.status}: ${bodyText}`
+    )
   }
 }

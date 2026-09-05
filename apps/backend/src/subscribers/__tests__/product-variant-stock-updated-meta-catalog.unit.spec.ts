@@ -1,5 +1,8 @@
-import productVariantStockUpdatedMetaCatalogHandler from "../product-variant-stock-updated-meta-catalog"
+import productVariantStockUpdatedMetaCatalogHandler, {
+  config,
+} from "../product-variant-stock-updated-meta-catalog"
 import * as metaCatalogSync from "../../lib/meta-catalog-sync"
+import { InventoryLevelWorkflowEvents, ReservationItemWorkflowEvents } from "@medusajs/framework/utils"
 
 jest.mock("../../lib/meta-catalog-sync")
 
@@ -56,6 +59,64 @@ describe("productVariantStockUpdatedMetaCatalogHandler", () => {
       catalogId: "catalog_123",
       accessToken: "token_abc",
     })
+  })
+
+  it("resolves the inventory item from an inventory-level.created event", async () => {
+    retrieveInventoryLevel.mockResolvedValue({ id: "ilev_2", inventory_item_id: "iitem_2" })
+    ;(metaCatalogSync.resolveVariantIdsForInventoryItem as jest.Mock).mockResolvedValue(["variant_3"])
+    ;(metaCatalogSync.syncVariantToMetaCatalog as jest.Mock).mockResolvedValue(undefined)
+
+    await productVariantStockUpdatedMetaCatalogHandler({
+      event: { name: "inventory-level.created", data: { id: "ilev_2" } } as any,
+      container: container as any,
+    })
+
+    expect(retrieveInventoryLevel).toHaveBeenCalledWith("ilev_2")
+    expect(retrieveReservationItem).not.toHaveBeenCalled()
+  })
+
+  it("resolves the inventory item from an inventory-level.deleted event", async () => {
+    retrieveInventoryLevel.mockResolvedValue({ id: "ilev_3", inventory_item_id: "iitem_3" })
+    ;(metaCatalogSync.resolveVariantIdsForInventoryItem as jest.Mock).mockResolvedValue(["variant_4"])
+    ;(metaCatalogSync.syncVariantToMetaCatalog as jest.Mock).mockResolvedValue(undefined)
+
+    await productVariantStockUpdatedMetaCatalogHandler({
+      event: { name: "inventory-level.deleted", data: { id: "ilev_3" } } as any,
+      container: container as any,
+    })
+
+    expect(retrieveInventoryLevel).toHaveBeenCalledWith("ilev_3")
+    expect(retrieveReservationItem).not.toHaveBeenCalled()
+  })
+
+  it("logs and does not throw when the inventory level was already deleted", async () => {
+    retrieveInventoryLevel.mockRejectedValue(new Error("not found"))
+
+    await expect(
+      productVariantStockUpdatedMetaCatalogHandler({
+        event: { name: "inventory-level.deleted", data: { id: "ilev_gone" } } as any,
+        container: container as any,
+      })
+    ).resolves.toBeUndefined()
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("ilev_gone"),
+      expect.any(Error)
+    )
+  })
+
+  it("subscribes to all 3 inventory-level events and all 3 reservation-item events", () => {
+    expect(config.event).toEqual(
+      expect.arrayContaining([
+        InventoryLevelWorkflowEvents.CREATED,
+        InventoryLevelWorkflowEvents.UPDATED,
+        InventoryLevelWorkflowEvents.DELETED,
+        ReservationItemWorkflowEvents.CREATED,
+        ReservationItemWorkflowEvents.UPDATED,
+        ReservationItemWorkflowEvents.DELETED,
+      ])
+    )
+    expect(config.event).toHaveLength(6)
   })
 
   it("resolves the inventory item from a reservation-item event", async () => {
