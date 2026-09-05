@@ -79,14 +79,26 @@ dépendance HTTP.
 
 ### 2. Route de flux périodique
 
-`apps/backend/src/api/store/meta-catalog-feed/route.ts`
+`apps/backend/src/api/meta-catalog-feed/route.ts`
 
 Route GET publique (les données sont déjà publiques sur le storefront —
 pas de secret requis). Interroge `query.graph` pour tous les produits
 publiés avec leurs variantes, prix, stock et images, et retourne un fichier
 CSV au format attendu par Meta (une ligne = une variante).
 
-C'est cette URL (`https://golden-market.co/store/meta-catalog-feed`) qu'on
+**Volontairement hors du préfixe `/store`** : Medusa applique
+automatiquement `ensurePublishableApiKeyMiddleware` à tout `/store/*` au
+niveau du framework (`@medusajs/framework/dist/http/router.js`,
+indépendant de `apps/backend/src/api/middlewares.ts` — invisible en lisant
+seulement le code du projet). Un flux planifié Meta n'a aucun moyen
+d'envoyer ce header, donc la route vit à la racine (`/meta-catalog-feed`,
+pas `/store/meta-catalog-feed`) pour rester réellement accessible sans
+authentification. Découvert en testant manuellement après le premier merge
+(la revue de code, y compris la revue finale multi-tâches, n'avait vérifié
+que le fichier `middlewares.ts` du projet, pas le comportement global du
+framework Medusa) — voir HANDOFF.md 2026-09-05.
+
+C'est cette URL (`https://golden-market.co/meta-catalog-feed`) qu'on
 enregistre manuellement dans Commerce Manager comme « flux planifié », avec
 la fréquence de récupération choisie côté Meta.
 
@@ -157,7 +169,7 @@ seul produit avec plusieurs options).
 ```
 Périodique (photo complète, filet de sécurité) :
   Commerce Manager (planifié côté Meta)
-    --GET--> /store/meta-catalog-feed
+    --GET--> /meta-catalog-feed
     --query.graph--> tous les produits publiés
     --CSV--> Meta ingère et réconcilie tout le catalogue
 
@@ -206,7 +218,7 @@ Mêmes conventions que `order-placed-customer-whatsapp.unit.spec.ts` :
 ## Étapes manuelles côté Meta (hors code)
 
 1. Créer le Commerce Catalog dans Business Manager.
-2. Enregistrer `https://golden-market.co/store/meta-catalog-feed` comme flux
+2. Enregistrer `https://golden-market.co/meta-catalog-feed` comme flux
    planifié, choisir la fréquence de récupération.
 3. Lier le catalogue au compte WhatsApp Business (active la navigation
    catalogue native dans le chat).

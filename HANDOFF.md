@@ -149,6 +149,24 @@ vague de correctifs puis revérifiés propres :
 - La liste des 13 champs `query.graph` était dupliquée à l'identique entre
   `meta-catalog-sync.ts` et la route de flux — dédupliquée (export partagé).
 
+**Bug trouvé en testant manuellement juste après le merge (ni la revue par
+tâche ni la revue finale multi-tâches ne l'avaient vu, car les deux n'ont
+lu que `apps/backend/src/api/middlewares.ts` du projet)** : la route de
+flux, pensée publique, renvoyait en fait `400 Publishable API key
+required`. Medusa applique `ensurePublishableApiKeyMiddleware` à **tout**
+`/store/*` au niveau du framework lui-même
+(`@medusajs/framework/dist/http/router.js`, `app.use("/store", ...)`),
+complètement indépendant du `middlewares.ts` du projet — invisible tant
+qu'on ne lit pas le code du framework ou qu'on ne teste pas la route pour
+de vrai. Un flux planifié Meta n'a aucun moyen d'envoyer ce header.
+Corrigé en déplaçant la route hors de `/store`
+(`apps/backend/src/api/meta-catalog-feed/route.ts`, servie sur
+`/meta-catalog-feed` et non `/store/meta-catalog-feed` — seuls `/admin` et
+`/store` reçoivent ce genre de middleware automatique côté framework, tout
+autre chemin racine en est exempté). Spec et tests mis à jour en
+conséquence, 97/97 tests toujours verts, confirmé en local (`curl
+localhost:9002/meta-catalog-feed` → CSV, sans header).
+
 Pas encore poussé sur `origin` (mergé localement uniquement, sur demande du
 propriétaire — décision de push à prendre séparément). **Prochaine étape :
 étapes manuelles côté Meta** (créer le Commerce Catalog, enregistrer l'URL

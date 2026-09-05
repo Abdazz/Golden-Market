@@ -1,7 +1,7 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, QueryContext, getTotalVariantAvailability } from "@medusajs/framework/utils"
-import { buildCatalogItem, type CatalogProduct, type CatalogVariant, type MetaCatalogItem } from "../../../lib/meta-catalog-mapping"
-import { PRODUCT_FIELDS } from "../../../lib/meta-catalog-sync"
+import { buildCatalogItem, type CatalogProduct, type CatalogVariant, type MetaCatalogItem } from "../../lib/meta-catalog-mapping"
+import { PRODUCT_FIELDS } from "../../lib/meta-catalog-sync"
 
 const CSV_HEADER =
   "id,title,description,availability,condition,price,link,image_link,brand,item_group_id"
@@ -31,6 +31,15 @@ function toCsvRow(item: MetaCatalogItem): string {
  * Route publique (flux planifié Meta, pas de secret) - photo complète du
  * catalogue publié, une ligne = une variante. Sert de filet de sécurité au
  * push temps réel des subscribers prix/stock (voir spec, "Flux de données").
+ *
+ * Volontairement HORS du préfixe /store : Medusa applique automatiquement
+ * ensurePublishableApiKeyMiddleware à tout /store/* au niveau du framework
+ * (voir @medusajs/framework/dist/http/router.js, indépendant de
+ * apps/backend/src/api/middlewares.ts) - un flux planifié Meta n'a aucun
+ * moyen d'envoyer ce header, donc la route doit vivre en dehors de /store
+ * pour rester réellement publique (découvert en testant manuellement après
+ * le merge - un exemple précis d'écart entre la revue de code et le
+ * comportement réel de l'application, voir HANDOFF.md 2026-09-05).
  */
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)

@@ -16,7 +16,7 @@ function createFakeRes() {
   return res
 }
 
-describe("GET /store/meta-catalog-feed", () => {
+describe("GET /meta-catalog-feed", () => {
   it("returns a CSV row per variant, across multiple products", async () => {
     const graph = jest.fn().mockImplementation(async ({ entity }: any) => {
       if (entity === "product") {
