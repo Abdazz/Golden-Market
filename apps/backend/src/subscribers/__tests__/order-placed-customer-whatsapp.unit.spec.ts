@@ -171,7 +171,7 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     expect(graph).not.toHaveBeenCalled()
   })
 
-  it("skips sending when the order originates from WhatsApp itself (metadata.source)", async () => {
+  it("still sends the (website) template for orders placed via WhatsApp itself, pending the dedicated template's approval", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 
     graph.mockResolvedValue({
@@ -188,13 +188,14 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
         },
       ],
     })
+    fetchMock.mockResolvedValue({ ok: true })
 
     await orderPlacedCustomerWhatsappHandler({
       event: { data: { id: "order_123" } } as any,
       container: container as any,
     })
 
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it("skips sending when the order has no phone", async () => {

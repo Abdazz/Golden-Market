@@ -99,13 +99,10 @@ export default async function orderPlacedCustomerWhatsappHandler({
       return
     }
 
-    if (typedOrder.metadata?.source === "whatsapp") {
-      logger.info(
-        `Commande ${typedOrder.id} placée depuis WhatsApp — confirmation déjà donnée dans la conversation, template ignoré`
-      )
-      return
-    }
-
+    // Un second template (order_confirmation_from_whatsapp, sans "Bonjour X")
+    // est en attente d'approbation Meta pour les commandes passées via le
+    // chatbot WhatsApp lui-même. En attendant, on réutilise le template
+    // déjà approuvé pour ne pas bloquer les tests — voir HANDOFF.md.
     const productSummary =
       typedOrder.items && typedOrder.items.length === 1
         ? typedOrder.items[0].product_title
