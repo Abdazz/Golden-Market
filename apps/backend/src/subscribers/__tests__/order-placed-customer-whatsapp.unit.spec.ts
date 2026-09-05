@@ -64,11 +64,14 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
         headers: expect.objectContaining({ "x-webhook-secret": "s3cret" }),
         body: JSON.stringify({
           phone: "+22670000000",
-          first_name: "Aminata",
-          product_summary: "Serpillière auto-essorante à éponge",
-          total: formatAmount(15000, "xof"),
-          display_id: "42",
-          payment_method: "Paiement à la réception",
+          template_name: "order_confirmation_from_website",
+          params: [
+            "Aminata",
+            "Serpillière auto-essorante à éponge",
+            formatAmount(15000, "xof"),
+            "42",
+            "Paiement à la réception",
+          ],
         }),
       })
     )
@@ -100,7 +103,7 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     })
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
-    expect(body.total).toBe(formatAmount(8500, "xof"))
+    expect(body.params[2]).toBe(formatAmount(8500, "xof"))
   })
 
   it("falls back to order.total when no payment record is present", async () => {
@@ -127,8 +130,8 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     })
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
-    expect(body.total).toBe(formatAmount(15000, "xof"))
-    expect(body.payment_method).toBe("Carte bancaire")
+    expect(body.params[2]).toBe(formatAmount(15000, "xof"))
+    expect(body.params[4]).toBe("Carte bancaire")
   })
 
   it("summarizes as N articles when the order has more than one item", async () => {
@@ -155,8 +158,8 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     })
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
-    expect(body.product_summary).toBe("2 articles")
-    expect(body.payment_method).toBe("Carte bancaire")
+    expect(body.params[1]).toBe("2 articles")
+    expect(body.params[4]).toBe("Carte bancaire")
   })
 
   it("skips sending when the webhook URL is not configured", async () => {
@@ -171,7 +174,7 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     expect(graph).not.toHaveBeenCalled()
   })
 
-  it("still sends the (website) template for orders placed via WhatsApp itself, pending the dedicated template's approval", async () => {
+  it("uses the dedicated whatsapp template (no first name) for orders placed via WhatsApp itself", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 
     graph.mockResolvedValue({
@@ -195,7 +198,42 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
       container: container as any,
     })
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.template_name).toBe("order_confirmation_from_whatsapp")
+    expect(body.params).toEqual([
+      "Produit A",
+      formatAmount(8500, "xof"),
+      "42",
+      "Carte bancaire",
+    ])
+  })
+
+  it("uses the website template (with first name) for orders not placed via WhatsApp", async () => {
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_123",
+          display_id: 42,
+          currency_code: "xof",
+          total: 8500,
+          shipping_address: { first_name: "Aminata", phone: "+22670000000" },
+          items: [{ product_title: "Produit A" }],
+          payment_collections: [{ payments: [{ amount: 8500 }] }],
+        },
+      ],
+    })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_123" } } as any,
+      container: container as any,
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.template_name).toBe("order_confirmation_from_website")
+    expect(body.params[0]).toBe("Aminata")
   })
 
   it("skips sending when the order has no phone", async () => {

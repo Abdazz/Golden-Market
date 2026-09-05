@@ -99,10 +99,6 @@ export default async function orderPlacedCustomerWhatsappHandler({
       return
     }
 
-    // Un second template (order_confirmation_from_whatsapp, sans "Bonjour X")
-    // est en attente d'approbation Meta pour les commandes passées via le
-    // chatbot WhatsApp lui-même. En attendant, on réutilise le template
-    // déjà approuvé pour ne pas bloquer les tests — voir HANDOFF.md.
     const productSummary =
       typedOrder.items && typedOrder.items.length === 1
         ? typedOrder.items[0].product_title
@@ -111,6 +107,21 @@ export default async function orderPlacedCustomerWhatsappHandler({
     const payment = typedOrder.payment_collections?.[0]?.payments?.[0]
     const providerId = payment?.provider_id
     const amount = payment?.amount ?? typedOrder.total
+    const total = formatAmount(amount, typedOrder.currency_code)
+    const displayId = String(typedOrder.display_id)
+    const paymentMethod = paymentMethodLabel(providerId)
+
+    // Deux templates Meta approuvés : order_confirmation_from_website
+    // (avec "Bonjour {prénom}") pour les commandes du site, et
+    // order_confirmation_from_whatsapp (sans "Bonjour X", le client est déjà
+    // en conversation) pour les commandes passées via le chatbot lui-même.
+    const isWhatsappOrder = typedOrder.metadata?.source === "whatsapp"
+    const templateName = isWhatsappOrder
+      ? "order_confirmation_from_whatsapp"
+      : "order_confirmation_from_website"
+    const params = isWhatsappOrder
+      ? [productSummary, total, displayId, paymentMethod]
+      : [firstName || "", productSummary, total, displayId, paymentMethod]
 
     const response = await fetch(webhookUrl, {
       method: "POST",
@@ -120,11 +131,8 @@ export default async function orderPlacedCustomerWhatsappHandler({
       },
       body: JSON.stringify({
         phone,
-        first_name: firstName || "",
-        product_summary: productSummary,
-        total: formatAmount(amount, typedOrder.currency_code),
-        display_id: String(typedOrder.display_id),
-        payment_method: paymentMethodLabel(providerId),
+        template_name: templateName,
+        params,
       }),
     })
 
