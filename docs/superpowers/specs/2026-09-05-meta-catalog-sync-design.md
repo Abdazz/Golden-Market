@@ -198,10 +198,11 @@ prochaine récupération du flux périodique corrige automatiquement l'écart.
 Nouvelles variables d'environnement (backend Medusa, staging et
 production) :
 - `META_CATALOG_ID` — id du catalogue créé dans Commerce Manager.
-- `META_CATALOG_ACCESS_TOKEN` — jeton d'accès avec la permission
-  `catalog_management`. À vérifier si le token WhatsApp existant
-  (`WHATSAPP_ACCESS_TOKEN`) peut être réutilisé (mêmes scopes de Business
-  Manager) avant d'en provisionner un nouveau.
+- `META_CATALOG_ACCESS_TOKEN` — jeton d'accès dédié avec la permission
+  `catalog_management`. **Confirmé (2026-09-05) que `WHATSAPP_ACCESS_TOKEN`
+  ne couvre pas ce scope** (vérifié via `GET
+  /debug_token?input_token=...`, champ `scopes` de la réponse) — un jeton
+  séparé est nécessaire, voir « Étapes manuelles côté Meta ».
 
 ## Tests
 
@@ -222,10 +223,15 @@ Mêmes conventions que `order-placed-customer-whatsapp.unit.spec.ts` :
    planifié, choisir la fréquence de récupération.
 3. Lier le catalogue au compte WhatsApp Business (active la navigation
    catalogue native dans le chat).
-4. Vérifier que le token utilisé a la permission `catalog_management` sur ce
-   catalogue.
-
-## Risques / points à vérifier pendant l'implémentation
-
-- Confirmer si `WHATSAPP_ACCESS_TOKEN` couvre la permission
-  `catalog_management`, ou si un token dédié est nécessaire.
+4. Provisionner un jeton avec la permission `catalog_management` sur ce
+   catalogue (`WHATSAPP_ACCESS_TOKEN` existant confirmé insuffisant, décidé
+   le 2026-09-06) : **réutiliser le system user WhatsApp existant** —
+   Business Settings → Users → System Users → [system user WhatsApp
+   existant] → Assign Assets → Catalogs → sélectionner le catalogue → rôle
+   « Manage catalog » → Generate New Token en cochant à la fois
+   `whatsapp_business_management` et `catalog_management`. Ce nouveau jeton
+   remplace `WHATSAPP_ACCESS_TOKEN` **partout où il est utilisé** (env brut
+   du conteneur n8n sur le VPS) et sert aussi de `META_CATALOG_ACCESS_TOKEN`
+   — un seul jeton, une seule identité à gérer/faire tourner. Les jetons
+   déjà émis ne gagnent pas rétroactivement un scope ajouté après coup, d'où
+   la régénération plutôt qu'une simple mise à jour de permission.
