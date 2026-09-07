@@ -24,33 +24,37 @@ sur le `pg.Pool` qui aurait pu faire planter tout le process Node au moindre
 redémarrage du conteneur `golden_market_postgres`, erreurs SQL journalisées
 via `console.error`, `res.ok` vérifié avant `res.json()` côté page admin,
 timeouts de connexion/requête + pool réduit à 3 clients, colonnes
-« Client »/« Statut » ajoutées à la liste comme l'exige la spec). Pas encore
-mergé sur `staging`.
+« Client »/« Statut » ajoutées à la liste comme l'exige la spec). Mergé et
+poussé sur `staging`.
 
-Il reste des étapes manuelles hors code, décrites dans la section « Étapes
-manuelles hors code » de la spec, avant que l'outil fonctionne réellement en
-production :
-- créer le réseau Docker partagé `golden_market_shared_net` sur le VPS ;
-- faire rejoindre ce réseau au service `postgres` de `n8n_automation`
-  (changement dans cet autre dépôt, hors périmètre de cette branche) ;
-- créer le rôle Postgres en lecture seule `medusa_whatsapp_reader` sur
-  `golden_market_postgres` ;
-- faire rejoindre ce même réseau au service `backend` de production de ce
-  dépôt, dans `docker-compose.prod.yml` ;
-- renseigner `WHATSAPP_CHAT_DATABASE_URL` dans le `.env` backend de
-  production sur le VPS.
+**Étapes d'infra hors code (VPS, accès SSH `admin@144.91.110.105`) faites et
+vérifiées en direct** :
+- Réseau Docker externe `golden_market_shared_net` créé sur le VPS.
+- Conteneur `golden_market_postgres` (n8n_automation) rattaché à chaud
+  (`docker network connect`, **sans redémarrage, aucune interruption** du
+  chatbot WhatsApp en service réel), puis persisté dans son
+  `docker-compose.yml` (`/var/www/n8n`, édité directement sur le VPS -
+  **pas encore commité dans le dépôt `n8n_automation`**, qui a par ailleurs
+  un `schema.sql` modifié non commité et un `.env.bak.*` non suivi,
+  intentionnellement non touchés).
+- Rôle Postgres `medusa_whatsapp_reader` créé sur `golden_market_postgres`
+  (`GRANT SELECT` uniquement sur `public.conversations`/`public.messages`).
+  Testé en conditions réelles depuis un conteneur jetable sur
+  `golden_market_shared_net` : `SELECT count(*)` réussit (3 conversations
+  réelles trouvées), une tentative d'`INSERT` est refusée
+  (`permission denied for table conversations`).
+- `docker-compose.prod.override.yml` (nouveau, commité, référencé
+  uniquement par `deploy-production.yml`) ajoute ce réseau au service
+  `backend` - **production uniquement** ; vérifié avec `docker compose
+  config` que `staging` (sans l'override) ne référence ce réseau nulle
+  part dans sa configuration résolue.
 
-**Risque à ne pas rater sur l'étape `docker-compose.prod.yml`** (trouvé par
-la revue finale, absent de la spec d'origine) : ce fichier est explicitement
-partagé entre les environnements `staging` et `production` (voir son propre
-commentaire d'en-tête). Ajouter sans condition `networks:
-[golden_market_shared_net]` avec `external: true` au service `backend` ferait
-échouer `docker compose up` sur `staging`, où ce réseau n'existe pas -
-prévoir une approche conditionnelle par environnement ou un fichier override
-séparé le jour où cette étape est faite, pas un ajout aveugle et
-inconditionnel. Ce fix wave n'a volontairement pas touché à
-`docker-compose.prod.yml` (non testable sans un vrai VPS avec le réseau déjà
-créé).
+**Reste à faire** : merger `staging` sur `main` (déclenche le redéploiement
+production réel), renseigner `WHATSAPP_CHAT_DATABASE_URL` dans le `.env`
+backend de production sur le VPS (`postgres://medusa_whatsapp_reader:<mot
+de passe, communiqué séparément>@golden_market_postgres:5432/golden_market`),
+puis vérifier dans l'admin production que les vraies conversations
+s'affichent.
 
 2026-09-07 - **Vidéo YouTube optionnelle sur la fiche produit** (demande directe
 du propriétaire). Après cadrage (`superpowers:brainstorming`, chemin borné) :
