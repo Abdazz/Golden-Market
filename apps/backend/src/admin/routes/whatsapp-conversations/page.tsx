@@ -37,7 +37,7 @@ const ConversationDetail = ({ phoneNumber, onBack }: { phoneNumber: string; onBa
   useEffect(() => {
     setDetail(null)
     fetch(`/admin/whatsapp-conversations/${encodeURIComponent(phoneNumber)}`, { credentials: "include" })
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : { available: false }))
       .then(setDetail)
       .catch(() => setDetail({ available: false }))
   }, [phoneNumber])
@@ -84,7 +84,7 @@ const ConversationList = ({ onSelect }: { onSelect: (phoneNumber: string) => voi
   useEffect(() => {
     const query = search ? `?q=${encodeURIComponent(search)}` : ""
     fetch(`/admin/whatsapp-conversations${query}`, { credentials: "include" })
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : { available: false }))
       .then(setList)
       .catch(() => setList({ available: false }))
   }, [search])
@@ -113,8 +113,10 @@ const ConversationList = ({ onSelect }: { onSelect: (phoneNumber: string) => voi
           <thead>
             <tr className="text-left text-ui-fg-subtle">
               <th className="pb-2 pr-4">Numéro</th>
+              <th className="pb-2 pr-4">Client</th>
               <th className="pb-2 pr-4">Dernier message</th>
               <th className="pb-2 pr-4">Messages</th>
+              <th className="pb-2 pr-4">Statut</th>
               <th className="pb-2">Dernière activité</th>
             </tr>
           </thead>
@@ -126,8 +128,10 @@ const ConversationList = ({ onSelect }: { onSelect: (phoneNumber: string) => voi
                 className="cursor-pointer border-t border-ui-border-base hover:bg-ui-bg-subtle"
               >
                 <td className="py-2 pr-4 text-ui-fg-base">{conversation.phoneNumber}</td>
+                <td className="py-2 pr-4 text-ui-fg-subtle">{conversation.customerName ?? "—"}</td>
                 <td className="py-2 pr-4 text-ui-fg-subtle">{conversation.lastMessagePreview ?? "—"}</td>
                 <td className="py-2 pr-4 text-ui-fg-subtle">{conversation.messageCount}</td>
+                <td className="py-2 pr-4 text-ui-fg-subtle">{conversation.status}</td>
                 <td className="py-2 text-ui-fg-subtle">
                   {new Date(conversation.lastMessageAt).toLocaleString("fr-FR")}
                 </td>

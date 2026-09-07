@@ -33,7 +33,29 @@ let pool: Pool | null | undefined
 function getDefaultExecutor(): QueryExecutor | null {
   if (pool === undefined) {
     const databaseUrl = process.env.WHATSAPP_CHAT_DATABASE_URL
-    pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null
+
+    if (databaseUrl) {
+      pool = new Pool({
+        connectionString: databaseUrl,
+        connectionTimeoutMillis: 5000,
+        statement_timeout: 5000,
+        // Outil admin interne à faible trafic - pas besoin d'un grand pool.
+        max: 3,
+      })
+
+      // pg-pool émet "error" sur les clients idle en échec de connexion (ex :
+      // redémarrage du conteneur golden_market_postgres, propriété d'un autre
+      // dépôt/pipeline de déploiement) - un EventEmitter sans listener sur
+      // "error" fait planter tout le process Node. On journalise, rien de plus.
+      pool.on("error", (error) => {
+        console.error(
+          "[whatsapp-chat-db] Erreur du pool Postgres (connexion à golden_market perdue) :",
+          error
+        )
+      })
+    } else {
+      pool = null
+    }
   }
 
   return pool
@@ -78,7 +100,8 @@ export async function listConversations(
       // COUNT(*) revient en bigint -> chaîne côté driver pg, jamais un number natif.
       messageCount: Number(row.message_count),
     }))
-  } catch {
+  } catch (error) {
+    console.error("[whatsapp-chat-db] Échec de listConversations :", error)
     return null
   }
 }
@@ -107,7 +130,8 @@ export async function getConversationMessages(
       content: row.content as string,
       createdAt: row.created_at as Date,
     }))
-  } catch {
+  } catch (error) {
+    console.error("[whatsapp-chat-db] Échec de getConversationMessages :", error)
     return null
   }
 }

@@ -16,6 +16,42 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-07 - **Visualiseur de conversations WhatsApp dans l'admin Medusa**
+(lecture seule) : spec `docs/superpowers/specs/2026-09-07-whatsapp-conversations-viewer-design.md`,
+implémenté sur la branche `whatsapp-conversations-viewer`, revu (revue finale
+de branche) et corrigé - 5 correctifs appliqués (listener `error` manquant
+sur le `pg.Pool` qui aurait pu faire planter tout le process Node au moindre
+redémarrage du conteneur `golden_market_postgres`, erreurs SQL journalisées
+via `console.error`, `res.ok` vérifié avant `res.json()` côté page admin,
+timeouts de connexion/requête + pool réduit à 3 clients, colonnes
+« Client »/« Statut » ajoutées à la liste comme l'exige la spec). Pas encore
+mergé sur `staging`.
+
+Il reste des étapes manuelles hors code, décrites dans la section « Étapes
+manuelles hors code » de la spec, avant que l'outil fonctionne réellement en
+production :
+- créer le réseau Docker partagé `golden_market_shared_net` sur le VPS ;
+- faire rejoindre ce réseau au service `postgres` de `n8n_automation`
+  (changement dans cet autre dépôt, hors périmètre de cette branche) ;
+- créer le rôle Postgres en lecture seule `medusa_whatsapp_reader` sur
+  `golden_market_postgres` ;
+- faire rejoindre ce même réseau au service `backend` de production de ce
+  dépôt, dans `docker-compose.prod.yml` ;
+- renseigner `WHATSAPP_CHAT_DATABASE_URL` dans le `.env` backend de
+  production sur le VPS.
+
+**Risque à ne pas rater sur l'étape `docker-compose.prod.yml`** (trouvé par
+la revue finale, absent de la spec d'origine) : ce fichier est explicitement
+partagé entre les environnements `staging` et `production` (voir son propre
+commentaire d'en-tête). Ajouter sans condition `networks:
+[golden_market_shared_net]` avec `external: true` au service `backend` ferait
+échouer `docker compose up` sur `staging`, où ce réseau n'existe pas -
+prévoir une approche conditionnelle par environnement ou un fichier override
+séparé le jour où cette étape est faite, pas un ajout aveugle et
+inconditionnel. Ce fix wave n'a volontairement pas touché à
+`docker-compose.prod.yml` (non testable sans un vrai VPS avec le réseau déjà
+créé).
+
 2026-09-07 - **Vidéo YouTube optionnelle sur la fiche produit** (demande directe
 du propriétaire). Après cadrage (`superpowers:brainstorming`, chemin borné) :
 hébergement en lien externe YouTube plutôt qu'upload sur le VPS (le VPS de
