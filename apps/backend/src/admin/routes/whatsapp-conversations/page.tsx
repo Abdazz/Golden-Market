@@ -32,15 +32,20 @@ type ChatMessage = {
 type ListResponse = { available: false } | { available: true; conversations: ConversationSummary[] }
 type DetailResponse = { available: false } | { available: true; messages: ChatMessage[] }
 
-const initials = (conversation: ConversationSummary) => {
-  const source = conversation.customerName ?? conversation.phoneNumber
-  return source.slice(0, 1).toUpperCase()
-}
-
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
 
-const formatDateTime = (iso: string) => new Date(iso).toLocaleString("fr-FR")
+// Icône générique (pas de nom client enregistré) - SVG inline plutôt que
+// @medusajs/icons : même conflit de types React 18/19 que @medusajs/ui
+// (documenté ci-dessus) dès qu'une icône est rendue directement en JSX,
+// contrairement à ChatBubbleLeftRight ci-dessus qui n'est jamais rendue
+// mais seulement passée en référence à defineRouteConfig.
+const GenericAvatarIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+)
 
 const ConversationRow = ({
   conversation,
@@ -59,7 +64,14 @@ const ConversationRow = ({
     }`}
   >
     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ui-tag-neutral-bg text-ui-fg-base txt-compact-small-plus">
-      {initials(conversation)}
+      {conversation.customerName ? (
+        conversation.customerName.slice(0, 1).toUpperCase()
+      ) : (
+        // Pas de nom client enregistré : l'initiale du numéro de téléphone
+        // n'a aucun sens (tous les numéros BF commencent par le même
+        // indicatif) - icône générique plutôt qu'une lettre trompeuse.
+        <GenericAvatarIcon />
+      )}
     </span>
     <span className="flex min-w-0 flex-1 flex-col gap-y-0.5">
       <span className="flex items-center justify-between gap-x-2">
