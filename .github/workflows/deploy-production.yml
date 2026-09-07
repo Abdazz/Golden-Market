@@ -55,7 +55,7 @@ jobs:
               need_backend=1
               need_storefront=1
             else
-              if echo "$CHANGED" | grep -qE '^(apps/backend/|package-lock\.json|package\.json|turbo\.json|docker-compose\.prod\.yml|\.env\.deploy|apps/backend/Dockerfile)'; then
+              if echo "$CHANGED" | grep -qE '^(apps/backend/|package-lock\.json|package\.json|turbo\.json|docker-compose\.prod\.yml|docker-compose\.prod\.override\.yml|\.env\.deploy|apps/backend/Dockerfile)'; then
                 need_backend=1
               fi
               if echo "$CHANGED" | grep -qE '^(apps/storefront/|package-lock\.json|package\.json|turbo\.json|docker-compose\.prod\.yml|apps/storefront/Dockerfile)'; then
@@ -76,7 +76,9 @@ jobs:
             source .env.deploy
             set +a
 
-            DC="docker compose -f docker-compose.prod.yml --env-file .env.deploy"
+            # docker-compose.prod.override.yml : production uniquement (voir
+            # ce fichier) - deploy-staging.yml ne le référence jamais.
+            DC="docker compose -f docker-compose.prod.yml -f docker-compose.prod.override.yml --env-file .env.deploy"
 
             wait_backend() {
               for i in $(seq 1 30); do

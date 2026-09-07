@@ -1,0 +1,22 @@
+# Rejoint le réseau Docker externe partagé avec le dépôt n8n_automation,
+# pour que le backend Medusa de PRODUCTION lise en lecture seule
+# public.conversations/public.messages (visualiseur de conversations
+# WhatsApp dans l'admin, voir docs/superpowers/specs/
+# 2026-09-07-whatsapp-conversations-viewer-design.md).
+#
+# Ce fichier ne s'applique QU'EN PRODUCTION (référencé uniquement par
+# .github/workflows/deploy-production.yml, jamais par deploy-staging.yml).
+# docker-compose.prod.yml est un fichier unique partagé entre staging et
+# production ; `golden_market_shared_net` est un réseau externe créé
+# manuellement sur le VPS (docker network create golden_market_shared_net)
+# qui n'existe que là où n8n_automation tourne aussi - l'appliquer sur
+# staging ferait échouer `docker compose up` ("network not found").
+services:
+  backend:
+    networks:
+      - default
+      - golden_market_shared_net
+
+networks:
+  golden_market_shared_net:
+    external: true
