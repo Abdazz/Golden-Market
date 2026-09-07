@@ -16,6 +16,25 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-07 - **Vidéo YouTube optionnelle sur la fiche produit** (demande directe
+du propriétaire). Après cadrage (`superpowers:brainstorming`, chemin borné) :
+hébergement en lien externe YouTube plutôt qu'upload sur le VPS (le VPS de
+production est partagé avec `n8n_automation` et déjà surveillé côté espace
+disque - une vidéo auto-hébergée aurait ajouté du stockage et surtout de la
+bande passante de streaming répétée, contrairement aux images chargées une
+fois). `product.metadata.video_url` (éditeur Metadata natif de l'admin
+Medusa, aucun nouvel écran) ajoute une vignette de plus dans la galerie
+existante (`image-gallery/index.tsx`) ; sélectionnée, elle bascule la zone
+principale sur un lecteur YouTube embarqué. Nouveau util
+`lib/util/youtube.ts` (`getYoutubeVideoId`) pour extraire l'id depuis les
+formats `watch?v=`/`youtu.be/`/`shorts/`/`embed/`, échec silencieux si l'URL
+ne correspond à aucun format connu. Vérifié en local avec un vrai backend/DB
+seedés (catalogue réel importé) et Playwright : URL valide (vignette + lecteur
+fonctionnels, retour à l'image sans erreur), URL invalide (repli silencieux,
+aucune vignette vidéo), produit sans `video_url` (comportement strictement
+inchangé). Commit `668c0cd` sur `staging`, pas encore poussé sur `origin`
+(décision de push/merge à prendre séparément, comme pour tout ce dépôt).
+
 2026-09-05 - **Session de stabilisation post-lancement du chatbot WhatsApp
 (production réelle, numéro de test `22677406101`) : 5 bugs réels trouvés et
 corrigés en testant en conditions réelles, plus le démarrage d'un nouveau
