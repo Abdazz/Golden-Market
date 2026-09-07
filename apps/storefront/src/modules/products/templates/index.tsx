@@ -54,7 +54,14 @@ const ProductTemplate: React.FC<ProductTemplateProps> = ({
 
         <div className="grid grid-cols-1 gap-10 pb-16 small:grid-cols-[1.05fr_1fr] small:items-start">
           <div className="w-full">
-            <ImageGallery images={images} />
+            <ImageGallery
+              images={images}
+              videoUrl={
+                typeof product.metadata?.video_url === "string"
+                  ? product.metadata.video_url
+                  : null
+              }
+            />
           </div>
 
           <div className="flex flex-col gap-6 small:sticky small:top-24">
