@@ -24,8 +24,8 @@ sur le `pg.Pool` qui aurait pu faire planter tout le process Node au moindre
 redémarrage du conteneur `golden_market_postgres`, erreurs SQL journalisées
 via `console.error`, `res.ok` vérifié avant `res.json()` côté page admin,
 timeouts de connexion/requête + pool réduit à 3 clients, colonnes
-« Client »/« Statut » ajoutées à la liste comme l'exige la spec). Mergé et
-poussé sur `staging`.
+« Client »/« Statut » ajoutées à la liste comme l'exige la spec). Mergé et poussé sur `staging` puis `main` - **déployé en production et
+vérifié.**
 
 **Étapes d'infra hors code (VPS, accès SSH `admin@144.91.110.105`) faites et
 vérifiées en direct** :
@@ -49,12 +49,29 @@ vérifiées en direct** :
   config` que `staging` (sans l'override) ne référence ce réseau nulle
   part dans sa configuration résolue.
 
-**Reste à faire** : merger `staging` sur `main` (déclenche le redéploiement
-production réel), renseigner `WHATSAPP_CHAT_DATABASE_URL` dans le `.env`
-backend de production sur le VPS (`postgres://medusa_whatsapp_reader:<mot
-de passe, communiqué séparément>@golden_market_postgres:5432/golden_market`),
-puis vérifier dans l'admin production que les vraies conversations
-s'affichent.
+**Déploiement production (2026-09-07, même session)** : le premier run
+GitHub Actions (`main`, commit `d4183c0`) a échoué à l'étape SSH - rejoué
+manuellement en SSH avec succès (probable contention transitoire avec un
+déploiement `staging` concurrent au même moment sur ce VPS partagé ; le
+`build backend` a réussi du premier coup en le relançant à la main). Séquence
+complète exécutée : `db:migrate`, `db:migrate:scripts`, `seed:region-bf`,
+`import:catalog` (0 créés/29 ignorés, catalogue déjà à jour),
+`seed:categories-bf`, `up -d backend`, `build`+`up -d storefront`, `up -d`
+final, `docker image prune`. Backend et storefront de production sains après
+coup (`/health` 200, `/`, `/bf`, `/app` tous 200). `WHATSAPP_CHAT_DATABASE_URL`
+renseignée dans le `.env` backend de production (rôle `medusa_whatsapp_reader`,
+mot de passe généré en hex, jamais commité), backend redémarré (`restart`,
+pas de rebuild) - sain, aucun crash au démarrage.
+
+**Vérifications faites sans les identifiants admin réels** (jamais demandés
+au propriétaire) : les deux nouvelles routes (`/admin/whatsapp-conversations`
+et `/admin/whatsapp-conversations/:phone`) répondent `401` sans session (donc
+bien câblées et protégées, pas `404`/`500`) ; le rôle `medusa_whatsapp_reader`
+avait déjà été testé en direct plus tôt dans la session (lecture des 3 vraies
+conversations réussie, écriture refusée). **Reste au propriétaire** : ouvrir
+`https://golden-market.co/app/whatsapp-conversations` dans l'admin pour
+confirmer visuellement que les vraies conversations s'affichent - dernière
+vérification visuelle non faite faute d'accès à une session admin.
 
 2026-09-07 - **Vidéo YouTube optionnelle sur la fiche produit** (demande directe
 du propriétaire). Après cadrage (`superpowers:brainstorming`, chemin borné) :
