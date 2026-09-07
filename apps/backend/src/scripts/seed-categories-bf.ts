@@ -29,7 +29,10 @@ const CATEGORIES: { name: string; productHandles: string[] }[] = [
       "extension-de-robinet-de-lavabo-à-rotation-de-1080-dégrés",
       "support-roulant-et-presseur-pour-tube-de-dentifrice",
       "mousse-nettoyante-à-multi-usages",
-      "balais-éponse-serpière-à-essorage-automatique",
+      // Handle inchangé malgré le renommage du titre en "Balai-éponge à
+      // essorage automatique" (2026-09-07) - Medusa ne régénère jamais le
+      // handle sur un simple changement de titre, voir HANDOFF.md.
+      "serpillière-auto-essorante-à-éponge",
       "lampe-de-table-en-cristal-rechargeable-avec-contrôle-tactile",
       "oreiller-cervical-orthopédique-en-mousse",
       "règle-géométrique-rotative-multifonctionnelle",

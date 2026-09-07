@@ -16,6 +16,57 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-07 - **Bug réel trouvé et corrigé : un doublon catalogue supprimé le
+2026-09-04 avait été silencieusement recréé** (signalé par le propriétaire
+comme une simple faute de frappe - "Balais éponse" au lieu de "éponge" -
+l'investigation a révélé un problème plus profond). Rappel du contexte
+(voir entrée du 2026-09-04 plus bas) : "Balais éponse (serpière) à
+essorage automatique" (0 stock, import du 30 août) avait été identifié
+comme doublon de "Serpillière auto-essorante à éponge" (100 en stock,
+import du 2 septembre) et supprimé sur les deux environnements via
+`delete-duplicate-balais-eponge.ts`.
+
+**Root cause** : ce script supprime seulement la ligne en base - le
+fichier xlsx source (relu à `import:catalog`, exécuté à **chaque
+déploiement**) n'a jamais été corrigé. `import-catalog.ts` vérifie
+l'existant par correspondance exacte de titre ; une fois le produit
+supprimé, son titre ne matchait plus rien en base, donc le déploiement
+suivant l'a recréé avec un nouvel id
+(`prod_01M1QFFS1Z633G5BBFDEHAJBEH` production, créé 2026-09-05 ;
+`prod_01M1PRAF2VBETASD2MMKP4A2C5` staging, créé 2026-09-04 - le jour
+même, via un déploiement ultérieur à la suppression). Resté invisible
+pendant 3 jours car statut "published", jamais commandé (0 commande n'y
+faisait référence, confirmé avant suppression) - trouvé seulement parce
+que le propriétaire l'a repéré visuellement dans l'admin.
+
+**Corrigé** :
+- Doublon supprimé une seconde fois sur staging et production (Admin
+  API, ids ci-dessus).
+- `import-catalog.ts` : nouvel ensemble `EXCLUDED_TITLES`, qui fait
+  ignorer explicitement ce titre à chaque import futur - contrairement à
+  la suppression seule en base, ce garde-fou survit à tous les
+  déploiements suivants. Le fichier xlsx source n'a volontairement **pas**
+  été modifié (retirer la ligne décalerait l'association image/produit
+  par position, voir `attachImages` dans `parse-catalog.ts`, qui exige
+  des lignes contiguës sans trou).
+- Le vrai produit ("Serpillière auto-essorante à éponge") **renommé** en
+  "Balai-éponge à essorage automatique" (choix explicite du propriétaire),
+  sur les deux environnements. Handle inchangé (Medusa ne le régénère
+  jamais sur un simple changement de titre) :
+  `serpillière-auto-essorante-à-éponge`.
+- `seed-categories-bf.ts` référençait encore l'ancien handle mal
+  orthographié pour l'assignation à "Maison et Cuisine" - ce produit
+  n'avait donc **jamais été catégorisé** depuis son import du 2
+  septembre (erreur silencieuse, `logger.error` avalé sans crash à
+  chaque déploiement). Corrigé (référence mise à jour vers le bon
+  handle) et catégorie assignée directement via Admin API sur les deux
+  environnements (pas la peine d'attendre un déploiement).
+- **Leçon pour tout futur script "supprime ce doublon"** : une
+  suppression en base seule n'est pas durable si le fichier source est
+  rejoué à chaque déploiement - il faut aussi exclure le titre au niveau
+  du script d'import, sans quoi la suppression est silencieusement
+  annulée par le déploiement suivant.
+
 2026-09-07 - **Visualiseur de conversations WhatsApp dans l'admin Medusa**
 (lecture seule) : spec `docs/superpowers/specs/2026-09-07-whatsapp-conversations-viewer-design.md`,
 implémenté sur la branche `whatsapp-conversations-viewer`, revu (revue finale

@@ -19,6 +19,22 @@ const COLLECTION_TITLES: Record<ParsedProduct["collection"], string> = {
 
 const WHOLESALE_GROUP_NAME = "Grossistes"
 
+// Titres du fichier source xlsx connus comme doublons déjà résolus, à ne
+// jamais (re)créer. La ligne "Balais éponse (serpière) à essorage
+// automatique" (faute d'orthographe, "éponse" au lieu de "éponge") n'a
+// jamais été retirée du fichier xlsx d'origine - la retirer risquerait de
+// décaler l'association image/produit par position de ligne (voir
+// attachImages dans catalog-import/parse-catalog.ts, qui exige des lignes
+// contiguës sans trou). Ce produit a été identifié comme doublon du
+// vrai "Serpillière auto-essorante à éponge" (vrai stock) et supprimé le
+// 2026-09-04, mais silencieusement recréé par le déploiement suivant
+// (la vérification "déjà existant" ci-dessous ne matchait plus par
+// titre) - reconfirmé et supprimé une seconde fois le 2026-09-07 sur
+// staging et production. Cette liste empêche toute résurrection future.
+const EXCLUDED_TITLES = new Set<string>([
+  "Balais éponse (serpière) à essorage automatique",
+])
+
 // Le provider par défaut du module file (file-local) construit ses URLs avec
 // "http://localhost:9000/static" en dur, quelle que soit la variable PORT
 // (vérifié dans @medusajs/file-local : options?.backend_url || "http://localhost:9000/static").
@@ -99,6 +115,12 @@ export default async function importCatalog({ container }: ExecArgs) {
   let failed = 0
 
   for (const product of parsedProducts) {
+    if (EXCLUDED_TITLES.has(product.name)) {
+      logger.info(`Produit exclu (doublon connu, jamais recréé) : "${product.name}"`)
+      skipped += 1
+      continue
+    }
+
     const [existing] = await productModuleService.listProducts({
       title: product.name,
     })
