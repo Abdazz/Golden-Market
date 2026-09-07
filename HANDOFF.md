@@ -114,15 +114,39 @@ renseignée dans le `.env` backend de production (rôle `medusa_whatsapp_reader`
 mot de passe généré en hex, jamais commité), backend redémarré (`restart`,
 pas de rebuild) - sain, aucun crash au démarrage.
 
-**Vérifications faites sans les identifiants admin réels** (jamais demandés
-au propriétaire) : les deux nouvelles routes (`/admin/whatsapp-conversations`
-et `/admin/whatsapp-conversations/:phone`) répondent `401` sans session (donc
-bien câblées et protégées, pas `404`/`500`) ; le rôle `medusa_whatsapp_reader`
-avait déjà été testé en direct plus tôt dans la session (lecture des 3 vraies
-conversations réussie, écriture refusée). **Reste au propriétaire** : ouvrir
-`https://golden-market.co/app/whatsapp-conversations` dans l'admin pour
-confirmer visuellement que les vraies conversations s'affichent - dernière
-vérification visuelle non faite faute d'accès à une session admin.
+**Vérification visuelle faite** (le propriétaire a fourni ses identifiants
+admin réels en session) : conversations réelles bien affichées dans
+`https://golden-market.co/app/whatsapp-conversations`, fil complet lisible
+au clic. **Statut final : fait, déployé, vérifié.**
+
+**Redesign façon messagerie (2026-09-07, même jour, commit `0db3aae`)** :
+demande directe du propriétaire après la première vérification visuelle -
+mise en page à deux panneaux toujours visibles ensemble (liste à gauche,
+fil de discussion à droite, bulles façon WhatsApp - client à gauche fond
+neutre, IA à droite fond vert) au lieu de la bascule liste/détail plein
+écran initiale. Conversation la plus récente sélectionnée automatiquement
+au chargement. Aucun changement côté données/API. Vérifié en local
+(backend réel + base golden_market factice) puis en production après
+déploiement (redémarrage backend réussi, ~20 min de build sous charge VPS
+élevée, aucune interruption de service - le conteneur précédent est resté
+sain pendant tout le build).
+
+**Correctif avatar trompeur (2026-09-07, commit `5b7abcb`)** : signalé par
+le propriétaire - l'avatar prenait la première lettre du numéro de
+téléphone à défaut de nom client ; comme tous les numéros BF commencent
+par le même indicatif (226), toutes les conversations sans nom affichaient
+la même lettre "2", ressemblant à tort à un compteur. Remplacé par une
+icône de contact générique (SVG inline - même contournement que pour les
+autres icônes de ce fichier, conflit de types React 18/19 dès qu'une icône
+`@medusajs/icons` est rendue directement en JSX). Déployé et vérifié en
+production : les 7 conversations réelles (aucune n'a de nom client
+enregistré) affichent bien l'icône générique.
+
+**Note** : le doublon catalogue "Balais éponse (serpière)" découvert et
+corrigé le même jour (commit `cff7680`) a sa propre entrée dédiée en tête
+de ce document - trouvé en marge d'une remarque du propriétaire sur ce
+visualiseur (une conversation mentionnait ce produit), sans rapport direct
+avec le code du visualiseur lui-même.
 
 2026-09-07 - **Vidéo YouTube optionnelle sur la fiche produit** (demande directe
 du propriétaire). Après cadrage (`superpowers:brainstorming`, chemin borné) :
