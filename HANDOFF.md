@@ -16,6 +16,77 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-07 (soir) - **Série de correctifs sur l'agent WhatsApp (n8n), trouvés
+en testant l'envoi de liens produit en conditions réelles** :
+
+1. **Signature webhook rejetant tout message avec accent/emoji** —
+   `product-variant.updated`... non, le nœud `Code in JavaScript` du workflow
+   `Golden Market Sales Automation Workflow` (n8n, VPS) revérifiait le HMAC
+   Meta via `JSON.stringify($input.item.json.body)`, qui ne reproduit pas les
+   octets exacts signés par Meta dès qu'un caractère non-ASCII est présent.
+   Corrigé : le nœud `Webhook1` expose maintenant le corps brut
+   (`options.rawBody: true`, exposé en base64 sur `binary.data.data` sans
+   toucher au `json.body` déjà parsé, donc aucun autre nœud à modifier), et le
+   HMAC se calcule sur ces octets bruts. Vérifié en direct sur le webhook de
+   production avec un message contenant accents + emoji.
+2. **Aperçu de lien produit absent quand l'agent envoie, présent en envoi
+   manuel** — deux causes cumulées : (a) l'appel Graph API du nœud `HTTP
+   Request` n'envoyait pas `preview_url: true` dans l'objet `text` (Meta ne
+   génère jamais d'aperçu sans ce flag explicite, indépendamment du délai) ;
+   (b) le lien produit est construit à partir du `handle` Medusa réel, qui
+   peut contenir des caractères accentués non encodés
+   (`serpillière-auto-essorante-à-éponge`) — WhatsApp ne reconnaît alors même
+   pas la sous-chaîne comme une URL valide. Corrigés tous les deux : ajout de
+   `preview_url: true`, et `encodeURIComponent(p.handle)` dans le tool
+   `find_products` (`Format Result`). Les deux vérifiés en conditions
+   réelles.
+3. **Fuite de stock exact au client (confidentialité)** — signalé par le
+   propriétaire : l'agent répondait "stock : 100" à un client. Root cause
+   double : le prompt système demandait explicitement d'afficher "le stock",
+   et le tool `find_products` transmettait la quantité exacte
+   (`variant.inventory_quantity`) à l'agent. Corrigé aux deux niveaux
+   (défense en profondeur) : le tool ne renvoie plus qu'une disponibilité
+   `en stock`/`rupture de stock` (jamais de chiffre), et le prompt système
+   interdit explicitement de communiquer un chiffre de stock même si le
+   client le demande.
+4. **Recherche produit non tolérante aux fautes** — observé sur capture
+   d'écran fournie par le propriétaire : le client demande "aiguiseur de
+   couteau" (bien orthographié), mais l'agent (modèle Groq `gpt-oss-120b`,
+   modèle **principal** de l'`AI Agent`, Claude Sonnet 5 n'étant que le
+   fallback) reformule la requête du tool avec une faute à chaque appel
+   (`aiguisseur`, puis `couteur`) avant de trouver le produit au 3ème essai
+   (relance manuelle du client). `/store/products?q=` de Medusa fait un
+   matching littéral, sans aucune marge d'erreur. Deux correctifs
+   complémentaires :
+   - Prompt système : instruction de réessayer une fois avec un terme
+     simplifié avant de répondre "produit introuvable" (mitigation immédiate,
+     n8n seul).
+   - **Nouvelle route `/store/products-fuzzy-search`** (recherche floue
+     `pg_trgm`, tolérante aux fautes de frappe/accents manquants/singulier-
+     pluriel — pas aux synonymes, ex. "balai" ne matchera jamais
+     "serpillière", ça relèverait d'une vraie recherche sémantique, hors
+     scope) : `apps/backend/src/lib/product-fuzzy-search.ts` (testé, 5 tests
+     unitaires) + route fine `apps/backend/src/api/store/products-fuzzy-search/route.ts`.
+     Seuil `word_similarity > 0.4` choisi empiriquement sur le catalogue réel
+     (29 produits) : vraies fautes/variantes scorent 0.6-0.95, produits sans
+     rapport restent sous 0.35. Réutilise `computeAvailability` +
+     `getTotalVariantAvailability` (déjà établis pour la synchro Meta) plutôt
+     que de réimplémenter la logique de dispo. Extension Postgres activée via
+     un nouveau `migration-scripts/enable-pg-trgm.ts` (idempotent, appliqué
+     automatiquement par `db:migrate:scripts` au prochain déploiement staging
+     ET production — pas d'action manuelle VPS nécessaire). **Reste à faire** :
+     brancher le nœud `Search Medusa Products` du tool `find_products` sur
+     cette nouvelle route une fois déployée (ordre important : ne pas
+     basculer n8n dessus avant que la route existe réellement en prod).
+
+Tous les correctifs n8n (1-3, et la partie prompt de 4) appliqués et vérifiés
+en production le jour même via export/import CLI + republish + redémarrage
+du conteneur `golden_market_n8n` (accès SSH `admin@144.91.110.105`) — pas de
+déploiement de code applicatif nécessaire pour ceux-là, tout vit en base n8n.
+Le point 4 (route fuzzy search) est lui un vrai changement de code Medusa,
+suit le circuit normal `staging` → vérification → `main` → déploiement VPS
+via GitHub Actions.
+
 2026-09-07 - **Bug réel trouvé et corrigé : un doublon catalogue supprimé le
 2026-09-04 avait été silencieusement recréé** (signalé par le propriétaire
 comme une simple faute de frappe - "Balais éponse" au lieu de "éponge" -
