@@ -34,6 +34,7 @@
     "@medusajs/dashboard": "2.18.0",
     "@medusajs/draft-order": "2.18.0",
     "@medusajs/framework": "2.18.0",
+    "@medusajs/icons": "2.18.0",
     "@medusajs/medusa": "2.18.0",
     "@medusajs/ui": "4.2.0",
     "@opentelemetry/api": "^1.9.1",
@@ -45,6 +46,7 @@
     "@sentry/opentelemetry": "^10.73.0",
     "@tanstack/react-query": "5.64.2",
     "exceljs": "^4.4.0",
+    "pg": "^8.11.3",
     "react-i18next": "13.5.0",
     "react-router-dom": "6.30.4",
     "resend": "^6.20.0",
@@ -52,6 +54,7 @@
   },
   "devDependencies": {
     "@medusajs/test-utils": "2.18.0",
+    "@types/pg": "^8.11.0",
     "@swc/core": "^1.7.28",
     "@swc/jest": "^0.2.36",
     "@types/jest": "^29.5.13",
