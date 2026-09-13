@@ -105,11 +105,19 @@ Actions réussis sur les deux environnements, vérifiés sains après coup
 
 **Vérification manuelle finale faite** : prix de la variante
 `variant_01M1807AQ07NDF7QBPEYJMG5R8` (Diffuser d'eau de cuisine, prod) changé
-3000 -> 3001 -> 3000 XOF dans l'admin réel. Log backend confirmé
+**2000 -> 3000 XOF** dans l'admin réel (le propriétaire a fait un seul
+changement, pas l'aller-retour 3000<->3001 initialement demandé — décision
+explicite de garder le nouveau prix à 3000, pas une erreur à corriger).
+Vérifié directement en base après coup (`prices: [{ amount: 3000,
+currency_code: "xof", price_list_id: null }]`, une seule entrée) pour
+confirmer la valeur réelle plutôt que de supposer. Log backend confirmé
 (`"Variante ... — prix/stock synchronisés avec le catalogue Meta"`), puis
 relecture directe de l'item côté Meta confirmée (`"price":"3 000 CFA"`,
-`"availability":"in stock"`) — le push temps réel fonctionne bout en bout en
-production avec de vraies données.
+`"availability":"in stock"`) — cohérent avec la base. Le push temps réel
+fonctionne bout en bout en production avec de vraies données ; **effet de
+bord assumé** : le prix public de ce produit est passé de 2000 à 3000 FCFA
+suite à ce test (décision du propriétaire de le garder ainsi, pas un
+correctif à faire).
 
 **Statut final : synchro catalogue Meta entièrement fonctionnelle et
 vérifiée, en production. Rien en attente sur ce sujet.**
