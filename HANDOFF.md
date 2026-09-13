@@ -96,9 +96,23 @@ strictement identique au titre produit, pas seulement `"Default Title"`),
    Nouveau jeton reconfirmé fonctionnel côté n8n (résout toujours
    `+226 61 85 37 37 / Golden Market`).
 
-**Reste à faire** : vérification manuelle finale (changer un vrai prix/stock
-en admin production et confirmer le reflet côté Meta Catalog Manager en
-quelques secondes) — pas encore fait à la fin de cette session.
+Code poussé et déployé sur `staging` puis `main` (commits `8299c45`,
+`b0a6963`, `0a59b1a` — les deux premiers rebasés sur un commit parallèle
+`b201cfa` recherche floue, déjà présent sur `origin`), déploiements GitHub
+Actions réussis sur les deux environnements, vérifiés sains après coup
+(`/bf`, `/app`, `/meta-catalog-feed` -> 200 en prod et staging, titre
+"Lampe intelligente Sunrise" confirmé non dupliqué en prod).
+
+**Vérification manuelle finale faite** : prix de la variante
+`variant_01M1807AQ07NDF7QBPEYJMG5R8` (Diffuser d'eau de cuisine, prod) changé
+3000 -> 3001 -> 3000 XOF dans l'admin réel. Log backend confirmé
+(`"Variante ... — prix/stock synchronisés avec le catalogue Meta"`), puis
+relecture directe de l'item côté Meta confirmée (`"price":"3 000 CFA"`,
+`"availability":"in stock"`) — le push temps réel fonctionne bout en bout en
+production avec de vraies données.
+
+**Statut final : synchro catalogue Meta entièrement fonctionnelle et
+vérifiée, en production. Rien en attente sur ce sujet.**
 
 2026-09-07 (soir) - **Série de correctifs sur l'agent WhatsApp (n8n), trouvés
 en testant l'envoi de liens produit en conditions réelles** :
