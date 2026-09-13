@@ -16,6 +16,90 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-13 - **Reprise de la synchro catalogue Meta (voir entrée du 2026-09-05
+plus bas pour le code) : configuration côté Meta terminée, un vrai blocage
+infra trouvé et corrigé en route.**
+
+**Bug d'infra trouvé et corrigé (jamais documenté avant, invisible en
+relecture de code)** : `https://golden-market.co/meta-catalog-feed` renvoyait
+404 en prod ET staging, alors que le code déployé (commits `dfc3b2a..cfabaa7`,
+confirmés déjà sur `origin/main` malgré la note du 2026-09-05 disant le
+contraire — cette note était obsolète) fonctionnait correctement. Cause :
+la route a été volontairement placée hors de `/store` (pour échapper à
+`ensurePublishableApiKeyMiddleware`, voir plan meta-catalog-sync), mais
+aucune règle `ProxyPass` Apache ne routait `/meta-catalog-feed` vers le
+backend — elle tombait dans le `ProxyPass /` générique vers le storefront
+Next.js, qui redirige (`/bf/meta-catalog-feed`) puis 404. Corrigé : règle
+`ProxyPass /meta-catalog-feed` + `ProxyPassReverse` ajoutée dans les 4 vhosts
+réels du VPS (`golden-market.co.conf`, `golden-market.co-le-ssl.conf`,
+`staging.golden-market.co.conf`, `staging.golden-market.co-le-ssl.conf` —
+sauvegardés avant modif, suffixe `.bak-20260913-173455`) et dans les copies
+versionnées du repo (`deploy/apache/*.conf`, commit `27d0f94`). Vérifié :
+`curl` renvoie 200 + CSV valide en prod et staging, aucune régression sur
+`/store`, `/app`, `/bf`. Confirmé aussi via les logs d'accès Apache que le
+crawler Meta (`facebookexternalhit/1.1`) a bien réussi à récupérer le flux
+(200, ~28,8 Ko) une fois le correctif appliqué.
+
+**Bug de mapping trouvé via le rapport de qualité du premier import réel**
+(pas en relecture de code) : pour un produit à variante unique dont le titre
+de variante est identique au titre du produit (au lieu de valoir
+`"Default Title"`), le titre poussé à Meta était dupliqué
+(`"Produit X - Produit X"`), dépassant la longueur max autorisée par Meta
+(flag "Valeur trop longue" + "Il manque le titre" dans le rapport
+`Recommandations`, 1 produit concerné sur 39 importés). Corrigé
+(`meta-catalog-mapping.ts` : ignore aussi le titre de variante quand il est
+strictement identique au titre produit, pas seulement `"Default Title"`),
+15/15 puis 40/40 tests toujours verts. Commit `9ddf3d3`.
+
+**Étapes manuelles côté Meta, toutes faites** (voir
+`docs/superpowers/specs/2026-09-05-meta-catalog-sync-design.md`, section
+"Étapes manuelles côté Meta") :
+1. ✅ Commerce Catalog créé (`Catalogue_Produits_Golden_Market`,
+   `catalog_id` = `1389887146453163`).
+2. ✅ Flux planifié enregistré (`https://golden-market.co/meta-catalog-feed`,
+   remplacement quotidien) — premier import réel réussi : 39 articles
+   mis à jour/ajoutés, 0 échec, 0 problème bloquant.
+3. ✅ Catalogue lié au bon compte WhatsApp Business (Cloud API/Platform,
+   numéro `+226 61 85 37 37` — **pas** le compte de l'app mobile WhatsApp
+   Business, qui a son propre mini-catalogue local distinct et a d'abord
+   provoqué une erreur "un seul catalogue par compte WhatsApp" en
+   sélectionnant le mauvais compte dans le sélecteur Meta). Icône catalogue
+   + bouton "Ajouter au panier" activés dans les paramètres du compte.
+4. ✅ Jeton généré via le system user WhatsApp existant, scopes
+   `catalog_management` + `whatsapp_business_management`. Point non
+   documenté ailleurs : `catalog_management` n'apparaissait pas dans la liste
+   des autorisations proposées lors de la génération du jeton — cause réelle,
+   pas un scope obsolète (confirmé présent dans la doc officielle Meta) :
+   l'app Meta liée au system user (`goldenmarketbot`) n'avait pas encore le
+   cas d'utilisation Catalogue activé (App Dashboard -> Vérification des
+   applications -> Autorisations et fonctionnalités -> Ajouter
+   `catalog_management` -> aucune revue Meta nécessaire, l'app n'étant
+   utilisée qu'en interne).
+5. ✅ `META_CATALOG_ID`/`META_CATALOG_ACCESS_TOKEN` renseignés — **en
+   production uniquement**, décision prise en session : le catalogue Meta
+   est unique et partagé entre les deux environnements Medusa (staging/prod
+   ont des IDs de variantes différents pour les mêmes produits réels), donc
+   activer le push temps réel sur staging aurait pollué en permanence le
+   catalogue réel avec des articles fantômes jamais nettoyés par le flux
+   périodique (qui ne connaît que les IDs de prod). Une configuration de test
+   avait été posée côté staging le temps de vérifier le jeton (lecture +
+   écriture confirmées avec les vraies données d'une variante), puis retirée
+   et l'item fantôme injecté par ce test supprimé du catalogue réel avant de
+   configurer la prod avec les vraies données. Vérifié en production : lecture
+   (`product_count: 39`) et écriture (`items_batch UPDATE`, `200 OK`) réelles
+   confirmées avec une vraie variante de prod (idempotent, aucun doublon créé).
+6. ✅ `WHATSAPP_ACCESS_TOKEN` (n8n, `/var/www/n8n/.env`, chatbot en service
+   réel) remplacé par ce même jeton — sauvegarde `.env.bak-20260913-192750`.
+   Recréation du conteneur `golden_market_n8n` (a aussi recréé
+   `golden_market_postgres`, comportement compose inattendu mais sans risque :
+   volume nommé non affecté, 9 conversations toujours en base après coup).
+   Nouveau jeton reconfirmé fonctionnel côté n8n (résout toujours
+   `+226 61 85 37 37 / Golden Market`).
+
+**Reste à faire** : vérification manuelle finale (changer un vrai prix/stock
+en admin production et confirmer le reflet côté Meta Catalog Manager en
+quelques secondes) — pas encore fait à la fin de cette session.
+
 2026-09-07 (soir) - **Série de correctifs sur l'agent WhatsApp (n8n), trouvés
 en testant l'envoi de liens produit en conditions réelles** :
 
