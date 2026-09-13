@@ -84,7 +84,9 @@ export function buildCatalogItem(
     id: variant.id,
     item_group_id: product.id,
     title:
-      variant.title && variant.title !== DEFAULT_VARIANT_TITLE
+      variant.title &&
+      variant.title !== DEFAULT_VARIANT_TITLE &&
+      variant.title !== product.title
         ? `${product.title} - ${variant.title}`
         : product.title,
     description: product.description ?? "",

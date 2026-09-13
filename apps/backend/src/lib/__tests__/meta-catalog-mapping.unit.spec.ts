@@ -133,6 +133,21 @@ describe("buildCatalogItem", () => {
     )
   })
 
+  it("does not duplicate the title when the variant is named after the product itself", () => {
+    const variant: CatalogVariant = {
+      id: "variant_5",
+      title: "Serpillière auto-essorante",
+      manage_inventory: true,
+      allow_backorder: false,
+      images: [],
+      calculated_price: { calculated_amount: 15000, currency_code: "xof" },
+    }
+
+    expect(buildCatalogItem(product, variant, 5).title).toBe(
+      "Serpillière auto-essorante"
+    )
+  })
+
   it("falls back to '0 XOF' when calculated_price could not be resolved", () => {
     const variant: CatalogVariant = {
       id: "variant_3",
