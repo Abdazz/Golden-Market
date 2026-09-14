@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { trackProductView } from "@lib/analytics/matomo"
+import { trackProductView as trackMatomoProductView } from "@lib/analytics/matomo"
+import { trackProductView as trackMetaProductView } from "@lib/analytics/meta-pixel"
 
 type ProductViewTrackerProps = {
   product: {
@@ -13,16 +14,19 @@ type ProductViewTrackerProps = {
 }
 
 // Composant invisible monté sur la fiche produit (templates/index.tsx) :
-// envoie l'événement Ecommerce setEcommerceView à Matomo. Données réelles
-// uniquement (id/titre/catégorie/prix Medusa du produit affiché).
+// envoie l'événement Ecommerce setEcommerceView à Matomo et ViewContent au
+// Pixel Meta. Données réelles uniquement (id/titre/catégorie/prix Medusa du
+// produit affiché).
 const ProductViewTracker = ({ product, price }: ProductViewTrackerProps) => {
   useEffect(() => {
-    trackProductView({
+    const payload = {
       id: product.id,
       name: product.title,
       category: product.categories?.[0]?.name,
       price,
-    })
+    }
+    trackMatomoProductView(payload)
+    trackMetaProductView(payload)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id])
 

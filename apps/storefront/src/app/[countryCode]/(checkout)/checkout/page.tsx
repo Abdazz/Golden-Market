@@ -1,6 +1,7 @@
 import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import Breadcrumb from "@modules/common/components/breadcrumb"
+import CheckoutTracker from "@modules/analytics/components/checkout-tracker"
 import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
 import CheckoutForm from "@modules/checkout/templates/checkout-form"
 import CheckoutSummary from "@modules/checkout/templates/checkout-summary"
@@ -23,6 +24,7 @@ export default async function Checkout() {
 
   return (
     <div className="content-container pb-16">
+      <CheckoutTracker cart={cart} />
       <Breadcrumb
         items={[
           { label: "Accueil", href: "/" },

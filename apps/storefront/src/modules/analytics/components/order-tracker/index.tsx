@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { trackOrder } from "@lib/analytics/matomo"
+import { trackOrder as trackMatomoOrder } from "@lib/analytics/matomo"
+import { trackOrder as trackMetaOrder } from "@lib/analytics/meta-pixel"
 
 type OrderTrackerProps = {
   order: {
@@ -41,26 +42,31 @@ const OrderTracker = ({ order }: OrderTrackerProps) => {
       return
     }
 
-    trackOrder({
+    // variant_id plutôt que l'id de la ligne de commande : c'est ce même id
+    // que trackAddToCart a déjà poussé dans le "panier" interne du tracker
+    // Matomo (state client-side, jamais rechargé entre les pages panier ->
+    // paiement -> confirmation sur ce Next.js App Router sans rechargement
+    // complet) - un id différent ici créerait une deuxième entrée au lieu
+    // de mettre à jour la même, doublant la quantité/le revenu déclarés.
+    // Constaté et corrigé en vérifiant une vraie commande de test contre le
+    // Ecommerce Log Matomo (2026-09-03).
+    const items = order.items.map((item) => ({
+      id: item.variant_id ?? item.id,
+      name: item.title,
+      price: item.unit_price,
+      quantity: item.quantity,
+    }))
+
+    trackMatomoOrder({
       id: order.id,
-      // variant_id plutôt que l'id de la ligne de commande : c'est ce même
-      // id que trackAddToCart a déjà poussé dans le "panier" interne du
-      // tracker Matomo (state client-side, jamais rechargé entre les pages
-      // panier -> paiement -> confirmation sur ce Next.js App Router sans
-      // rechargement complet) - un id différent ici créerait une deuxième
-      // entrée au lieu de mettre à jour la même, doublant la quantité/le
-      // revenu déclarés. Constaté et corrigé en vérifiant une vraie
-      // commande de test contre le Ecommerce Log Matomo (2026-09-03).
-      items: order.items.map((item) => ({
-        id: item.variant_id ?? item.id,
-        name: item.title,
-        price: item.unit_price,
-        quantity: item.quantity,
-      })),
+      items,
       total: order.total,
       subtotal: order.subtotal,
       shipping: order.shipping_total,
     })
+    // eventID = order.id (voir meta-pixel.ts) - déduplique avec l'événement
+    // Purchase envoyé côté backend par order-placed-meta-conversions-api.ts.
+    trackMetaOrder({ id: order.id, items, total: order.total })
 
     try {
       window.localStorage.setItem(

@@ -1,23 +1,22 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import {
-  denyConsent,
-  getStoredConsent,
-  grantConsent,
-  isMatomoConfigured,
-} from "@lib/analytics/matomo"
+import { getStoredConsent, storeConsent } from "@lib/analytics/consent"
+import { grantMatomoConsent, isMatomoConfigured } from "@lib/analytics/matomo"
+import { initMetaPixelTracker, isMetaPixelConfigured } from "@lib/analytics/meta-pixel"
 
-// Bandeau de consentement au tracking de visite (Matomo). Fail-closed par
-// conception : tant qu'aucun choix n'est enregistré, aucun cookie n'est
-// posé et aucun appel réseau Matomo n'est envoyé (voir lib/analytics/matomo.ts,
-// requireConsent). N'apparaît que si Matomo est configuré (donc jamais hors
-// production).
+// Bandeau de consentement au tracking (Matomo self-hosted + Pixel Meta pour
+// les pubs dynamiques). Fail-closed par conception : tant qu'aucun choix
+// n'est enregistré, ni cookie Matomo ni Pixel Meta ne s'activent. N'apparaît
+// que si l'un des deux est configuré (donc jamais hors production).
 const ConsentBanner = () => {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    if (isMatomoConfigured() && getStoredConsent() === null) {
+    if (
+      (isMatomoConfigured() || isMetaPixelConfigured()) &&
+      getStoredConsent() === null
+    ) {
       setVisible(true)
     }
   }, [])
@@ -27,12 +26,19 @@ const ConsentBanner = () => {
   }
 
   const handleAccept = () => {
-    grantConsent()
+    storeConsent("granted")
+    grantMatomoConsent()
+    // Contrairement à Matomo (déjà chargé au montage, juste tenu en attente
+    // via requireConsent), le Pixel Meta n'est pas encore chargé du tout tant
+    // que le consentement n'a jamais été donné - il faut l'initialiser ici,
+    // en plus du montage normal (voir matomo-tracker/index.tsx) qui suffit
+    // pour un visiteur ayant déjà consenti lors d'une visite précédente.
+    initMetaPixelTracker()
     setVisible(false)
   }
 
   const handleDecline = () => {
-    denyConsent()
+    storeConsent("denied")
     setVisible(false)
   }
 
@@ -43,8 +49,9 @@ const ConsentBanner = () => {
     >
       <p className="text-sm text-center small:text-left">
         Golden Market utilise un outil de statistiques de visite auto-hébergé
-        (aucune donnée partagée avec un tiers) pour mieux comprendre l&apos;usage
-        du site.
+        ainsi que le Pixel Meta (Facebook/Instagram) pour améliorer nos
+        publicités. Ce dernier partage certaines données de navigation avec
+        Meta.
       </p>
       <div className="flex gap-2 shrink-0">
         <button

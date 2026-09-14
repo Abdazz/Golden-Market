@@ -1,7 +1,8 @@
 "use client"
 
 import { addToCart } from "@lib/data/cart"
-import { trackAddToCart } from "@lib/analytics/matomo"
+import { trackAddToCart as trackMatomoAddToCart } from "@lib/analytics/matomo"
+import { trackAddToCart as trackMetaAddToCart } from "@lib/analytics/meta-pixel"
 import { useIntersection } from "@lib/hooks/use-in-view"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { HttpTypes } from "@medusajs/types"
@@ -152,13 +153,15 @@ export default function ProductActions({
     setIsAdding(false)
     setAddedVariantId(variantId)
 
-    trackAddToCart({
+    const trackedItem = {
       id: variantId,
       name: product.title,
       category: product.categories?.[0]?.name,
       price: (variantPrice ?? cheapestPrice)?.calculated_price_number ?? 0,
       quantity,
-    })
+    }
+    trackMatomoAddToCart(trackedItem)
+    trackMetaAddToCart(trackedItem)
   }
 
   const { variantPrice, cheapestPrice } = getProductPrice({

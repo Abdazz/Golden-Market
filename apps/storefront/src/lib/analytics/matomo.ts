@@ -11,6 +11,8 @@
 // le tracker Matomo est configuré en requireConsent - aucun cookie posé,
 // aucun appel réseau envoyé.
 
+import { getStoredConsent } from "./consent"
+
 declare global {
   interface Window {
     _paq?: unknown[][]
@@ -19,7 +21,6 @@ declare global {
 
 const MATOMO_URL = process.env.NEXT_PUBLIC_MATOMO_URL
 const MATOMO_SITE_ID = process.env.NEXT_PUBLIC_MATOMO_SITE_ID
-const CONSENT_STORAGE_KEY = "gm_matomo_consent"
 
 export const isMatomoConfigured = (): boolean => !!MATOMO_URL && !!MATOMO_SITE_ID
 
@@ -29,32 +30,6 @@ const push = (...args: unknown[]) => {
   }
   window._paq = window._paq || []
   window._paq.push(args)
-}
-
-export const getStoredConsent = (): "granted" | "denied" | null => {
-  if (typeof window === "undefined") {
-    return null
-  }
-  try {
-    const value = window.localStorage.getItem(CONSENT_STORAGE_KEY)
-    return value === "granted" || value === "denied" ? value : null
-  } catch {
-    // localStorage indisponible (navigation privée stricte, etc.) : on
-    // retombe sur le comportement fail-closed (pas de consentement connu).
-    return null
-  }
-}
-
-export const storeConsent = (value: "granted" | "denied"): void => {
-  if (typeof window === "undefined") {
-    return
-  }
-  try {
-    window.localStorage.setItem(CONSENT_STORAGE_KEY, value)
-  } catch {
-    // Échec silencieux : le bandeau se réaffichera à la page suivante,
-    // comportement dégradé acceptable plutôt qu'une erreur visible.
-  }
 }
 
 let initialized = false
@@ -79,13 +54,11 @@ export const initMatomoTracker = (): void => {
   document.head.appendChild(script)
 }
 
-export const grantConsent = (): void => {
-  storeConsent("granted")
+// Appelé depuis ConsentBanner après storeConsent("granted") (voir
+// lib/analytics/consent.ts, partagé avec le Pixel Meta) - seul l'effet de
+// bord propre à Matomo (setConsentGiven côté _paq) reste ici.
+export const grantMatomoConsent = (): void => {
   push("setConsentGiven")
-}
-
-export const denyConsent = (): void => {
-  storeConsent("denied")
 }
 
 export const trackPageView = (): void => {

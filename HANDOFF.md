@@ -16,6 +16,71 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-14 - **Pixel Meta + Conversions API (Purchase) implémentés**, à la
+suite directe de la synchro catalogue Meta (voir entrées ci-dessous) —
+demande du propriétaire pour préparer les pubs dynamiques Facebook/Instagram.
+Cadrage fait via `superpowers:brainstorming` (tâche bornée, pas de spec
+écrite) : les deux (Pixel client + Conversions API), 5 événements
+(PageView, ViewContent, AddToCart, InitiateCheckout, Purchase),
+Conversions API uniquement sur `Purchase` (le plus fiabilisé par le
+serveur), un seul bandeau de consentement pour Matomo + Meta.
+
+**Backend** (TDD complet, 16 tests) : `meta-conversions-mapping.ts` (pur -
+hash SHA-256 du téléphone, normalisation Burkina Faso 8 chiffres ->
+indicatif 226) + `meta-conversions-client.ts` (POST JSON classique vers
+`/{pixel_id}/events`, différent du multipart de l'API Batch catalogue) +
+subscriber `order-placed-meta-conversions-api.ts` (même pattern try/catch
+jamais de throw qu'`order-placed-customer-whatsapp.ts`). **Piège rencontré
+en écrivant les tests du subscriber** : `jest.spyOn` sur un module réel
+échoue avec `Cannot redefine property` si le module cible n'est pas
+d'abord passé par `jest.mock(path)` - présent dans les tests
+meta-catalog-sync existants (repris comme modèle) mais oublié ici au
+premier essai ; symptôme classique si ça se reproduit ailleurs.
+`META_PIXEL_ID`/`META_CONVERSIONS_API_ACCESS_TOKEN` documentés dans
+`.env.template` (jeton dédié généré depuis Events Manager, distinct du
+jeton `catalog_management`).
+
+**Storefront** : `lib/analytics/consent.ts` extrait de `matomo.ts`
+(consentement désormais partagé entre les deux outils, clé renommée
+`gm_matomo_consent` -> `gm_analytics_consent` - un visiteur ayant déjà
+répondu au bandeau le reverra une fois). `lib/analytics/meta-pixel.ts`
+en miroir de `matomo.ts`, piloté par `NEXT_PUBLIC_META_PIXEL_ID` (absent
+hors production -> no-op, comme Matomo). Contrairement à Matomo (chargé au
+montage, juste tenu en pause via `requireConsent`), le script Pixel n'est
+chargé qu'après consentement explicite - `ConsentBanner.handleAccept`
+appelle `initMetaPixelTracker()` en plus du montage normal. Texte du
+bandeau corrigé (il affirmait à tort "aucune donnée partagée avec un
+tiers", faux dès qu'un Pixel Meta existe). Les 4 emplacements de tracking
+existants (page vue, vue produit, ajout panier, commande) appellent
+maintenant Matomo **et** Meta ; nouveau composant
+`checkout-tracker` pour `InitiateCheckout` (sans équivalent Matomo,
+décision explicite). `eventID = order.id` côté client **et** côté serveur
+(même id) pour que Meta déduplique l'événement Purchase plutôt que de
+compter la vente deux fois.
+
+Vérifié : 128/128 tests backend (dont les 16 nouveaux), `tsc --noEmit`
+storefront propre, `next lint` sans nouvelle erreur (les erreurs/warnings
+restants sont préexistants, dans des fichiers non touchés). Build storefront
+non vérifié jusqu'au bout dans cet environnement (échoue sur l'absence de
+backend local port 9001 pour `generateStaticParams`, sans rapport avec ce
+changement - la compilation TypeScript/bundling, elle, a réussi).
+
+**Reste à faire, manuel côté Meta** (comme pour le catalogue) :
+1. Créer le Pixel dans Events Manager (Business Settings -> Sources de
+   données -> Pixels -> Ajouter), récupérer son ID -> `NEXT_PUBLIC_META_PIXEL_ID`
+   (storefront) et `META_PIXEL_ID` (backend, même valeur).
+2. Générer un jeton Conversions API dédié (Events Manager -> ce pixel ->
+   Paramètres -> Conversions API -> Générer un jeton d'accès) ->
+   `META_CONVERSIONS_API_ACCESS_TOKEN`.
+3. Renseigner les 3 variables (`.env` backend staging + prod, build args
+   storefront - `.env.deploy` sur le VPS, voir `.env.deploy.example`),
+   redéployer.
+4. Vérification manuelle : ouvrir Events Manager -> onglet Test des
+   événements, naviguer sur le site avec ce Pixel actif, confirmer réception
+   des 5 événements ; passer une vraie commande de test et confirmer que
+   Purchase n'apparaît **qu'une fois** (dédupliqué grâce à `eventID`), pas
+   deux (une fois du Pixel, une fois de la Conversions API).
+
 2026-09-13 - **Reprise de la synchro catalogue Meta (voir entrée du 2026-09-05
 plus bas pour le code) : configuration côté Meta terminée, un vrai blocage
 infra trouvé et corrigé en route.**
