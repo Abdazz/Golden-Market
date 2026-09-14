@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react"
 import { getStoredConsent, storeConsent } from "@lib/analytics/consent"
 import { grantMatomoConsent, isMatomoConfigured } from "@lib/analytics/matomo"
-import { initMetaPixelTracker, isMetaPixelConfigured } from "@lib/analytics/meta-pixel"
+import {
+  initMetaPixelTracker,
+  isMetaPixelConfigured,
+  trackPageView as trackMetaPageView,
+} from "@lib/analytics/meta-pixel"
 
 // Bandeau de consentement au tracking (Matomo self-hosted + Pixel Meta pour
 // les pubs dynamiques). Fail-closed par conception : tant qu'aucun choix
@@ -29,11 +33,14 @@ const ConsentBanner = () => {
     storeConsent("granted")
     grantMatomoConsent()
     // Contrairement à Matomo (déjà chargé au montage, juste tenu en attente
-    // via requireConsent), le Pixel Meta n'est pas encore chargé du tout tant
-    // que le consentement n'a jamais été donné - il faut l'initialiser ici,
-    // en plus du montage normal (voir matomo-tracker/index.tsx) qui suffit
-    // pour un visiteur ayant déjà consenti lors d'une visite précédente.
+    // via requireConsent - _paq met en file d'attente et rejoue tout seul
+    // dès setConsentGiven), le Pixel Meta n'est pas encore chargé du tout
+    // tant que le consentement n'a jamais été donné, et n'a pas ce mécanisme
+    // de rejeu : le PageView initial (déclenché par matomo-tracker au
+    // montage, avant que fbq existe) serait sinon silencieusement perdu -
+    // il faut le renvoyer explicitement une fois le Pixel initialisé.
     initMetaPixelTracker()
+    trackMetaPageView()
     setVisible(false)
   }
 
