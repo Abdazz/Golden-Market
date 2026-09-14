@@ -119,6 +119,35 @@ bord assumé** : le prix public de ce produit est passé de 2000 à 3000 FCFA
 suite à ce test (décision du propriétaire de le garder ainsi, pas un
 correctif à faire).
 
+**Deux corrections manuelles supplémentaires faites le 2026-09-14, repérées
+par le propriétaire en utilisant Commerce Manager** :
+- Le propriétaire a signalé vouloir que "Diffuser d'eau de cuisine" soit
+  réellement en rupture de stock (il avait `allow_backorder: true`, un écart
+  par rapport à la configuration standard du catalogue documentée dans
+  `activate-stock-tracking-old-catalog.ts`). Corrigé via
+  `updateProductVariantsWorkflow` (`allow_backorder: false`). **Piège
+  découvert en le faisant** : un script `medusa exec` ponctuel se termine
+  dès que sa fonction retourne, sans attendre la fin des tâches
+  asynchrones encore en vol côté event bus - le subscriber temps réel
+  n'a donc pas eu le temps de pousser la correction vers Meta avant que le
+  processus ne s'arrête (Meta est resté un instant sur "in stock"). Poussé
+  manuellement en confirmant ensuite. **N'affecte pas les vraies mutations
+  via l'admin/API** (le serveur backend, lui, ne s'arrête jamais après une
+  requête) - risque propre aux scripts ponctuels qui mutent des données et
+  comptent sur un événement asynchrone pour se propager.
+- Le propriétaire a repéré un produit sans nom sur Meta
+  (`variant_01M1807KGEWEQZ4RTDCXR9QCE4`, "Lampe intelligente Sunrise...") :
+  le titre dupliqué corrigé plus tôt dans le code n'avait jamais été
+  redonné à Meta pour cet article précis (ni flux périodique ni événement
+  temps réel ne l'avait retouché depuis le premier import raté). Poussé
+  manuellement avec les vraies données actuelles. Un diagnostic "Il manque
+  un titre" est resté visible un moment dans Commerce Manager après coup -
+  confirmé être un cache de diagnostic périmé côté Meta (le champ était
+  déjà correct par lecture directe de l'API), résolu tout seul peu après.
+
+**Statut vérifié le 2026-09-14 : synchro catalogue Meta saine, aucune
+anomalie restante signalée par le propriétaire.**
+
 **Statut final : synchro catalogue Meta entièrement fonctionnelle et
 vérifiée, en production. Rien en attente sur ce sujet.**
 
