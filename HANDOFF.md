@@ -16,6 +16,48 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-15 - **Correctif UI mineur : la liste des conversations WhatsApp
+n'affichait que l'heure du dernier message, jamais la date** (signalé par le
+propriétaire) - ambigu dès qu'une conversation ne date pas du jour même.
+Nouvelle `formatListTimestamp` (heure seule si aujourd'hui, date sinon,
+même convention que WhatsApp), utilisée uniquement dans la liste ; le fil de
+messages garde l'heure seule (toutes ses bulles sont proches dans le
+temps). Déployé sur `main`.
+
+2026-09-15 - **Deux vrais bugs trouvés et corrigés sur GlitchTip
+(observabilité), jamais détectés depuis le déploiement initial du
+2026-09-03** - le propriétaire a demandé le lien du tableau de bord et
+tenté de s'y connecter pour la première fois depuis la mise en place :
+seule la remontée d'erreurs serveur-à-serveur (appel SDK Medusa -> API
+GlitchTip, sans vérification CSRF) avait été testée à l'époque, jamais une
+vraie connexion navigateur.
+1. **`CSRF_TRUSTED_ORIGINS` jamais configuré** : `GLITCHTIP_DOMAIN` ne fixe
+   que `APP_URL` côté GlitchTip - `CSRF_TRUSTED_ORIGINS` est une variable
+   Django indépendante (`env.list("CSRF_TRUSTED_ORIGINS", str, [])`, liste
+   vide par défaut, confirmé en lisant `glitchtip/settings.py` directement
+   dans le conteneur). Sans elle, toute requête POST du navigateur (connexion,
+   reset de mot de passe) était rejetée ("Origin checking failed"). Corrigé
+   dans `docker-compose.prod.yml` (service `glitchtip`, profil
+   `observability`, production uniquement).
+2. **`GLITCHTIP_EMAIL_URL` avec le mauvais schéma** : `smtp://` plutôt que
+   `smtp+tls://` (convention django-environ pour STARTTLS) - une fois le
+   bug 1 corrigé, le reset de mot de passe échouait en 500
+   (`smtplib.SMTPAuthenticationError: 538 Must issue a STARTTLS command
+   first`) contre le serveur SMTP Resend (port 587). Corrigé dans
+   `.env.deploy` du VPS (documenté dans `.env.deploy.example`).
+Les deux corrigés et vérifiés avec un vrai navigateur (Playwright) : flux de
+reset de mot de passe complet jusqu'à la confirmation d'envoi, sans erreur
+serveur. `glitchtip`/`glitchtip-worker` recréés sur le VPS avec les bonnes
+variables (pas de rebuild d'image nécessaire, changement de configuration
+uniquement).
+
+**Point de vigilance découvert au passage** : une recréation manuelle du
+backend production plus tôt dans la session avait fait perdre le réseau
+Docker partagé `golden_market_shared_net` (voir entrée dédiée plus bas) -
+toute commande `docker compose` manuelle en production doit systématiquement
+utiliser `-f docker-compose.prod.yml -f docker-compose.prod.override.yml`
+(les deux fichiers), jamais le premier seul, quel que soit le service ciblé.
+
 2026-09-15 - **Régression trouvée et corrigée : visualiseur de conversations
 WhatsApp cassé en production ("aucune conversation ne s'affiche"), causée
 par une recréation manuelle du backend faite plus tôt dans cette même
