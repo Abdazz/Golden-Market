@@ -20,24 +20,28 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 client perdue faute de compréhension d'un lien produit) + ménage n8n + mise à jour
 documentaire.** Pas de code applicatif touché ; diagnostic + nettoyage seulement.
 
-**Diagnostic principal, pas encore corrigé** : le node `AI Agent` du workflow
-`Golden Market Sales Automation Workflow` (n8n, `i6KGA9BvK9unjxxj`) a `Groq Chat Model`
-(`openai/gpt-oss-120b`) branché en `ai_languageModel` **index 0 (principal)** et
-`Anthropic Chat Model` (`claude-sonnet-5`) en **index 1 (fallback)** — l'inverse de
-l'intention documentée à l'origine (Claude en principal, Groq en secours ponctuel
-seulement, cf. incident déjà noté le 2026-09-07 : Groq boucle sur des reformulations
-fautives d'une recherche produit). Probable cause principale des problèmes de qualité de
-conversation signalés par le propriétaire (relances répétitives, non-respect de la règle
-d'escalade après 2 tentatives). **Prochaine étape recommandée : réinverser les deux index.**
+**Diagnostic principal, laissé en l'état délibérément (voir plus bas)** : le node `AI Agent`
+du workflow `Golden Market Sales Automation Workflow` (n8n, `i6KGA9BvK9unjxxj`) a
+`Groq Chat Model` (`openai/gpt-oss-120b`) branché en `ai_languageModel` **index 0
+(principal)** et `Anthropic Chat Model` (`claude-sonnet-5`) en **index 1 (fallback)** —
+l'inverse de l'intention documentée à l'origine (Claude en principal, Groq en secours
+ponctuel seulement, cf. incident déjà noté le 2026-09-07 : Groq boucle sur des
+reformulations fautives d'une recherche produit). Probable cause principale des problèmes
+de qualité de conversation signalés par le propriétaire (relances répétitives, non-respect
+de la règle d'escalade après 2 tentatives). **Tenté puis annulé le jour même faute de
+crédit Anthropic disponible — voir l'entrée dédiée plus bas, ne pas réinverser sans
+vérifier le crédit d'abord.**
 
-**Autre gap confirmé, pas encore corrigé** : le webhook n8n n'extrait jamais le champ
-`referral` de Meta (contexte pub Click-to-WhatsApp / clic sur un article du catalogue) —
-même si un client arrive via une pub dynamique alimentée par la synchro catalogue Meta
-(fonctionnelle, voir plus bas), l'agent ne reçoit aujourd'hui aucun contexte produit
-structuré. La recherche produit (`/store/products-fuzzy-search`, pg_trgm) gère les fautes
-de frappe/accents/pluriel mais pas les écarts lexicaux/phonétiques (ex. un client qui
-déforme phonétiquement le nom d'un produit) — documenté comme hors-scope dans le code
-existant, confirmé toujours vrai.
+**Autres gaps confirmés par l'audit, tous corrigés dans la même session (détail plus
+bas)** : le webhook n8n n'extrayait jamais le champ `referral` de Meta (contexte pub
+Click-to-WhatsApp / clic sur un article du catalogue) -> corrigé. La recherche produit
+(`/store/products-fuzzy-search`, pg_trgm) gère les fautes de frappe/accents/pluriel mais
+pas les écarts lexicaux/phonétiques -> atténué par le nouveau tool `browse_catalog`. Pas de
+garde-fou déterministe sur l'escalade -> corrigé (`consecutive_search_misses`). L'agent ne
+traitait aucune photo envoyée par le client -> corrigé (vision). Le cas des liens externes
+organiques (pas une pub) reste un vrai problème sans solution générale (Meta bloque le
+scraping non authentifié de ses propres contenus) — non traité, documenté comme limite
+durable dans le guide `n8n_automation`.
 
 **Correction d'une note obsolète** : la synchro catalogue Medusa -> Meta était documentée
 en mémoire comme bloquée (404 sur `/meta-catalog-feed`) — le propriétaire a confirmé que
@@ -91,18 +95,87 @@ vers l'anomalie Groq/Claude (voir plus bas) ; à traiter en même temps si/quand
 est rouvert, pas isolément.
 
 **Recherche sémantique : nouvelle route backend `/store/products-catalog` (même session,
-TDD, 132/132 tests backend verts, lint/tsc propres)**. Plutôt qu'une infra d'embeddings
-(pgvector + nouveau fournisseur d'API payant à configurer), le choix retenu exploite le
-fait que le catalogue est petit (39 produits) et que l'appel IA a de toute façon déjà lieu
-à chaque tour : `listAllProductIds`/`listAllProducts` (`product-fuzzy-search.ts`) listent
-tout le catalogue publié (titre, prix, disponibilité, même logique de confidentialité du
-stock que `searchProductsFuzzy`) sans filtre de similarité, exposées via
-`GET /store/products-catalog?limit=60`. Objectif : un futur tool n8n `browse_catalog` que
-l'agent appelle en dernier recours quand `find_products` échoue deux fois — c'est alors le
-modèle IA lui-même (déjà dans la boucle, pas un appel supplémentaire) qui fait le
-rapprochement sémantique/phonétique avec ses connaissances générales, sans nouvelle
-dépendance ni credential. **Route déployée (commit à suivre), tool n8n et prompt pas
-encore branchés — prochaine étape.**
+TDD, 132/132 tests backend verts, lint/tsc propres), déployée staging puis production
+(commit `d4da815`, `n8n_automation` doc-only sur son propre repo)**. Plutôt qu'une infra
+d'embeddings (pgvector + nouveau fournisseur d'API payant à configurer), le choix retenu
+exploite le fait que le catalogue est petit (39 produits) et que l'appel IA a de toute
+façon déjà lieu à chaque tour : `listAllProductIds`/`listAllProducts`
+(`product-fuzzy-search.ts`) listent tout le catalogue publié (titre, prix, disponibilité,
+même logique de confidentialité du stock que `searchProductsFuzzy`) sans filtre de
+similarité, exposées via `GET /store/products-catalog?limit=60`. **Branché côté n8n** :
+nouveau tool `browse_catalog` (sous-workflow n8n, id `oPWVebcSpuQrP4QQ`), que l'agent
+appelle en dernier recours quand `find_products` échoue deux fois — c'est alors le modèle
+IA lui-même qui fait le rapprochement sémantique/phonétique. Prompt système mis à jour en
+conséquence. **Vérifié en conditions réelles** (webhook signé, recherche vouée à l'échec) :
+`find_products` échoue -> `browse_catalog` s'exécute -> réponse cohérente au client, aucun
+crash.
+
+**Garde-fou d'escalade déterministe implémenté et déployé (même session)** : nouvelle
+colonne `conversations.consecutive_search_misses` (migration additive appliquée en direct
+sur la prod, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, + `schema.sql` du repo
+`n8n_automation` mis à jour pour les futurs volumes). Le tool `find_products` (n8n)
+incrémente ce compteur à chaque recherche infructueuse, le remet à zéro dès qu'une
+recherche aboutit, et déclenche automatiquement une notification humaine + passe
+`conversations.status = 'escalated'` au bout de 4 échecs consécutifs dans la même
+conversation — sans dépendre du jugement du LLM à ce moment précis. Seuil de 4 choisi pour
+absorber le bruit de retry de Groq (voir incident du 2026-09-07, jusqu'à 3 appels pour une
+seule vraie intention) sans escalader trop tôt. **Vérifié en conditions réelles** (4
+échecs consécutifs simulés sur un numéro de test) : compteur correct, aucun crash à aucune
+étape, comportement de repli correct pendant que le template `escalation_alert` était
+encore en attente d'approbation (voir plus bas).
+
+**Vision sur photo envoyée par le client, implémentée et déployée (même session)** :
+nouvelle branche dans le workflow principal (`Is Image Message` -> `Get Media URL`
+(résout l'id média WhatsApp) -> `Download Media` (télécharge les octets, Bearer
+`WHATSAPP_ACCESS_TOKEN`) -> `Describe Image (Vision)` (`POST
+api.openai.com/v1/chat/completions`, modèle `gpt-4o-mini`, image en `data:` URI) ->
+`Override Message Text With Vision`), qui remplace le texte de repli `"[Image reçue]"` par
+une description automatique du produit avant que l'IA ne lise le message. Réutilise la
+credential **"OpenAI account"** déjà existante dans ce n8n (utilisée par ailleurs par
+`AI News Curator`) — aucune nouvelle clé nécessaire. **Chaque étape défensive**
+(`onError: "continueErrorOutput"`, voir piège ci-dessous) : en cas d'échec (media id
+invalide/expiré, API en panne), retombe proprement sur le texte de repli existant, jamais
+de crash. **Non testable de bout en bout par webhook signé** (un id média WhatsApp est une
+référence serveur à un vrai fichier uploadé, pas simulable) : vérifié uniquement le chemin
+d'erreur (id fictif -> repli propre confirmé) et la structure. **Jamais vérifié avec une
+vraie photo d'un vrai client** — à faire au premier cas réel ou en demandant au
+propriétaire un test depuis son téléphone.
+
+**Piège général découvert en développant ce qui précède, a coûté plusieurs redéploiements** :
+`onError: "continueErrorOutput"` doit être une propriété **au niveau racine du node** (sœur
+de `id`/`name`/`type`/`position`), **pas** à l'intérieur de `parameters` — mal placé, n8n
+l'ignore silencieusement sans erreur de validation à l'import, le node se comporte comme
+sans gestion d'erreur du tout. Pour un tool appelé par l'AI Agent (sous-workflow), l'erreur
+non interceptée est en général absorbée par le wrapper d'exécution de tool de n8n (juste un
+message d'erreur renvoyé au modèle) — mais un node du **workflow principal lui-même** (la
+branche vision) qui lève une exception non interceptée fait planter tout le node `AI Agent`,
+et **le client ne reçoit alors aucune réponse**. Confirmé dans les deux sens en conditions
+réelles (`onError` mal placé -> crash confirmé ; repositionné -> dégradation propre
+confirmée). Tous les nodes défensifs ajoutés cette session ont dû être corrigés et
+redéployés une deuxième fois une fois ce piège compris.
+
+**Découverte majeure, sans rapport direct avec le reste de la session : le template
+WhatsApp `escalation_alert` n'existait pas du tout sur le compte Meta**
+(`GET /{waba_id}/message_templates` ne listait que `order_confirmation_from_whatsapp`,
+`order_confirmation_from_website`, `hello_world`), alors que le guide `n8n_automation` (dans
+sa version précédente) et le code de `escalate_to_human`/`mark_payment_reported` le
+référençaient comme existant et fonctionnel depuis le tout début du projet. **Conséquence
+réelle en prod, potentiellement depuis le lancement** : chaque fois qu'un client demandait
+un humain ou signalait un paiement, l'appel à l'API Meta échouait, et comme aucun des deux
+tools n'avait de gestion d'erreur (voir piège `onError` ci-dessus), **le client ne recevait
+alors aucune réponse** au moment précis où il en avait le plus besoin. Template recréé via
+l'API Meta (`POST /{waba_id}/message_templates`, catégorie UTILITY, français) : deux
+premiers essais rejetés (`error_subcode: 2388299`, "les variables ne peuvent pas se trouver
+au début ou à la fin du modèle" — en réalité, un simple point après la dernière variable
+`{{3}}` ne suffit pas, il faut un texte de clôture substantiel, confirmé empiriquement avec
+3 templates de test créés puis supprimés) ; troisième essai avec une formulation fluide et
+un texte de clôture plus long accepté (`status: PENDING`, en attente d'approbation Meta au
+moment d'écrire cette entrée). **`escalate_to_human` et `mark_payment_reported` rendus
+défensifs** (`onError` au bon endroit désormais) pour qu'une panne similaire, quelle qu'en
+soit la cause future, ne puisse plus jamais couper la réponse au client. **Reste à faire** :
+vérifier `status: APPROVED` une fois l'approbation Meta arrivée, puis retester
+`escalate_to_human` en conditions réelles pour confirmer la notification arrive bien chez le
+propriétaire (pas seulement que le client reçoit une réponse — ça, c'est déjà vérifié).
 
 **Correctif Groq/Claude tenté puis explicitement annulé par le propriétaire (même
 session)** : l'inversion des index (Anthropic en principal, Groq en fallback) a été
@@ -115,6 +188,10 @@ Model` en index 1 (fallback), workflow actif, les 9 workflows actifs intacts. **
 réappliquer ce swap avant d'avoir vérifié que du crédit Anthropic est de nouveau
 disponible** — sinon le premier appel du AI Agent échoue systématiquement à chaque tour
 de conversation.
+
+**Toutes les conversations de test créées pendant cette session (numéros fictifs
+`22600000090` à `22600000098`) supprimées après coup** pour ne pas polluer le visualiseur
+admin — pratique déjà établie le 2026-09-15 (entrée dédiée plus bas).
 
 2026-09-15 - **Correctif UI mineur : la liste des conversations WhatsApp
 n'affichait que l'heure du dernier message, jamais la date** (signalé par le
