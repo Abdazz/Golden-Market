@@ -102,7 +102,7 @@ describe("listAllProductIds", () => {
 })
 
 describe("listAllProducts", () => {
-  it("returns every published product with availability attached, in the DB's listing order", async () => {
+  it("returns every available published product with availability attached, in the DB's listing order", async () => {
     const knex = fakeKnex([{ id: "prod_a" }, { id: "prod_b" }])
     const query = {
       graph: jest.fn().mockImplementation(async ({ entity }: any) => {
@@ -133,6 +133,68 @@ describe("listAllProducts", () => {
 
     expect(result.map((p: any) => p.id)).toEqual(["prod_a", "prod_b"])
     expect(result[0].variants[0].availability).toBe("in stock")
+  })
+
+  it("excludes products with no variant in stock - no point listing what can't be sold", async () => {
+    const knex = fakeKnex([{ id: "prod_available" }, { id: "prod_out_of_stock" }])
+    const query = {
+      graph: jest.fn().mockImplementation(async ({ entity }: any) => {
+        if (entity === "product") {
+          return {
+            data: [
+              {
+                id: "prod_available",
+                title: "Disponible",
+                variants: [{ id: "variant_avail", manage_inventory: false, allow_backorder: false }],
+              },
+              {
+                id: "prod_out_of_stock",
+                title: "Rupture",
+                variants: [{ id: "variant_oos", manage_inventory: true, allow_backorder: false }],
+              },
+            ],
+          }
+        }
+        if (entity === "product_variant_inventory_items") {
+          return { data: [] }
+        }
+        throw new Error(`Unexpected entity in test: ${entity}`)
+      }),
+    }
+
+    const result = await listAllProducts(query, knex, 60)
+
+    expect(result.map((p: any) => p.id)).toEqual(["prod_available"])
+  })
+
+  it("keeps a product if at least one of its variants is in stock", async () => {
+    const knex = fakeKnex([{ id: "prod_mixed" }])
+    const query = {
+      graph: jest.fn().mockImplementation(async ({ entity }: any) => {
+        if (entity === "product") {
+          return {
+            data: [
+              {
+                id: "prod_mixed",
+                title: "Mixte",
+                variants: [
+                  { id: "variant_oos", manage_inventory: true, allow_backorder: false },
+                  { id: "variant_ok", manage_inventory: false, allow_backorder: false },
+                ],
+              },
+            ],
+          }
+        }
+        if (entity === "product_variant_inventory_items") {
+          return { data: [] }
+        }
+        throw new Error(`Unexpected entity in test: ${entity}`)
+      }),
+    }
+
+    const result = await listAllProducts(query, knex, 60)
+
+    expect(result.map((p: any) => p.id)).toEqual(["prod_mixed"])
   })
 
   it("returns an empty array without calling query.graph when the catalog is empty", async () => {

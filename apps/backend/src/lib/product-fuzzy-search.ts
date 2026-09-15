@@ -114,14 +114,16 @@ export async function listAllProductIds(knex: any, limit: number): Promise<strin
 }
 
 /**
- * Liste tout le catalogue publié (titre, prix, disponibilité), sans filtre de
- * recherche - utilisée par le tool WhatsApp `browse_catalog` en dernier
- * recours, quand la recherche floue (searchProductsFuzzy) ne trouve rien
- * après un second essai : le client décrit peut-être le produit avec des
- * mots sans proximité orthographique avec le titre catalogue (synonyme,
- * déformation phonétique) - hors scope de la tolérance aux fautes de
- * pg_trgm, mais un modèle IA parcourant la liste complète peut faire ce
- * rapprochement lui-même.
+ * Liste les produits publiés et actuellement disponibles (titre, prix,
+ * disponibilité), sans filtre de recherche - utilisée par le tool WhatsApp
+ * `browse_catalog` en dernier recours, quand la recherche floue
+ * (searchProductsFuzzy) ne trouve rien après un second essai : le client
+ * décrit peut-être le produit avec des mots sans proximité orthographique
+ * avec le titre catalogue (synonyme, déformation phonétique) - hors scope de
+ * la tolérance aux fautes de pg_trgm, mais un modèle IA parcourant la liste
+ * peut faire ce rapprochement lui-même. Les produits en rupture (aucun
+ * variant "in stock") sont exclus : ça ne sert à rien de faire considérer au
+ * modèle un produit qu'il ne pourra de toute façon pas proposer à l'achat.
  */
 export async function listAllProducts(
   query: any,
@@ -133,5 +135,8 @@ export async function listAllProducts(
     return []
   }
 
-  return fetchProductsWithAvailability(query, ids)
+  const products = await fetchProductsWithAvailability(query, ids)
+  return products.filter((product: any) =>
+    (product.variants ?? []).some((variant: any) => variant.availability === "in stock")
+  )
 }
