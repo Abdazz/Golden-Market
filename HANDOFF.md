@@ -169,13 +169,18 @@ premiers essais rejetés (`error_subcode: 2388299`, "les variables ne peuvent pa
 au début ou à la fin du modèle" — en réalité, un simple point après la dernière variable
 `{{3}}` ne suffit pas, il faut un texte de clôture substantiel, confirmé empiriquement avec
 3 templates de test créés puis supprimés) ; troisième essai avec une formulation fluide et
-un texte de clôture plus long accepté (`status: PENDING`, en attente d'approbation Meta au
-moment d'écrire cette entrée). **`escalate_to_human` et `mark_payment_reported` rendus
-défensifs** (`onError` au bon endroit désormais) pour qu'une panne similaire, quelle qu'en
-soit la cause future, ne puisse plus jamais couper la réponse au client. **Reste à faire** :
-vérifier `status: APPROVED` une fois l'approbation Meta arrivée, puis retester
-`escalate_to_human` en conditions réelles pour confirmer la notification arrive bien chez le
-propriétaire (pas seulement que le client reçoit une réponse — ça, c'est déjà vérifié).
+un texte de clôture plus long accepté (`status: PENDING` initialement, catégorie reclassée
+`MARKETING` par Meta à l'approbation — pas `UTILITY` comme demandé, sans que ça ait
+d'incidence côté envoi). **`escalate_to_human` et `mark_payment_reported` rendus défensifs**
+(`onError` au bon endroit désormais) pour qu'une panne similaire, quelle qu'en soit la cause
+future, ne puisse plus jamais couper la réponse au client.
+
+**Statut final, vérifié en conditions réelles (reprise de session, même jour) :
+`escalation_alert` `status: APPROVED`.** Test live signé (numéro fictif `22600000089`,
+supprimé après coup) : `escalate_to_human` répond `finished: true, status: success`, et la
+réponse de l'API Meta contient un vrai `wamid.` — la notification a réellement été envoyée sur
+le WhatsApp du propriétaire, pas seulement "le client reçoit une réponse" (déjà vérifié plus
+tôt). **Sujet clos, rien en attente.**
 
 **Correctif Groq/Claude tenté puis explicitement annulé par le propriétaire (même
 session)** : l'inversion des index (Anthropic en principal, Groq en fallback) a été
