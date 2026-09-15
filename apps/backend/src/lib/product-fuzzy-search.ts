@@ -44,22 +44,7 @@ export async function findSimilarProductIds(
   return rows.map((r: { id: string }) => r.id)
 }
 
-export async function searchProductsFuzzy(
-  query: any,
-  knex: any,
-  q: string,
-  limit: number
-): Promise<any[]> {
-  const trimmed = q.trim()
-  if (!trimmed) {
-    return []
-  }
-
-  const ids = await findSimilarProductIds(knex, trimmed, limit)
-  if (!ids.length) {
-    return []
-  }
-
+async function fetchProductsWithAvailability(query: any, ids: string[]): Promise<any[]> {
   const { data: products } = await query.graph({
     entity: "product",
     fields: FUZZY_SEARCH_FIELDS,
@@ -85,9 +70,68 @@ export async function searchProductsFuzzy(
     }
   }
 
-  // filters:{id:[...]} ne préserve pas l'ordre - le retrier par pertinence.
+  // filters:{id:[...]} ne préserve pas l'ordre - le retrier selon l'ordre des ids fournis.
   const rank = new Map(ids.map((id, i) => [id, i]))
   return [...products].sort(
     (a: any, b: any) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
   )
+}
+
+export async function searchProductsFuzzy(
+  query: any,
+  knex: any,
+  q: string,
+  limit: number
+): Promise<any[]> {
+  const trimmed = q.trim()
+  if (!trimmed) {
+    return []
+  }
+
+  const ids = await findSimilarProductIds(knex, trimmed, limit)
+  if (!ids.length) {
+    return []
+  }
+
+  return fetchProductsWithAvailability(query, ids)
+}
+
+/**
+ * Résout les ids de tous les produits publiés, sans filtre de similarité -
+ * utilisé pour le parcours complet du catalogue (voir listAllProducts).
+ */
+export async function listAllProductIds(knex: any, limit: number): Promise<string[]> {
+  const { rows } = await knex.raw(
+    `select id
+     from product
+     where deleted_at is null
+       and status = 'published'
+     order by title asc
+     limit ?`,
+    [limit]
+  )
+  return rows.map((r: { id: string }) => r.id)
+}
+
+/**
+ * Liste tout le catalogue publié (titre, prix, disponibilité), sans filtre de
+ * recherche - utilisée par le tool WhatsApp `browse_catalog` en dernier
+ * recours, quand la recherche floue (searchProductsFuzzy) ne trouve rien
+ * après un second essai : le client décrit peut-être le produit avec des
+ * mots sans proximité orthographique avec le titre catalogue (synonyme,
+ * déformation phonétique) - hors scope de la tolérance aux fautes de
+ * pg_trgm, mais un modèle IA parcourant la liste complète peut faire ce
+ * rapprochement lui-même.
+ */
+export async function listAllProducts(
+  query: any,
+  knex: any,
+  limit: number
+): Promise<any[]> {
+  const ids = await listAllProductIds(knex, limit)
+  if (!ids.length) {
+    return []
+  }
+
+  return fetchProductsWithAvailability(query, ids)
 }

@@ -16,6 +16,106 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-15 - **Audit de fond de l'agent WhatsApp (demande du propriétaire, conversation
+client perdue faute de compréhension d'un lien produit) + ménage n8n + mise à jour
+documentaire.** Pas de code applicatif touché ; diagnostic + nettoyage seulement.
+
+**Diagnostic principal, pas encore corrigé** : le node `AI Agent` du workflow
+`Golden Market Sales Automation Workflow` (n8n, `i6KGA9BvK9unjxxj`) a `Groq Chat Model`
+(`openai/gpt-oss-120b`) branché en `ai_languageModel` **index 0 (principal)** et
+`Anthropic Chat Model` (`claude-sonnet-5`) en **index 1 (fallback)** — l'inverse de
+l'intention documentée à l'origine (Claude en principal, Groq en secours ponctuel
+seulement, cf. incident déjà noté le 2026-09-07 : Groq boucle sur des reformulations
+fautives d'une recherche produit). Probable cause principale des problèmes de qualité de
+conversation signalés par le propriétaire (relances répétitives, non-respect de la règle
+d'escalade après 2 tentatives). **Prochaine étape recommandée : réinverser les deux index.**
+
+**Autre gap confirmé, pas encore corrigé** : le webhook n8n n'extrait jamais le champ
+`referral` de Meta (contexte pub Click-to-WhatsApp / clic sur un article du catalogue) —
+même si un client arrive via une pub dynamique alimentée par la synchro catalogue Meta
+(fonctionnelle, voir plus bas), l'agent ne reçoit aujourd'hui aucun contexte produit
+structuré. La recherche produit (`/store/products-fuzzy-search`, pg_trgm) gère les fautes
+de frappe/accents/pluriel mais pas les écarts lexicaux/phonétiques (ex. un client qui
+déforme phonétiquement le nom d'un produit) — documenté comme hors-scope dans le code
+existant, confirmé toujours vrai.
+
+**Correction d'une note obsolète** : la synchro catalogue Medusa -> Meta était documentée
+en mémoire comme bloquée (404 sur `/meta-catalog-feed`) — le propriétaire a confirmé que
+ce n'est plus le cas, `HANDOFF.md` lui-même confirmait déjà un statut "entièrement
+fonctionnel et vérifié" au 2026-09-14 (voir entrée du 2026-09-13 plus bas). Mémoire
+projet corrigée en conséquence.
+
+**Ménage n8n de prod effectué (accès SSH `admin@144.91.110.105`)** : export complet des
+26 workflows (`n8n export:workflow --all`) pour disposer d'un état réel à jour (le guide
+`n8n_automation/guide-golden-market-agent.md` et les exports locaux `nodes_exports/`
+décrivaient encore l'ancienne architecture `check_stock`/`get_price`/`create_order` en
+SQL direct sur `public.products`, remplacée depuis début septembre par `find_products`/
+`place_order` parlant au vrai Store API Medusa — cf. entrée du 2026-09-07 plus bas).
+4 workflows inactifs et obsolètes supprimés (`Tool - check_stock`, `Tool - get_price`,
+`Tool - create_order`, ancienne version de `Tool - place_order`) : pas de CLI
+`delete:workflow` ni d'API REST accessible (pas d'API key configurée), suppression faite
+en SQL direct sur `n8n.workflow_entity` après vérification des contraintes FK
+(`workflow_published_version` en `ON DELETE RESTRICT` mais 0 ligne référençant ces 4 ids
+— sans risque). Vérifié après coup : les 9 workflows actifs (dont le chatbot WhatsApp)
+intacts, 26 -> 22 workflows restants. `nodes_exports/` (gitignoré, jamais versionné)
+supprimé du repo local `n8n_automation`.
+
+**Documentation corrigée** : `n8n_automation/AGENTS.md` (section « Pièges connus »,
+architecture catalogue, liste des tools, table `orders`/`products`/`product_images`
+marquées reliquats) et `n8n_automation/guide-golden-market-agent.md` réécrit
+intégralement pour refléter l'architecture actuelle (voir en tête du guide pour le détail).
+
+**Extraction du champ `referral` Meta implémentée et déployée (même session)** :
+le node `Edit Fields` du workflow `Golden Market Sales Automation Workflow`
+(`i6KGA9BvK9unjxxj`) préfixe maintenant `message_text` avec
+`"[Contexte pub/catalogue Meta : {headline} - {body} ({source_url})]\n"` quand
+`messages[0].referral` est présent (client arrivé via une pub Click-to-WhatsApp ou un
+article du catalogue Meta — schéma confirmé par recherche web : `source_url`, `source_id`,
+`source_type`, `headline`, `body`, `media_type`, `image_url`/`video_url`, `ctwa_clid`).
+Absent sinon, comportement strictement inchangé (expression conditionnelle, chaînage
+optionnel). Choix délibéré de ne toucher que `message_text` (pas le prompt du node
+`AI Agent`) pour limiter le risque et parce que ça persiste naturellement le contexte
+dans `messages.content` pour l'historique. Déployé via le même mécanisme que le point
+suivant (export/import CLI + `update:workflow --active=true` + redémarrage du conteneur).
+**Vérifié par deux exécutions live signées HMAC** (numéros de test fictifs
+`22600000098`/`22600000097`, supprimés après coup) : avec `referral` présent, le préfixe
+apparaît bien en base et l'IA l'exploite spontanément dans sa réponse (a suggéré le
+produit de la pub en exemple sans que le client l'ait nommé) ; sans `referral`, contenu et
+comportement identiques à avant le changement (recherche floue, formatage, tout intact).
+
+**Observation annexe, pas corrigée (hors scope de cette session)** : la réponse Groq du
+second test utilise du **markdown gras (`**texte**`) et des puces `-`**, alors que le
+system prompt interdit les tableaux markdown mais ne dit rien du gras/puces — WhatsApp ne
+rend pas `**gras**` (il faudrait `*gras*`, simple astérisque). Symptôme de plus pointant
+vers l'anomalie Groq/Claude (voir plus bas) ; à traiter en même temps si/quand ce point
+est rouvert, pas isolément.
+
+**Recherche sémantique : nouvelle route backend `/store/products-catalog` (même session,
+TDD, 132/132 tests backend verts, lint/tsc propres)**. Plutôt qu'une infra d'embeddings
+(pgvector + nouveau fournisseur d'API payant à configurer), le choix retenu exploite le
+fait que le catalogue est petit (39 produits) et que l'appel IA a de toute façon déjà lieu
+à chaque tour : `listAllProductIds`/`listAllProducts` (`product-fuzzy-search.ts`) listent
+tout le catalogue publié (titre, prix, disponibilité, même logique de confidentialité du
+stock que `searchProductsFuzzy`) sans filtre de similarité, exposées via
+`GET /store/products-catalog?limit=60`. Objectif : un futur tool n8n `browse_catalog` que
+l'agent appelle en dernier recours quand `find_products` échoue deux fois — c'est alors le
+modèle IA lui-même (déjà dans la boucle, pas un appel supplémentaire) qui fait le
+rapprochement sémantique/phonétique avec ses connaissances générales, sans nouvelle
+dépendance ni credential. **Route déployée (commit à suivre), tool n8n et prompt pas
+encore branchés — prochaine étape.**
+
+**Correctif Groq/Claude tenté puis explicitement annulé par le propriétaire (même
+session)** : l'inversion des index (Anthropic en principal, Groq en fallback) a été
+appliquée en prod (`n8n import:workflow` + `update:workflow --active=true` +
+`docker restart golden_market_n8n`), puis le propriétaire a signalé ne pas avoir de
+crédit Anthropic disponible pour le moment — **annulée dans la foulée par le même
+mécanisme** (réimport de la version originale, réactivation, redémarrage), état confirmé
+par ré-export : `Groq Chat Model` de nouveau en index 0 (principal), `Anthropic Chat
+Model` en index 1 (fallback), workflow actif, les 9 workflows actifs intacts. **Ne pas
+réappliquer ce swap avant d'avoir vérifié que du crédit Anthropic est de nouveau
+disponible** — sinon le premier appel du AI Agent échoue systématiquement à chaque tour
+de conversation.
+
 2026-09-15 - **Correctif UI mineur : la liste des conversations WhatsApp
 n'affichait que l'heure du dernier message, jamais la date** (signalé par le
 propriétaire) - ambigu dès qu'une conversation ne date pas du jour même.

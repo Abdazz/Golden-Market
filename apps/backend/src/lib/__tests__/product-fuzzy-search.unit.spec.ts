@@ -1,4 +1,4 @@
-import { findSimilarProductIds, searchProductsFuzzy } from "../product-fuzzy-search"
+import { findSimilarProductIds, listAllProductIds, listAllProducts, searchProductsFuzzy } from "../product-fuzzy-search"
 
 function fakeKnex(rows: Array<{ id: string }>) {
   return { raw: jest.fn().mockResolvedValue({ rows }) }
@@ -77,6 +77,69 @@ describe("searchProductsFuzzy", () => {
     const query = { graph: jest.fn() }
 
     const result = await searchProductsFuzzy(query, knex, "produit inexistant", 5)
+
+    expect(result).toEqual([])
+    expect(query.graph).not.toHaveBeenCalled()
+  })
+})
+
+describe("listAllProductIds", () => {
+  it("lists published product ids ordered alphabetically by title, no similarity filter", async () => {
+    const knex = fakeKnex([{ id: "prod_a" }, { id: "prod_b" }])
+
+    const ids = await listAllProductIds(knex, 60)
+
+    expect(ids).toEqual(["prod_a", "prod_b"])
+    expect(knex.raw).toHaveBeenCalledWith(expect.not.stringContaining("word_similarity"), [60])
+    expect(knex.raw).toHaveBeenCalledWith(expect.stringContaining("order by title asc"), [60])
+  })
+
+  it("returns an empty array when the catalog has no published product", async () => {
+    const knex = fakeKnex([])
+    const ids = await listAllProductIds(knex, 60)
+    expect(ids).toEqual([])
+  })
+})
+
+describe("listAllProducts", () => {
+  it("returns every published product with availability attached, in the DB's listing order", async () => {
+    const knex = fakeKnex([{ id: "prod_a" }, { id: "prod_b" }])
+    const query = {
+      graph: jest.fn().mockImplementation(async ({ entity }: any) => {
+        if (entity === "product") {
+          return {
+            data: [
+              {
+                id: "prod_b",
+                title: "Balai",
+                variants: [{ id: "variant_b", manage_inventory: false, allow_backorder: false }],
+              },
+              {
+                id: "prod_a",
+                title: "Ananas séché",
+                variants: [{ id: "variant_a", manage_inventory: false, allow_backorder: false }],
+              },
+            ],
+          }
+        }
+        if (entity === "product_variant_inventory_items") {
+          return { data: [] }
+        }
+        throw new Error(`Unexpected entity in test: ${entity}`)
+      }),
+    }
+
+    const result = await listAllProducts(query, knex, 60)
+
+    expect(result.map((p: any) => p.id)).toEqual(["prod_a", "prod_b"])
+    expect(result[0].variants[0].availability).toBe("in stock")
+  })
+
+  it("returns an empty array without calling query.graph when the catalog is empty", async () => {
+    const knex = fakeKnex([])
+    const query = { graph: jest.fn() }
+
+    const result = await listAllProducts(query, knex, 60)
 
     expect(result).toEqual([])
     expect(query.graph).not.toHaveBeenCalled()
