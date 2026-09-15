@@ -35,6 +35,25 @@ type DetailResponse = { available: false } | { available: true; messages: ChatMe
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
 
+// Utilisé uniquement dans la liste des conversations (pas dans le fil de
+// messages) : contrairement à un fil unique où toutes les bulles sont du
+// même jour ou proches, la liste mélange des conversations vieilles de
+// plusieurs jours - n'afficher que l'heure y est ambigu ("13:47" d'hier ou
+// d'aujourd'hui ?). Signalé par le propriétaire. Même convention que
+// WhatsApp : heure seule si aujourd'hui, date sinon.
+const formatListTimestamp = (iso: string) => {
+  const date = new Date(iso)
+  const now = new Date()
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+
+  return isToday
+    ? formatTime(iso)
+    : date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })
+}
+
 // Icône générique (pas de nom client enregistré) - SVG inline plutôt que
 // @medusajs/icons : même conflit de types React 18/19 que @medusajs/ui
 // (documenté ci-dessus) dès qu'une icône est rendue directement en JSX,
@@ -79,7 +98,7 @@ const ConversationRow = ({
           {conversation.customerName ?? conversation.phoneNumber}
         </span>
         <span className="shrink-0 text-ui-fg-subtle txt-compact-xsmall">
-          {formatTime(conversation.lastMessageAt)}
+          {formatListTimestamp(conversation.lastMessageAt)}
         </span>
       </span>
       <span className="truncate text-ui-fg-subtle txt-compact-small">
