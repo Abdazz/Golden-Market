@@ -177,6 +177,17 @@ services:
       # backend plus haut dans ce fichier).
       REDIS_URL: redis://redis:6379/1
       GLITCHTIP_DOMAIN: https://monitoring.golden-market.co
+      # GLITCHTIP_DOMAIN ne fixe que APP_URL - CSRF_TRUSTED_ORIGINS est une
+      # variable indépendante (voir glitchtip/settings.py:
+      # env.list("CSRF_TRUSTED_ORIGINS", str, []), liste vide par défaut),
+      # jamais renseignée depuis le déploiement initial. Sans elle, Django
+      # rejette toute requête POST du navigateur (login, reset de mot de
+      # passe) avec "Origin checking failed" - la connexion au tableau de
+      # bord n'a probablement jamais fonctionné, seule la remontée
+      # d'erreurs (appel serveur-à-serveur, sans vérification CSRF) avait
+      # été testée en 2026-09-03. Trouvé le 2026-09-15 en essayant de se
+      # connecter réellement.
+      CSRF_TRUSTED_ORIGINS: https://monitoring.golden-market.co
       DEFAULT_FROM_EMAIL: ${GLITCHTIP_FROM_EMAIL}
       EMAIL_URL: ${GLITCHTIP_EMAIL_URL}
       ENABLE_OBSERVABILITY_API: "false"
