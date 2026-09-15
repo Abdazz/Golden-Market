@@ -16,6 +16,37 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-15 - **Régression trouvée et corrigée : visualiseur de conversations
+WhatsApp cassé en production ("aucune conversation ne s'affiche"), causée
+par une recréation manuelle du backend faite plus tôt dans cette même
+session.** En ajoutant `META_PIXEL_ID`/`META_CONVERSIONS_API_ACCESS_TOKEN`
+(voir entrée Pixel Meta ci-dessous), le backend production a été recréé via
+`docker compose -f docker-compose.prod.yml up -d backend` - **sans**
+`docker-compose.prod.override.yml`, qui ajoute pourtant le réseau Docker
+externe `golden_market_shared_net` (nécessaire pour lire en lecture seule
+`public.conversations`/`public.messages` de la base Postgres de n8n, voir
+`docs/superpowers/specs/2026-09-07-whatsapp-conversations-viewer-design.md`).
+Le déploiement officiel (`deploy-production.yml`) combine toujours les deux
+fichiers (`DC="docker compose -f docker-compose.prod.yml -f
+docker-compose.prod.override.yml --env-file .env.deploy"`) - **toute
+recréation manuelle du backend en production doit systématiquement inclure
+`-f docker-compose.prod.override.yml`, sans quoi le réseau partagé saute
+silencieusement** (le backend démarre sain, `/health` répond, seule la
+lecture cross-conteneur échoue). Aucune donnée perdue (vérifié : 9
+conversations / 78 messages toujours en base pendant la panne) - seul le
+réseau était cassé. Corrigé en recréant le backend avec les deux fichiers ;
+page revérifiée fonctionnelle avec un vrai navigateur (connexion admin
+réelle), les 9 conversations s'affichent de nouveau avec leur contenu
+complet.
+
+2026-09-15 - **Correctif chatbot WhatsApp (message_text null sur message non
+texte) vérifié par un test live signé** : requête webhook HMAC valide
+simulant un client envoyant une image, exécution réussie
+(`content = "[Image reçue]"`, réponse IA cohérente, aucune erreur dans les
+logs n8n). Conversation de test supprimée après coup (numéro fictif
+`22600000099`) pour ne pas polluer le visualiseur admin. Voir l'entrée
+dédiée au correctif lui-même plus bas pour le détail de la cause et du fix.
+
 2026-09-15 - **Bug réel trouvé et corrigé sur le chatbot WhatsApp (workflow n8n
 `i6KGA9BvK9unjxxj`), signalé par une erreur d'exécution en production** :
 `Execute a SQL query` plantait avec `null value in column "content" of
