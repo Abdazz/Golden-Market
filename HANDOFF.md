@@ -198,6 +198,47 @@ de conversation.
 `22600000090` à `22600000098`) supprimées après coup** pour ne pas polluer le visualiseur
 admin — pratique déjà établie le 2026-09-15 (entrée dédiée plus bas).
 
+2026-09-15 (reprise de session) - **Suite de l'audit agent WhatsApp : compréhension photo
++ vidéo + audio, filtre stock sur `browse_catalog`, guidage client vers une photo plutôt
+qu'un lien. Validation finale en rejouant la conversation exacte qui avait motivé l'audit.**
+
+**Photo, vidéo et message vocal du client tous compris automatiquement, déployés en
+production** : même branche que la photo (2.3bis du guide `n8n_automation`), étendue en
+cascade de nodes `If` (`Is Image Message` -> `Is Audio Message` -> `Is Video Message`).
+Message vocal transcrit via OpenAI Whisper (`whisper-1`, credential OpenAI déjà existante).
+Vidéo décrite (image **et son**) via Google Gemini (`gemini-3.6-flash`) — Gemini traite
+nativement la vidéo entière en un seul appel, sans extraction de frame/audio (n8n ne peut
+pas faire tourner ffmpeg). **Credential Gemini validée en isolation avant d'être branchée
+en prod** (requête texte simple hors pipeline client, sur un workflow de test jetable) :
+`gemini-2.5-flash` (choix initial) est déjà refusé aux nouveaux appelants au 2026-09-15,
+Google recommandant explicitement `gemini-3.6-flash` dans le message d'erreur — les
+modèles Gemini se déprécient vite, à surveiller si cette branche se remet à échouer.
+**Toutes les branches défensives** (`onError` au niveau racine, leçon du 2026-09-15 matin)
+: testées avec des media id fictifs pour les 3 types, repli propre confirmé à chaque fois,
+aucun crash. **Jamais testé avec un vrai média WhatsApp** (impossible à simuler par webhook
+signé) — à faire au premier cas réel ou avec un test du propriétaire depuis son téléphone.
+
+**`browse_catalog` filtré aux produits disponibles uniquement (TDD, 134/134 tests backend
+verts)** : `listAllProducts` (`product-fuzzy-search.ts`) exclut maintenant les produits sans
+aucun variant "in stock" — remarque du propriétaire pendant la session ("pourquoi lister
+tous les produits, y compris ceux en rupture ?"), implémentée et déployée staging puis
+production. Vérifié en production : sur ~39 produits publiés, 11 réellement disponibles au
+moment du test.
+
+**Prompt système : guidage explicite vers une photo/vidéo quand le client partage un
+lien** (au lieu de juste dire "je ne peux pas l'ouvrir") — complète l'anomalie n°4 du guide
+(les liens externes organiques restent non résolubles, Meta bloque le scraping non
+authentifié, mais le client peut maintenant être redirigé vers un moyen que l'agent
+comprend réellement).
+
+**Validation finale de toute la session d'audit** : la requête exacte de la conversation
+initiale qui avait motivé cet audit ("Les quittes pour nettoyer les oreilles") a été
+rejouée via webhook signé — l'agent trouve maintenant les deux produits pertinents du vrai
+catalogue (**Kit cure-oreilles spirale en inox**, **Cure-oreilles souples en silicone**),
+avec prix, lien, statut de stock, et enchaîne correctement vers la finalisation de
+commande. Toute la chaîne de correctifs de cette session (browse_catalog notamment) résout
+concrètement le problème signalé au départ.
+
 2026-09-15 - **Correctif UI mineur : la liste des conversations WhatsApp
 n'affichait que l'heure du dernier message, jamais la date** (signalé par le
 propriétaire) - ambigu dès qu'une conversation ne date pas du jour même.
