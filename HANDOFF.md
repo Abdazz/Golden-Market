@@ -16,6 +16,54 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-15 - **Bug réel trouvé et corrigé sur le chatbot WhatsApp (workflow n8n
+`i6KGA9BvK9unjxxj`), signalé par une erreur d'exécution en production** :
+`Execute a SQL query` plantait avec `null value in column "content" of
+relation "messages" violates not-null constraint`. Cause : le nœud
+`Edit Fields` extrait `message_text` via
+`messages[0].text.body`, qui n'existe que pour les messages WhatsApp de type
+texte - un client a envoyé un message d'un autre type (image, audio,
+autocollant, vidéo, document, position, ou clic sur un bouton/liste
+interactif), donnant `message_text = undefined` puis `NULL` à l'insertion.
+`Is Real Message` ne filtre que les payloads sans `messages[]` (accusés de
+statut), pas le type du message lui-même. Corrigé : `message_text` retombe
+maintenant sur un texte descriptif selon le type réel (`"[Image reçue]"`,
+etc., ou le titre du bouton/liste cliqué) au lieu de planter - permet aussi
+à l'IA de répondre au client au lieu de le laisser sans réponse (le crash
+empêchait toute réponse, pas seulement l'enregistrement en base). Workflow
+réexporté/corrigé/réimporté via `n8n export:workflow`/`import:workflow`,
+republié (`n8n update:workflow --id=i6KGA9BvK9unjxxj --active=true`) et
+conteneur `golden_market_n8n` redémarré (confirmé actif dans les logs après
+coup). Pas de test live avec un faux webhook signé (aurait déclenché un vrai
+appel IA + tentative d'envoi WhatsApp) - vérifié par lecture précise du code
+et de la structure réelle des webhooks WhatsApp Cloud API à la place.
+
+2026-09-14/15 - **Pixel Meta + Conversions API (Purchase) déployés et
+configurés en production**, à la suite de la synchro catalogue Meta (voir
+entrées ci-dessous). Code implémenté et déployé (voir entrée dédiée
+plus bas), puis configuration manuelle terminée : Pixel créé dans Events
+Manager (`1835275317320182`, nom `Golden_Market_Pixel`), jeton Conversions
+API généré (configuration manuelle, sans le gateway "Birch" recommandé par
+défaut par Meta - inutile et redondant avec notre propre intégration
+serveur). `NEXT_PUBLIC_META_PIXEL_ID`/`META_PIXEL_ID`/
+`META_CONVERSIONS_API_ACCESS_TOKEN` renseignés en staging puis production,
+storefront reconstruit sur les deux environnements (le Pixel ID est figé au
+build, contrairement aux variables backend). **Bug trouvé en testant avec
+un vrai navigateur (Playwright) sur staging, absent du code jusque-là** :
+le PageView initial déclenché par `matomo-tracker` au montage (avant tout
+consentement) était silencieusement perdu pour un visiteur acceptant le
+bandeau sans naviguer ensuite - contrairement à `_paq` (Matomo), qui met en
+file d'attente et rejoue tout seul dès `setConsentGiven`, le stub `fbq`
+n'a pas ce mécanisme de rejeu. Corrigé (`ConsentBanner.handleAccept`
+renvoie explicitement `trackPageView()` après `initMetaPixelTracker()`),
+testé et déployé sur staging puis prod. Vérifié en direct sur
+`golden-market.co` avec un vrai navigateur : `fbevents.js` chargé,
+`GET facebook.com/tr?...ev=PageView` confirmé `200` après acceptation du
+bandeau. Avertissement console "Multiple pixels with conflicting versions"
+observé mais confirmé bénin/cosmétique (un seul chargement de script, un
+seul événement réellement envoyé - faux positif connu du SDK Meta avec le
+pattern d'implémentation manuel).
+
 2026-09-14 - **Pixel Meta + Conversions API (Purchase) implémentés**, à la
 suite directe de la synchro catalogue Meta (voir entrées ci-dessous) —
 demande du propriétaire pour préparer les pubs dynamiques Facebook/Instagram.
