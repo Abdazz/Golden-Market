@@ -41,7 +41,7 @@ export default async function orderPlacedMetaConversionsApiHandler({
         "currency_code",
         "total",
         "shipping_address.phone",
-        "items.product_id",
+        "items.variant_id",
         "items.quantity",
       ],
       filters: { id: event.data.id },

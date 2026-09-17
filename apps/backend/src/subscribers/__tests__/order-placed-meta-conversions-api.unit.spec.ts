@@ -35,7 +35,7 @@ describe("orderPlacedMetaConversionsApiHandler", () => {
           currency_code: "xof",
           total: 15000,
           shipping_address: { phone: "70123456" },
-          items: [{ product_id: "prod_1", quantity: 2 }],
+          items: [{ variant_id: "variant_1", quantity: 2 }],
         },
       ],
     })
@@ -94,7 +94,7 @@ describe("orderPlacedMetaConversionsApiHandler", () => {
           currency_code: "xof",
           total: 15000,
           shipping_address: { phone: "70123456" },
-          items: [{ product_id: "prod_1", quantity: 2 }],
+          items: [{ variant_id: "variant_1", quantity: 2 }],
         },
       ],
     })

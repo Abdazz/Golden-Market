@@ -61,9 +61,14 @@ export const trackProductView = (product: {
   name: string
   category?: string
   price: number
+  variantIds: string[]
 }): void => {
+  // content_ids = ids de variante (variant.id), pas product.id : le flux
+  // /meta-catalog-feed publie une ligne par variante avec id = variant.id
+  // (meta-catalog-mapping.ts côté backend) - c'est cet identifiant que Meta
+  // doit retrouver dans le catalogue pour calculer le taux de correspondance.
   fbq("track", "ViewContent", {
-    content_ids: [product.id],
+    content_ids: product.variantIds,
     content_name: product.name,
     content_category: product.category,
     content_type: "product",

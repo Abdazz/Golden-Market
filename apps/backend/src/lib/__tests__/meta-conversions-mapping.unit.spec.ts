@@ -39,7 +39,7 @@ describe("buildPurchaseEvent", () => {
     currency_code: "xof",
     total: 15000,
     shipping_address: { phone: "70123456" },
-    items: [{ product_id: "prod_1", quantity: 2 }],
+    items: [{ variant_id: "variant_1", quantity: 2 }],
   }
 
   it("builds a Purchase event with the order id as event_id for client/server dedup", () => {
@@ -53,8 +53,23 @@ describe("buildPurchaseEvent", () => {
       currency: "XOF",
       value: 15000,
       content_type: "product",
-      contents: [{ id: "prod_1", quantity: 2 }],
+      contents: [{ id: "variant_1", quantity: 2 }],
     })
+  })
+
+  it("uses the variant id (not the product id) so contents match the catalog's retailer_id", () => {
+    // Le flux /meta-catalog-feed publie une ligne par variante avec
+    // id = variant.id (voir meta-catalog-mapping.ts) - envoyer product_id
+    // ici casserait la correspondance catalogue/évènements dans le
+    // Gestionnaire des ventes (taux de correspondance).
+    const event = buildPurchaseEvent(
+      { ...order, items: [{ variant_id: "variant_42", quantity: 1 }] },
+      1700000000
+    )
+
+    expect(event.custom_data.contents).toEqual([
+      { id: "variant_42", quantity: 1 },
+    ])
   })
 
   it("includes a hashed phone in user_data when the order has one", () => {

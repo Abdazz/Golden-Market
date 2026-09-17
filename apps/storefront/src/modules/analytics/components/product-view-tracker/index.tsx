@@ -9,6 +9,7 @@ type ProductViewTrackerProps = {
     id: string
     title: string
     categories?: { name: string }[] | null
+    variants?: { id: string }[] | null
   }
   price: number
 }
@@ -26,7 +27,12 @@ const ProductViewTracker = ({ product, price }: ProductViewTrackerProps) => {
       price,
     }
     trackMatomoProductView(payload)
-    trackMetaProductView(payload)
+    // Meta a besoin des ids de variante (variant.id), pas de product.id, pour
+    // matcher le catalogue - voir meta-pixel.ts.
+    trackMetaProductView({
+      ...payload,
+      variantIds: product.variants?.map((variant) => variant.id) ?? [],
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id])
 

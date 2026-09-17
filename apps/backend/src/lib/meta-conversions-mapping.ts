@@ -24,7 +24,7 @@ export type OrderForMetaConversion = {
   currency_code: string
   total: number
   shipping_address?: { phone?: string | null }
-  items?: Array<{ product_id?: string | null; quantity: number }>
+  items?: Array<{ variant_id?: string | null; quantity: number }>
 }
 
 const BURKINA_FASO_COUNTRY_CODE = "226"
@@ -73,8 +73,12 @@ export function buildPurchaseEvent(
       currency: order.currency_code.toUpperCase(),
       value: order.total,
       content_type: "product",
+      // id = variant.id, pas product_id : le flux /meta-catalog-feed publie
+      // une ligne par variante avec id = variant.id (meta-catalog-mapping.ts)
+      // - c'est cet identifiant que Meta doit retrouver dans le catalogue
+      // pour calculer le taux de correspondance des évènements.
       contents: (order.items ?? []).map((item) => ({
-        id: item.product_id ?? "",
+        id: item.variant_id ?? "",
         quantity: item.quantity,
       })),
     },
