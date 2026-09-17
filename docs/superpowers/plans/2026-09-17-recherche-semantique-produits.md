@@ -1088,14 +1088,24 @@ jusqu'à un run vert pour ce commit.
 
 - [ ] **Step 3: Ajouter `OPENAI_API_KEY` à l'environnement staging**
 
-Sur le VPS (`ssh admin@144.91.110.105`), éditer
-`/opt/golden-market/staging/.env.deploy` pour y ajouter une vraie clé API
-OpenAI (`OPENAI_API_KEY=...`), puis relancer le service backend :
+Le service `backend` de `docker-compose.prod.yml` charge ses secrets
+applicatifs via `env_file: apps/backend/.env` (pas `.env.deploy`, qui ne
+sert qu'à l'interpolation `${...}` du compose lui-même — `OPENAI_API_KEY`
+n'y serait jamais lu par le conteneur). Sur le VPS
+(`ssh admin@144.91.110.105`), éditer
+`/opt/golden-market/staging/apps/backend/.env` pour y ajouter une vraie clé
+API OpenAI (`OPENAI_API_KEY=...`), puis relancer le service backend :
 
 ```bash
 cd /opt/golden-market/staging
 docker compose -f docker-compose.prod.yml --env-file .env.deploy up -d backend
 ```
+
+**Piège à éviter** : si la clé est ajoutée au mauvais fichier, le backfill
+(Step 4) logue quand même `OPENAI_API_KEY non configurée, backfill ignoré.`
+et se termine avec un code de sortie 0 — un run qui a l'air réussi mais n'a
+rien indexé. Vérifier que le log de backfill mentionne un nombre non nul
+d'« embarqué(s) » avant de continuer.
 
 - [ ] **Step 4: Exécuter les deux scripts one-shot sur staging**
 

@@ -116,6 +116,16 @@ Les trois scripts sont ré-exécutables sans risque de doublon (vérification pa
 
 `apps/storefront/.env.local` (gitignored, jamais commité) doit définir `NEXT_PUBLIC_DEFAULT_REGION=bf` pour que le storefront serve la région Burkina Faso par défaut — sans cette variable, il retombe silencieusement sur la région de démo `dk` (Danemark, prix EUR). Voir `apps/storefront/check-env-variables.js`, qui échoue désormais au démarrage si elle est absente.
 
+### Recherche sémantique produits (one-shot, idempotent, requiert pgvector)
+
+```bash
+cd apps/backend
+<pm> run search:create-embedding-schema   # extension pgvector + table product_embedding + index HNSW
+<pm> run search:backfill-embeddings       # embarque les produits publiés sans embedding à jour (OPENAI_API_KEY requise)
+```
+
+Ces deux scripts ne sont **pas** joués automatiquement par `medusa db:migrate` ni par les workflows de déploiement — nécessaires sur tout environnement (nouvelle machine de dev, nouveau volume Postgres, nouvel environnement de staging) qui n'a jamais reçu ces schémas, sans quoi le subscriber d'embeddings logue une erreur à chaque sauvegarde produit et la route `/store/products-semantic-search` répond 500. Nécessite l'extension Postgres `pgvector` disponible sur l'image utilisée par `docker-compose.yml`/`docker-compose.prod.yml` (absente de l'image `postgres:16-alpine` par défaut au moment d'écrire cette entrée). Voir `docs/superpowers/specs/2026-09-17-recherche-semantique-produits-design.md`.
+
 ## Medusa Skills & MCP Server
 
 These are optional but strongly recommended — they give documentation-backed answers instead of guesses about Medusa APIs. **Use them when available; if they are not, mention to the user that installing them meaningfully improves development on this project.**
