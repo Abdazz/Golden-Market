@@ -55,10 +55,9 @@ const ConsentBanner = () => {
       data-testid="analytics-consent-banner"
     >
       <p className="text-sm text-center small:text-left">
-        Golden Market utilise un outil de statistiques de visite auto-hébergé
-        ainsi que le Pixel Meta (Facebook/Instagram) pour améliorer nos
-        publicités. Ce dernier partage certaines données de navigation avec
-        Meta.
+        Nous utilisons des cookies pour améliorer votre expérience, mesurer
+        l&apos;audience et vous proposer des contenus personnalisés. Vous
+        pouvez accepter ou refuser ces opérations à tout moment.
       </p>
       <div className="flex gap-2 shrink-0">
         <button

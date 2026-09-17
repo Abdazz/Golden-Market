@@ -16,17 +16,46 @@ const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID
 
 export const isMetaPixelConfigured = (): boolean => !!META_PIXEL_ID
 
+// Crée le stub de file d'attente fbevents.js (même queue/push que le
+// snippet officiel Meta) au premier appel, quel que soit le composant qui
+// déclenche un événement en premier - initMetaPixelTracker() n'est plus le
+// seul à pouvoir la créer. `ConsentBanner` et `MatomoTracker` (qui appelle
+// initMetaPixelTracker) sont montés après {children} dans layout.tsx, donc
+// après tout composant de page (ex. ProductViewTracker) sur un chargement
+// direct d'une fiche produit (lien de pub Facebook/Instagram, cas
+// justement visé par cette intégration) : sans ça, fbq() voyait
+// window.fbq encore absent à ce moment précis et abandonnait l'appel au
+// lieu de le mettre en attente - ViewContent silencieusement jamais
+// envoyé pour ce type de visite.
+const ensureFbqStub = (): NonNullable<Window["fbq"]> => {
+  if (window.fbq) {
+    return window.fbq
+  }
+  const stub: NonNullable<Window["fbq"]> = ((...args: unknown[]) => {
+    stub.queue = stub.queue || []
+    stub.queue.push(args)
+  }) as NonNullable<Window["fbq"]>
+  window.fbq = stub
+  return stub
+}
+
 const fbq = (...args: unknown[]) => {
-  if (typeof window === "undefined" || !window.fbq) {
+  // Même garde-fou fail-closed qu'initMetaPixelTracker : ne jamais mettre
+  // en file d'attente avant un consentement explicitement accordé.
+  if (
+    typeof window === "undefined" ||
+    !isMetaPixelConfigured() ||
+    getStoredConsent() !== "granted"
+  ) {
     return
   }
-  window.fbq(...args)
+  ensureFbqStub()(...args)
 }
 
 let initialized = false
 
-// Snippet officiel Meta (fbevents.js) - queue les appels fbq() faits avant
-// que le script ne soit chargé, comme _paq le fait pour Matomo.
+// Charge fbevents.js - queue les appels fbq() faits avant que le script ne
+// soit chargé, comme _paq le fait pour Matomo (voir ensureFbqStub).
 export const initMetaPixelTracker = (): void => {
   if (
     !isMetaPixelConfigured() ||
@@ -38,11 +67,7 @@ export const initMetaPixelTracker = (): void => {
   }
   initialized = true
 
-  const stub: Window["fbq"] = ((...args: unknown[]) => {
-    stub!.queue = stub!.queue || []
-    stub!.queue.push(args)
-  }) as Window["fbq"]
-  window.fbq = window.fbq || stub
+  ensureFbqStub()
 
   const script = document.createElement("script")
   script.async = true

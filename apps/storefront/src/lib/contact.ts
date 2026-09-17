@@ -4,8 +4,8 @@
 // confiance de l'accueil et les badges de la fiche produit.
 export const CONTACT = {
   whatsapp: {
-    display: "+226 61 85 37 37",
-    href: "https://wa.me/22661853737",
+    display: "+226 64 94 73 73",
+    href: "https://wa.me/22664947373",
   },
   phone: {
     display: "+226 64 94 73 73",

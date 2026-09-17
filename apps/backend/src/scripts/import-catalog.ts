@@ -165,7 +165,11 @@ export default async function importCatalog({ container }: ExecArgs) {
                 {
                   title: "Default Title",
                   options: { Title: "Default Title" },
-                  manage_inventory: false,
+                  // true depuis le 2026-09-17, cohérent avec
+                  // new-products-2026-09/import-new-products.ts et avec
+                  // activate-stock-tracking-old-catalog.ts (qui aligne les
+                  // produits déjà importés en false sur ce même réglage).
+                  manage_inventory: true,
                   prices: [
                     { amount: product.retailPrice, currency_code: "xof" },
                     // rules n'apparaît plus dans le type CreateMoneyAmountDTO exposé par ce
