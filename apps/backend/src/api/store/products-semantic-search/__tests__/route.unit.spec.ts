@@ -113,6 +113,16 @@ describe("GET /store/products-semantic-search", () => {
     expect(res.statusCode).toBe(400)
   })
 
+  it("returns 400 when q is whitespace only", async () => {
+    process.env.OPENAI_API_KEY = "sk-test"
+    const req: any = { query: { q: "   " }, scope: { resolve: jest.fn() } }
+    const res = createFakeRes()
+
+    await GET(req, res)
+
+    expect(res.statusCode).toBe(400)
+  })
+
   it("returns 503 when OPENAI_API_KEY is not configured", async () => {
     delete process.env.OPENAI_API_KEY
     const req: any = { query: { q: "balai" }, scope: { resolve: jest.fn() } }

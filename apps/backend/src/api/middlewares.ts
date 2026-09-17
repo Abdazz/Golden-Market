@@ -13,6 +13,9 @@ const originalErrorHandler = errorHandler()
 const RESET_PASSWORD_MAX_REQUESTS = 5
 const RESET_PASSWORD_WINDOW_SECONDS = 15 * 60
 
+const SEMANTIC_SEARCH_MAX_REQUESTS = 30
+const SEMANTIC_SEARCH_WINDOW_SECONDS = 60
+
 // Exporté séparément (plutôt que défini en ligne dans `defineMiddlewares`) pour pouvoir
 // être testé directement avec un req/res/next factice, sans démarrer l'application Medusa.
 export async function resetPasswordRateLimitMiddleware(
@@ -65,12 +68,52 @@ export async function resetPasswordRateLimitMiddleware(
   next()
 }
 
+// Exporté séparément (même raison que resetPasswordRateLimitMiddleware) : route publique
+// (clé publiable uniquement) qui déclenche un appel OpenAI facturé à chaque requête, donc
+// accessible par n'importe qui, pas seulement le backend de l'agent WhatsApp de confiance.
+export async function semanticSearchRateLimitMiddleware(
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) {
+  try {
+    const cache = req.scope.resolve(Modules.CACHE)
+    const ip = req.ip ?? req.socket.remoteAddress ?? "unknown"
+    const rateLimitOptions = {
+      maxRequests: SEMANTIC_SEARCH_MAX_REQUESTS,
+      windowSeconds: SEMANTIC_SEARCH_WINDOW_SECONDS,
+    }
+
+    const ipResult = await checkRateLimit(cache, `rate-limit:semantic-search:${ip}`, rateLimitOptions)
+
+    if (!ipResult.allowed) {
+      res.setHeader("Retry-After", String(ipResult.retryAfterSeconds))
+      res.status(429).json({
+        type: "rate_limit_exceeded",
+        message: "Trop de requêtes de recherche sémantique. Réessayez plus tard.",
+      })
+      return
+    }
+  } catch (error) {
+    const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error(`Limiteur de débit indisponible pour la recherche sémantique, requête laissée passer : ${errorMessage}`)
+  }
+
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
     {
       matcher: "/auth/customer/emailpass/reset-password",
       methods: ["POST"],
       middlewares: [resetPasswordRateLimitMiddleware],
+    },
+    {
+      matcher: "/store/products-semantic-search",
+      methods: ["GET"],
+      middlewares: [semanticSearchRateLimitMiddleware],
     },
   ],
   errorHandler: (error: any, req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {

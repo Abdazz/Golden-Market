@@ -44,7 +44,7 @@ type SearchProduct = {
  */
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const apiKey = process.env.OPENAI_API_KEY
-  const q = typeof req.query.q === "string" ? req.query.q : ""
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : ""
   const limit = Math.min(Number(req.query.limit) || DEFAULT_LIMIT, MAX_LIMIT)
 
   if (!apiKey) {

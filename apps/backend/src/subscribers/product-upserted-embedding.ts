@@ -1,6 +1,9 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { computeProductContentHash } from "../lib/product-embedding-hash"
+import {
+  computeProductContentHash,
+  buildProductEmbeddingText,
+} from "../lib/product-embedding-hash"
 import { embedText } from "../lib/product-embedding-client"
 import {
   getStoredContentHash,
@@ -50,7 +53,7 @@ export default async function productUpsertedEmbeddingHandler({
     }
 
     const embedding = await embedText(
-      `${product.title}\n${product.description ?? ""}`,
+      buildProductEmbeddingText(product.title, product.description),
       apiKey
     )
     await upsertProductEmbedding(pg, {

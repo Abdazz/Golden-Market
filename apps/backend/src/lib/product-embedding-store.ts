@@ -41,9 +41,11 @@ export async function findNearestProductIds(
   params: { embedding: number[]; limit: number }
 ): Promise<string[]> {
   const { rows } = await pg.raw(
-    `select product_id
-     from product_embedding
-     order by embedding <=> ?::vector
+    `select pe.product_id
+     from product_embedding pe
+     join product p on p.id = pe.product_id
+     where p.deleted_at is null and p.status = 'published'
+     order by pe.embedding <=> ?::vector
      limit ?`,
     [toVectorLiteral(params.embedding), params.limit]
   )

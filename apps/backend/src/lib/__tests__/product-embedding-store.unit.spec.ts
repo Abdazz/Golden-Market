@@ -51,7 +51,8 @@ describe("findNearestProductIds", () => {
 
     expect(result).toEqual(["prod_2", "prod_1"])
     const [sql, bindings] = raw.mock.calls[0]
-    expect(sql).toContain("order by embedding <=> ?::vector")
+    expect(sql).toContain("order by pe.embedding <=> ?::vector")
+    expect(sql).toContain("where p.deleted_at is null and p.status = 'published'")
     expect(bindings).toEqual(["[0.1,0.2]", 8])
   })
 })
