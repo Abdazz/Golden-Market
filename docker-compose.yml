@@ -4,7 +4,8 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./deploy/postgres
     container_name: golden_market_medusa_postgres
     restart: unless-stopped
     environment:

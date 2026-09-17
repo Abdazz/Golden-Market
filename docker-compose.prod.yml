@@ -6,7 +6,8 @@
 # natifs), inchangé.
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./deploy/postgres
     container_name: ${ENV_NAME}-golden-market-postgres
     restart: unless-stopped
     environment:
