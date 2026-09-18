@@ -39,6 +39,31 @@ const ensureFbqStub = (): NonNullable<Window["fbq"]> => {
   return stub
 }
 
+let initialized = false
+
+// Garantit que "init" est toujours le tout premier appel mis en file
+// d'attente, quel que soit le composant qui appelle fbq() en premier.
+// ProductViewTracker (profond dans {children}) monte et lance son effet
+// AVANT MatomoTracker (monté après {children} dans layout.tsx, voir
+// ensureFbqStub ci-dessus) : sans ça, "track ViewContent" atterrissait dans
+// la file avant "init", et fbevents.js ignore silencieusement tout "track"
+// reçu avant le "init" correspondant une fois le script chargé - confirmé
+// en production le 2026-09-18 (0% de ViewContent reçus par Meta malgré
+// ensureFbqStub, qui ne réglait que l'absence de file, pas son ordre).
+const ensureFbqInitialized = (): void => {
+  if (!isMetaPixelConfigured() || initialized || typeof document === "undefined") {
+    return
+  }
+  initialized = true
+
+  ensureFbqStub()("init", META_PIXEL_ID)
+
+  const script = document.createElement("script")
+  script.async = true
+  script.src = "https://connect.facebook.net/en_US/fbevents.js"
+  document.head.appendChild(script)
+}
+
 const fbq = (...args: unknown[]) => {
   // Même garde-fou fail-closed qu'initMetaPixelTracker : ne jamais mettre
   // en file d'attente avant un consentement explicitement accordé.
@@ -49,32 +74,17 @@ const fbq = (...args: unknown[]) => {
   ) {
     return
   }
+  ensureFbqInitialized()
   ensureFbqStub()(...args)
 }
-
-let initialized = false
 
 // Charge fbevents.js - queue les appels fbq() faits avant que le script ne
 // soit chargé, comme _paq le fait pour Matomo (voir ensureFbqStub).
 export const initMetaPixelTracker = (): void => {
-  if (
-    !isMetaPixelConfigured() ||
-    initialized ||
-    getStoredConsent() !== "granted" ||
-    typeof document === "undefined"
-  ) {
+  if (getStoredConsent() !== "granted") {
     return
   }
-  initialized = true
-
-  ensureFbqStub()
-
-  const script = document.createElement("script")
-  script.async = true
-  script.src = "https://connect.facebook.net/en_US/fbevents.js"
-  document.head.appendChild(script)
-
-  fbq("init", META_PIXEL_ID)
+  ensureFbqInitialized()
 }
 
 export const trackPageView = (): void => {
