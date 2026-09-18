@@ -2685,3 +2685,29 @@ catalogue automatisé, nettoyage TODOs template).
   L'invocation réelle du nouveau tool reste à confirmer sur un cas rencontré
   naturellement en production, pas à rechercher activement (chaque tour de test réel a
   un coût API réel).
+
+  **Suite immédiate, même session** : à la demande du propriétaire, simulation d'une
+  conversation WhatsApp complète et réelle (webhook signé) jusqu'à une vraie commande de
+  test, pour vérifier bout en bout que tout fonctionne. Résultat : le pipeline principal
+  (recherche → panier → `place_order` → `get_payment_instructions` → Meta Conversions
+  API → confirmation WhatsApp → synchro stock catalogue Meta) fonctionne parfaitement.
+  Mais un vrai bug trouvé, sans rapport avec la recherche sémantique : quand le client
+  signale avoir payé, l'agent ne parvenait jamais à appeler `mark_payment_reported` et
+  relançait tout le flux `place_order`, créant une **commande en double** à chaque
+  paiement signalé. Cause racine (dépôt `n8n_automation`, voir son propre commit du même
+  jour) : `order_id` était un paramètre `$fromAI` que le modèle ne pouvait jamais fournir
+  correctement sur un tour séparé de `place_order` — le client ne voit que le
+  `display_id` ("#3"), jamais l'`order_id` réel, et seul le texte final visible est
+  sauvegardé dans l'historique de conversation. Corrigé en éliminant la dépendance à la
+  mémoire du modèle : nouvelle colonne `conversations.last_order_id`, écrite par
+  `place_order`, lue par `get_payment_instructions`/`mark_payment_reported` via
+  `conversation_id` (valeur fixe, jamais fournie par le modèle) — même pattern que
+  `consecutive_search_misses`. Prompt système renforcé pour interdire explicitement de
+  rappeler `place_order` pour une commande déjà créée. **Vérifié en conditions réelles**
+  (nouvelle conversation complète simulée jusqu'à une vraie commande, annulée après
+  coup) : plus de doublon. Limite résiduelle observée mais non corrigée : Groq rappelle
+  parfois `mark_payment_reported` deux fois pour le même message (retry déjà documenté
+  ailleurs, voir HANDOFF.md 2026-09-07), et un second appel sans `payment_reference` peut
+  écraser la référence enregistrée par `null` — la commande reste correctement
+  rattachée, seule la référence textuelle peut se perdre (déjà visible dans la
+  notification `escalation_alert` envoyée au propriétaire au moment de l'appel).
