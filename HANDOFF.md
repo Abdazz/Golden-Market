@@ -2614,3 +2614,74 @@ catalogue automatisé, nettoyage TODOs template).
   pendant un moment après une réécriture d'historique — c'est un cache d'affichage
   asynchrone côté GitHub, indépendant des données réelles (déjà vérifiées propres via
   l'API `/commits` et `/contributors`), pas un signe d'échec de la correction.
+- **2026-09-17/18 (recherche sémantique produits, pgvector)** — Suite directe de la
+  correction du taux de correspondance du catalogue Meta (Pixel non associé au
+  catalogue, puis `content_ids` erronés dans ViewContent/Purchase, tous corrigés le
+  2026-09-17). En vérifiant les content_ids, deux bugs distincts trouvés et corrigés le
+  même jour (voir commits `ca6719d`) : `ViewContent` envoyait `product.id` au lieu des
+  ids de variante ; le Purchase Conversions API envoyait `item.product_id` au lieu de
+  `item.variant_id`. Un troisième bug plus profond découvert en creusant : `fbq()`
+  abandonnait silencieusement tout événement déclenché avant que `MatomoTracker`
+  n'initialise le Pixel (composant monté après `{children}` dans `layout.tsx`) - cassait
+  `ViewContent` sur tout accès direct à une fiche produit (le cas d'un clic depuis une
+  pub Facebook/Instagram). Corrigé : `fbq()` crée désormais son propre stub de file
+  d'attente au premier appel, plus besoin de gagner la course avec `initMetaPixelTracker`.
+  **Corrige aussi au passage** : numéro WhatsApp du site web (bouton flottant/footer/
+  bandeau) mis à jour vers le numéro de l'app mobile, distinct du numéro WhatsApp
+  Business Cloud API utilisé par l'agent (les deux existent, usages différents) ;
+  logique "produits similaires" réécrite (catégorie réelle au lieu de collection_id/
+  tag_id, jamais renseignés sur ce catalogue ; ne montre que des produits disponibles ;
+  complète avec d'autres produits si la catégorie n'en fournit pas assez, jamais de
+  section vide).
+
+  **Recherche sémantique produits (pgvector)** : le propriétaire a demandé pourquoi la
+  recherche sémantique n'avait pas été intégrée à l'agent WhatsApp (la décision du
+  2026-09-15, `browse_catalog` plutôt qu'une infra d'embeddings, jugée disproportionnée
+  à l'échelle de 39 produits) - discussion sur les options "coût zéro" (auto-hébergé vs
+  API payante négligeable), choix retenu : API OpenAI (`text-embedding-3-small`,
+  credential déjà existante côté n8n pour vision/Whisper, réutilisée ici via une
+  nouvelle variable backend dédiée). Cadré via `superpowers:brainstorming` puis
+  `superpowers:writing-plans`, exécuté via `superpowers:subagent-driven-development`
+  dans un worktree dédié (7 tâches TDD, chacune revue par un subagent séparé, 0 défaut
+  Critical/Important résiduel après la revue finale de branche). Voir la spec
+  (`docs/superpowers/specs/2026-09-17-recherche-semantique-produits-design.md`) et le
+  plan pour l'architecture complète : `product_embedding` (pgvector, index HNSW,
+  distance cosinus) en SQL brut via `PG_CONNECTION` (pas de module/modèle Medusa formel
+  - pgvector n'a pas de type DML natif dans Medusa v2, même approche que
+  `product-fuzzy-search.ts` pour `pg_trgm`), subscriber de maintien à jour (hash de
+  contenu pour éviter de ré-embedder à chaque changement de prix/stock), route
+  `GET /store/products-semantic-search` (pas de seuil de similarité codé en dur, renvoie
+  toujours le top-8), nouveau tool n8n `search_products_semantic` entre `find_products`
+  et `browse_catalog` dans la cascade.
+
+  **Bug bloquant trouvé par la revue finale de branche, absent de tout single-task
+  review** : aucune image Postgres du projet (`docker-compose.yml`/`docker-compose.prod.yml`,
+  tous les deux `postgres:16-alpine` nu) n'avait l'extension pgvector - le script de
+  schéma aurait échoué dès son premier `CREATE EXTENSION`. Alpine 3.24 ne fournit pas de
+  paquet pgvector compilé pour PostgreSQL 16 (seul un paquet générique tire PostgreSQL 18
+  en dépendance et installe l'extension au mauvais endroit) - compilée depuis les sources
+  officielles à la place (`deploy/postgres/Dockerfile`, `clang21`/`llvm21` requis
+  uniquement parce que ce build de PostgreSQL 16.15 a le support JIT activé). Resté sur
+  Alpine/musl plutôt que l'image officielle `pgvector/pgvector:pg16` (glibc) pour éviter
+  un changement de collation sur les volumes de données déjà existants. Deux autres
+  correctifs trouvés à la même revue : `findNearestProductIds` ne filtrait pas
+  `status='published'`/`deleted_at is null`, pouvait silencieusement renvoyer moins de
+  candidats que demandé ; le plan indiquait le mauvais fichier d'environnement
+  (`.env.deploy` au lieu de `apps/backend/.env`, où `docker-compose.prod.yml` charge
+  réellement les secrets applicatifs du backend via `env_file`) - un backfill mal
+  configuré aurait silencieusement "réussi" avec un compte à zéro.
+
+  **Déployé et vérifié en conditions réelles sur staging et production** : image Postgres
+  reconstruite sur les deux VPS, schéma + backfill exécutés (39 produits embarqués sur
+  chaque environnement), route vérifiée par `curl` direct (`?q=serpilliere`, sans accent,
+  renvoie en tête "Seau à roulettes... serpillière" et "Balai-éponge..." - le cas
+  synonyme balai/serpillière qui avait motivé l'audit du 2026-09-15). Tool n8n câblé
+  (nouveau sous-workflow importé, node ajouté au workflow principal, prompt système mis à
+  jour) et vérifié par trois vrais tours de conversation (webhook signé, numéros de test
+  supprimés après coup) : les trois ont abouti sans erreur avec une réponse produit
+  correcte, mais `search_products_semantic` lui-même n'a pas été observé invoqué dans ces
+  trois tours - le modèle infère souvent un terme de recherche déjà pertinent avant même
+  d'appeler `find_products`, qui réussit alors directement plus souvent qu'anticipé.
+  L'invocation réelle du nouveau tool reste à confirmer sur un cas rencontré
+  naturellement en production, pas à rechercher activement (chaque tour de test réel a
+  un coût API réel).
