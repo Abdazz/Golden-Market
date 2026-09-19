@@ -1,5 +1,5 @@
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { semanticSearchRateLimitMiddleware } from "../middlewares"
+import { semanticSearchRateLimitMiddleware, whatsappOtpVerificationRateLimitMiddleware } from "../middlewares"
 
 function createFakeCache() {
   const store = new Map<string, unknown>()
@@ -163,5 +163,82 @@ describe("semanticSearchRateLimitMiddleware", () => {
     expect(res.status).not.toHaveBeenCalled()
     expect(logger.error).toHaveBeenCalledTimes(1)
     expect(logger.error.mock.calls[0][0]).toContain("Redis indisponible")
+  })
+})
+
+describe("whatsappOtpVerificationRateLimitMiddleware", () => {
+  it("laisse passer les requêtes tant que la limite (5/15min) n'est pas atteinte", async () => {
+    const cache = createFakeCache()
+    const scope = createFakeScope({ cache })
+    const next = jest.fn()
+
+    for (let i = 0; i < 5; i++) {
+      const req = createFakeReq({ scope })
+      req.body = { code_provider: "whatsapp-otp", entity_id: "+22670000000" }
+      const res = createFakeRes()
+      await whatsappOtpVerificationRateLimitMiddleware(req, res, next)
+      expect(res.status).not.toHaveBeenCalled()
+    }
+
+    expect(next).toHaveBeenCalledTimes(5)
+  })
+
+  it("bloque au-delà de la limite et répond 429", async () => {
+    const cache = createFakeCache()
+    const scope = createFakeScope({ cache })
+    const next = jest.fn()
+
+    for (let i = 0; i < 5; i++) {
+      const req = createFakeReq({ scope })
+      req.body = { code_provider: "whatsapp-otp", entity_id: "+22670000000" }
+      const res = createFakeRes()
+      await whatsappOtpVerificationRateLimitMiddleware(req, res, next)
+    }
+
+    const req = createFakeReq({ scope })
+    req.body = { code_provider: "whatsapp-otp", entity_id: "+22670000000" }
+    const res = createFakeRes()
+    await whatsappOtpVerificationRateLimitMiddleware(req, res, next)
+
+    expect(res.status).toHaveBeenCalledWith(429)
+    expect(res.headers["Retry-After"]).toBeDefined()
+    expect(next).toHaveBeenCalledTimes(5)
+  })
+
+  it("ne limite jamais une demande pour un autre code_provider (ex: token)", async () => {
+    const cache = createFakeCache()
+    const scope = createFakeScope({ cache })
+    const next = jest.fn()
+
+    for (let i = 0; i < 10; i++) {
+      const req = createFakeReq({ scope })
+      req.body = { code_provider: "token", entity_id: "someone@example.com" }
+      const res = createFakeRes()
+      await whatsappOtpVerificationRateLimitMiddleware(req, res, next)
+      expect(res.status).not.toHaveBeenCalled()
+    }
+
+    expect(next).toHaveBeenCalledTimes(10)
+  })
+
+  it("applique un bucket indépendant par entity_id (numéro de téléphone)", async () => {
+    const cache = createFakeCache()
+    const scope = createFakeScope({ cache })
+    const next = jest.fn()
+
+    for (let i = 0; i < 5; i++) {
+      const req = createFakeReq({ scope })
+      req.body = { code_provider: "whatsapp-otp", entity_id: "+22670000001" }
+      const res = createFakeRes()
+      await whatsappOtpVerificationRateLimitMiddleware(req, res, next)
+    }
+
+    const req = createFakeReq({ scope })
+    req.body = { code_provider: "whatsapp-otp", entity_id: "+22670000002" }
+    const res = createFakeRes()
+    await whatsappOtpVerificationRateLimitMiddleware(req, res, next)
+
+    expect(res.status).not.toHaveBeenCalled()
+    expect(next).toHaveBeenCalled()
   })
 })
