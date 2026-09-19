@@ -12,8 +12,8 @@ export const CONTACT = {
     href: "tel:+22664947373",
   },
   email: {
-    display: "commandes@golden-market.co",
-    href: "mailto:commandes@golden-market.co",
+    display: "infos@golden-market.co",
+    href: "mailto:infos@golden-market.co",
   },
 }
 

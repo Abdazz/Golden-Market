@@ -92,10 +92,10 @@ export default function PrivacyPolicyPage() {
             Pour toute question concernant cette politique de
             confidentialité ou vos données personnelles, contactez-nous à{" "}
             <a
-              href="mailto:commandes@golden-market.co"
+              href="mailto:infos@golden-market.co"
               className="text-gm-violet underline"
             >
-              commandes@golden-market.co
+              infos@golden-market.co
             </a>
             .
           </Text>

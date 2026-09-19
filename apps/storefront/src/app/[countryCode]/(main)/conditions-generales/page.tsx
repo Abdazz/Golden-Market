@@ -88,10 +88,10 @@ export default function TermsOfServicePage() {
             Pour toute question relative à ces conditions générales,
             contactez-nous à{" "}
             <a
-              href="mailto:commandes@golden-market.co"
+              href="mailto:infos@golden-market.co"
               className="text-gm-violet underline"
             >
-              commandes@golden-market.co
+              infos@golden-market.co
             </a>
             .
           </Text>

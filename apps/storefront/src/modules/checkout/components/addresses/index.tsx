@@ -1,14 +1,10 @@
 "use client"
 import { setAddresses } from "@lib/data/cart"
-import useToggleState from "@lib/hooks/use-toggle-state"
-import compareAddresses from "@lib/util/compare-addresses"
 import { HttpTypes } from "@medusajs/types"
 import StepHeader from "@modules/checkout/components/step-header"
-import { Heading } from "@modules/common/components/ui"
 import Spinner from "@modules/common/icons/spinner"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useActionState } from "react"
-import BillingAddress from "../billing_address"
 import ErrorMessage from "../error-message"
 import ShippingAddress from "../shipping-address"
 import { SubmitButton } from "../submit-button"
@@ -35,12 +31,6 @@ const Addresses = ({
   )
   const isOpen =
     step === "address" || (step === null && !addressComplete)
-
-  const { state: sameAsBilling, toggle: toggleSameAsBilling } = useToggleState(
-    cart?.shipping_address && cart?.billing_address
-      ? compareAddresses(cart?.shipping_address, cart?.billing_address)
-      : true
-  )
 
   const handleEdit = () => {
     router.push(pathname + "?step=address")
@@ -73,22 +63,8 @@ const Addresses = ({
       />
       {isOpen && (
         <form action={formAction} className="mt-6">
-          <ShippingAddress
-            customer={customer}
-            checked={sameAsBilling}
-            onChange={toggleSameAsBilling}
-            cart={cart}
-          />
+          <ShippingAddress customer={customer} cart={cart} />
 
-          {!sameAsBilling && (
-            <div>
-              <Heading level="h3" className="text-lg pb-4 pt-8">
-                Adresse de facturation
-              </Heading>
-
-              <BillingAddress cart={cart} />
-            </div>
-          )}
           <SubmitButton className="mt-6" data-testid="submit-address-button">
             Continuer vers la livraison
           </SubmitButton>

@@ -1,6 +1,5 @@
 import { HttpTypes } from "@medusajs/types"
 import { Container } from "@modules/common/components/ui"
-import Checkbox from "@modules/common/components/checkbox"
 import Input from "@modules/common/components/input"
 import CityAutocomplete from "@modules/common/components/city-autocomplete"
 import { BURKINA_FASO_CITIES } from "@lib/data/burkina-faso-cities"
@@ -11,13 +10,9 @@ import AddressSelect from "../address-select"
 const ShippingAddress = ({
   customer,
   cart,
-  checked,
-  onChange,
 }: {
   customer: HttpTypes.StoreCustomer | null
   cart: HttpTypes.StoreCart | null
-  checked: boolean
-  onChange: () => void
 }) => {
   const [formData, setFormData] = useState<Record<string, string>>({
     "shipping_address.first_name": cart?.shipping_address?.first_name || "",
@@ -27,7 +22,6 @@ const ShippingAddress = ({
     "shipping_address.postal_code": cart?.shipping_address?.postal_code || "",
     "shipping_address.city": cart?.shipping_address?.city || "",
     "shipping_address.country_code": cart?.shipping_address?.country_code || "",
-    "shipping_address.province": cart?.shipping_address?.province || "",
     "shipping_address.phone": cart?.shipping_address?.phone || "",
     email: cart?.email || "",
   })
@@ -67,7 +61,6 @@ const ShippingAddress = ({
         "shipping_address.postal_code": address?.postal_code || "",
         "shipping_address.city": address?.city || "",
         "shipping_address.country_code": address?.country_code || "",
-        "shipping_address.province": address?.province || "",
         "shipping_address.phone": address?.phone || "",
       }))
     }
@@ -158,14 +151,6 @@ const ShippingAddress = ({
           required
           data-testid="shipping-city-input"
         />
-        <Input
-          label="Région / Province"
-          name="shipping_address.province"
-          autoComplete="address-level1"
-          value={formData["shipping_address.province"]}
-          onChange={handleChange}
-          data-testid="shipping-province-input"
-        />
       </div>
       <input
         type="hidden"
@@ -173,16 +158,7 @@ const ShippingAddress = ({
         value={formData["shipping_address.country_code"] || defaultCountryCode}
         data-testid="shipping-country-code-hidden"
       />
-      <div className="my-8">
-        <Checkbox
-          label="Utiliser cette adresse pour la facturation"
-          name="same_as_billing"
-          checked={checked}
-          onChange={onChange}
-          data-testid="billing-address-checkbox"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-2 gap-4 mb-4 mt-4">
         <Input
           label="E-mail (facultatif)"
           name="email"
