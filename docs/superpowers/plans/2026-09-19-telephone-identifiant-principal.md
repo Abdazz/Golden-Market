@@ -2168,20 +2168,599 @@ git commit -m "docs(auth): met à jour le libellé mot de passe oublié (limitat
 
 ---
 
-## Rollout (after all 12 tasks)
+## Task 13: Backend — register-from-order and claim-order routes
 
-1. Push the full branch to `staging`, wait for deploy, re-run Task 3 Step 4's
-   login check plus a full manual pass: register with phone only, register
-   with phone + email, confirm login works with both identifiers for the
-   second account.
+**Files:**
+- Create: `apps/backend/src/lib/register-customer-from-order.ts`
+- Create: `apps/backend/src/lib/__tests__/register-customer-from-order.unit.spec.ts`
+- Create: `apps/backend/src/api/store/register-from-order/route.ts`
+- Create: `apps/backend/src/api/store/customers/me/claim-order/route.ts`
+- Modify: `apps/backend/src/api/middlewares.ts`
+
+**Interfaces:**
+- Consumes: `normalizePhone` from Task 1.
+- Produces: `registerCustomerFromOrder(authModuleService, input: {phone: string, password: string}): Promise<{success: true, authIdentityId: string} | {success: false, error: string}>` — used only by the `register-from-order` route in this task.
+
+**Context — why account creation and order claiming are two separate calls:**
+at the moment `register-from-order` runs, no customer record exists yet —
+the storefront (Task 14) still has to call the *existing* `completeLogin`
+logic (Task 8) to actually create the customer and, if an email was also
+given, link it. Only once that customer is real and the storefront holds a
+session for it does claiming the order make sense — hence `claim-order` is
+a second, authenticated call the storefront makes right after.
+
+**Context — why this bypasses the code screen:** per the approved design,
+an order confirmation already sent by WhatsApp to this exact number is
+treated as sufficient proof of phone ownership — no code is shown to the
+customer here. This is done by calling the auth module's public
+`requestAuthVerification`/`confirmAuthVerification` methods **directly**
+(not the HTTP `/auth/verification/*` routes, which go through
+`requestVerificationWorkflow` and would emit
+`AuthWorkflowEvents.VERIFICATION_REQUESTED` — read directly in
+`@medusajs/medusa/dist/api/auth/verification/request/route.js` to confirm
+only the *workflow* emits that event, not the plain module method). Calling
+the module methods directly generates the code and immediately confirms it
+server-side, in one request, without ever triggering the WhatsApp
+subscriber from Task 4.
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+// apps/backend/src/lib/__tests__/register-customer-from-order.unit.spec.ts
+import { registerCustomerFromOrder } from "../register-customer-from-order"
+
+function createFakeAuthModuleService() {
+  return {
+    register: jest.fn(async () => ({
+      success: true,
+      authIdentity: { id: "authid_phone_1" },
+    })),
+    requestAuthVerification: jest.fn(async () => ({
+      code: "482913",
+      expires_at: new Date(),
+    })),
+    confirmAuthVerification: jest.fn(async () => ({ verified_at: new Date() })),
+  }
+}
+
+describe("registerCustomerFromOrder", () => {
+  it("enregistre l'identité phone-pass puis confirme la vérification sans jamais afficher de code", async () => {
+    const authModuleService = createFakeAuthModuleService()
+
+    const result = await registerCustomerFromOrder(authModuleService as any, {
+      phone: "+22670000000",
+      password: "motdepasse123",
+    })
+
+    expect(result).toEqual({ success: true, authIdentityId: "authid_phone_1" })
+    expect(authModuleService.register).toHaveBeenCalledWith("phone-pass", {
+      body: { email: "+22670000000", password: "motdepasse123" },
+    })
+    expect(authModuleService.requestAuthVerification).toHaveBeenCalledWith({
+      entity_id: "+22670000000",
+      auth_identity_id: "authid_phone_1",
+      entity_type: "phone",
+      code_provider: "whatsapp-otp",
+    })
+    expect(authModuleService.confirmAuthVerification).toHaveBeenCalledWith({
+      code: "482913",
+      code_provider: "whatsapp-otp",
+    })
+  })
+
+  it("retourne une erreur si l'enregistrement de l'identité échoue", async () => {
+    const authModuleService = createFakeAuthModuleService()
+    authModuleService.register = jest.fn(async () => ({
+      success: false,
+      error: "Identity with email already exists",
+    }))
+
+    const result = await registerCustomerFromOrder(authModuleService as any, {
+      phone: "+22670000000",
+      password: "motdepasse123",
+    })
+
+    expect(result).toEqual({
+      success: false,
+      error: "Identity with email already exists",
+    })
+    expect(authModuleService.requestAuthVerification).not.toHaveBeenCalled()
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd apps/backend && npm run test:unit -- register-customer-from-order`
+Expected: FAIL with "Cannot find module '../register-customer-from-order'"
+
+- [ ] **Step 3: Write minimal implementation**
+
+```typescript
+// apps/backend/src/lib/register-customer-from-order.ts
+export type RegisterCustomerFromOrderInput = {
+  phone: string
+  password: string
+}
+
+export type RegisterCustomerFromOrderResult =
+  | { success: true; authIdentityId: string }
+  | { success: false; error: string }
+
+/**
+ * Enregistre une identité phone-pass et confirme immédiatement sa
+ * vérification côté serveur (sans jamais générer de message WhatsApp
+ * visible) - voir Task 13 pour la justification : une commande déjà reçue
+ * par WhatsApp sur ce numéro est traitée comme preuve suffisante.
+ */
+export async function registerCustomerFromOrder(
+  authModuleService: any,
+  input: RegisterCustomerFromOrderInput
+): Promise<RegisterCustomerFromOrderResult> {
+  const registerResult = await authModuleService.register("phone-pass", {
+    body: { email: input.phone, password: input.password },
+  })
+
+  if (!registerResult.success || !registerResult.authIdentity) {
+    return { success: false, error: registerResult.error ?? "Échec de la création du compte." }
+  }
+
+  const verification = await authModuleService.requestAuthVerification({
+    entity_id: input.phone,
+    auth_identity_id: registerResult.authIdentity.id,
+    entity_type: "phone",
+    code_provider: "whatsapp-otp",
+  })
+
+  await authModuleService.confirmAuthVerification({
+    code: verification.code,
+    code_provider: "whatsapp-otp",
+  })
+
+  return { success: true, authIdentityId: registerResult.authIdentity.id }
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd apps/backend && npm run test:unit -- register-customer-from-order`
+Expected: PASS (2 tests)
+
+- [ ] **Step 5: Write the `register-from-order` route**
+
+```typescript
+// apps/backend/src/api/store/register-from-order/route.ts
+import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { normalizePhone } from "../../../lib/normalize-phone"
+import { registerCustomerFromOrder } from "../../../lib/register-customer-from-order"
+
+type OrderForRegistration = {
+  id: string
+  customer_id: string | null
+  email: string | null
+  shipping_address?: { first_name?: string; last_name?: string; phone?: string }
+}
+
+export async function POST(req: MedusaRequest, res: MedusaResponse) {
+  const { order_id, password } = (req.body as Record<string, unknown>) ?? {}
+
+  if (typeof order_id !== "string" || !order_id) {
+    res.status(400).json({ message: "order_id requis." })
+    return
+  }
+
+  if (typeof password !== "string" || password.length < 8) {
+    res.status(400).json({ message: "Mot de passe invalide (8 caractères minimum)." })
+    return
+  }
+
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
+
+  const {
+    data: [order],
+  } = await query.graph({
+    entity: "order",
+    fields: ["id", "customer_id", "email", "shipping_address.first_name", "shipping_address.last_name", "shipping_address.phone"],
+    filters: { id: order_id },
+  })
+
+  const typedOrder = order as unknown as OrderForRegistration | undefined
+
+  if (!typedOrder) {
+    res.status(404).json({ message: "Commande introuvable." })
+    return
+  }
+
+  if (typedOrder.customer_id) {
+    res.status(400).json({ message: "Cette commande est déjà associée à un compte." })
+    return
+  }
+
+  const rawPhone = typedOrder.shipping_address?.phone
+
+  if (!rawPhone) {
+    res.status(400).json({ message: "Aucun numéro de téléphone sur cette commande." })
+    return
+  }
+
+  const phone = normalizePhone(rawPhone)
+  const authModuleService = req.scope.resolve(Modules.AUTH)
+
+  try {
+    const result = await registerCustomerFromOrder(authModuleService, { phone, password })
+
+    if (!result.success) {
+      res.status(400).json({ message: result.error })
+      return
+    }
+
+    res.status(200).json({
+      phone,
+      email: typedOrder.email,
+      first_name: typedOrder.shipping_address?.first_name,
+      last_name: typedOrder.shipping_address?.last_name,
+    })
+  } catch (error) {
+    logger.error("Échec de la création de compte depuis une commande", error as Error)
+    res.status(500).json({ message: "Une erreur est survenue." })
+  }
+}
+```
+
+- [ ] **Step 6: Write the `claim-order` route**
+
+```typescript
+// apps/backend/src/api/store/customers/me/claim-order/route.ts
+import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { normalizePhone } from "../../../../../lib/normalize-phone"
+
+type OrderForClaim = {
+  id: string
+  customer_id: string | null
+  shipping_address?: { phone?: string }
+}
+
+export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
+  const { order_id } = (req.body as Record<string, unknown>) ?? {}
+
+  if (typeof order_id !== "string" || !order_id) {
+    res.status(400).json({ message: "order_id requis." })
+    return
+  }
+
+  const customerId = req.auth_context?.actor_id
+
+  if (!customerId) {
+    res.status(401).json({ message: "Non authentifié." })
+    return
+  }
+
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
+
+  const [
+    {
+      data: [order],
+    },
+    {
+      data: [customer],
+    },
+  ] = await Promise.all([
+    query.graph({
+      entity: "order",
+      fields: ["id", "customer_id", "shipping_address.phone"],
+      filters: { id: order_id },
+    }),
+    query.graph({
+      entity: "customer",
+      fields: ["id", "phone"],
+      filters: { id: customerId },
+    }),
+  ])
+
+  const typedOrder = order as unknown as OrderForClaim | undefined
+
+  if (!typedOrder) {
+    res.status(404).json({ message: "Commande introuvable." })
+    return
+  }
+
+  if (typedOrder.customer_id) {
+    res.status(400).json({ message: "Cette commande est déjà associée à un compte." })
+    return
+  }
+
+  const orderPhone = typedOrder.shipping_address?.phone
+  const customerPhone = (customer as unknown as { phone?: string } | undefined)?.phone
+
+  if (!orderPhone || !customerPhone || normalizePhone(orderPhone) !== normalizePhone(customerPhone)) {
+    res.status(403).json({ message: "Cette commande n'appartient pas à ce compte." })
+    return
+  }
+
+  try {
+    const orderModuleService = req.scope.resolve(Modules.ORDER)
+    await orderModuleService.updateOrders(order_id, { customer_id: customerId })
+    res.status(200).json({ success: true })
+  } catch (error) {
+    logger.error("Échec du rattachement d'une commande au compte créé", error as Error)
+    res.status(500).json({ message: "Une erreur est survenue." })
+  }
+}
+```
+
+- [ ] **Step 7: Register auth middleware for `claim-order`**
+
+In `apps/backend/src/api/middlewares.ts`, add to the `routes` array (the
+`authenticate` import already exists from Task 6):
+
+```typescript
+    {
+      matcher: "/store/customers/me/claim-order",
+      methods: ["POST"],
+      middlewares: [authenticate("customer", ["session", "bearer"])],
+    },
+```
+
+- [ ] **Step 8: Verify the backend still builds**
+
+Run: `cd apps/backend && npx tsc --noEmit -p tsconfig.json`
+Expected: no new errors.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add apps/backend/src/lib/register-customer-from-order.ts apps/backend/src/lib/__tests__/register-customer-from-order.unit.spec.ts apps/backend/src/api/store/register-from-order/route.ts apps/backend/src/api/store/customers/me/claim-order/route.ts apps/backend/src/api/middlewares.ts
+git commit -m "feat(auth): ajoute la création de compte post-commande et le rattachement de commande"
+```
+
+---
+
+## Task 14: Storefront — account creation prompt on order confirmation
+
+**Files:**
+- Modify: `apps/storefront/src/lib/data/orders.ts`
+- Modify: `apps/storefront/src/lib/data/customer.ts`
+- Create: `apps/storefront/src/modules/order/components/create-account-prompt/index.tsx`
+- Modify: `apps/storefront/src/modules/order/templates/order-completed-template.tsx`
+
+**Interfaces:**
+- Consumes: the `register-from-order` and `claim-order` routes from Task 13, and the local (unexported) `completeLogin` function already defined in `customer.ts` by Task 8.
+- Produces: `createAccountFromOrder(_currentState: unknown, formData: FormData): Promise<CustomerAuthState>`, a new `useActionState`-compatible action.
+
+- [ ] **Step 1: Ensure `retrieveOrder` fetches the fields this prompt needs**
+
+Read `apps/storefront/src/lib/data/orders.ts`. Find the `fields` string
+passed to `sdk.client.fetch` inside `retrieveOrder` (currently
+`"*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product"`)
+and add the missing fields:
+
+```typescript
+        fields:
+          "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+customer_id,+email,+shipping_address.first_name,+shipping_address.last_name,+shipping_address.phone",
+```
+
+- [ ] **Step 2: Add `createAccountFromOrder` to `customer.ts`**
+
+Add this new export to `apps/storefront/src/lib/data/customer.ts` (it calls
+the existing, unexported `completeLogin` directly — no export needed for
+that function, since this new code lives in the same file):
+
+```typescript
+type RegisterFromOrderResponse = {
+  phone: string
+  email: string | null
+  first_name?: string
+  last_name?: string
+}
+
+export async function createAccountFromOrder(
+  _currentState: unknown,
+  formData: FormData
+): Promise<CustomerAuthState> {
+  const orderId = formData.get("order_id") as string
+  const password = formData.get("password") as string
+  const confirmPassword = formData.get("confirm_password") as string
+
+  if (password !== confirmPassword) {
+    return { state: "error", error: "Les mots de passe ne correspondent pas." }
+  }
+
+  if (password.length < 8) {
+    return { state: "error", error: "Le mot de passe doit contenir au moins 8 caractères." }
+  }
+
+  let registration: RegisterFromOrderResponse
+
+  try {
+    registration = await sdk.client.fetch<RegisterFromOrderResponse>(
+      "/store/register-from-order",
+      {
+        method: "POST",
+        body: { order_id: orderId, password },
+      }
+    )
+  } catch (error) {
+    return { state: "error", error: String(error) }
+  }
+
+  // completeLogin (Task 8) lit first_name/last_name/phone/email depuis
+  // getPendingCustomer() au moment de créer le client - on les y dépose
+  // avant de l'appeler, exactement comme signup() le fait déjà.
+  await setPendingCustomer({
+    email: registration.email ?? undefined,
+    first_name: registration.first_name,
+    last_name: registration.last_name,
+    phone: registration.phone,
+  } as unknown as PendingCustomer)
+
+  const loginResult = await completeLogin(registration.phone, password)
+
+  if (loginResult?.state !== "success") {
+    return loginResult
+  }
+
+  try {
+    await sdk.client.fetch("/store/customers/me/claim-order", {
+      method: "POST",
+      headers: { ...(await getAuthHeaders()) },
+      body: { order_id: orderId },
+    })
+  } catch {
+    // Le compte est créé et utilisable même si le rattachement de cette
+    // commande précise échoue - ne jamais faire échouer toute l'opération
+    // pour ça.
+  }
+
+  return { state: "success" }
+}
+```
+
+- [ ] **Step 3: Write the `CreateAccountPrompt` component**
+
+```typescript
+// apps/storefront/src/modules/order/components/create-account-prompt/index.tsx
+"use client"
+
+import { useActionState } from "react"
+import Input from "@modules/common/components/input"
+import { Heading } from "@modules/common/components/ui"
+import ErrorMessage from "@modules/checkout/components/error-message"
+import { SubmitButton } from "@modules/checkout/components/submit-button"
+import { createAccountFromOrder } from "@lib/data/customer"
+
+type Props = {
+  orderId: string
+  phone?: string
+}
+
+const CreateAccountPrompt = ({ orderId, phone }: Props) => {
+  const [message, formAction] = useActionState(createAccountFromOrder, null)
+
+  if (message?.state === "success") {
+    return (
+      <div
+        className="w-full rounded-2xl border border-gm-border bg-white p-6 text-center text-sm text-gm-ink"
+        data-testid="create-account-success"
+      >
+        Votre compte a été créé. Vous pouvez suivre vos commandes depuis
+        votre espace client.
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="w-full rounded-2xl border border-gm-border bg-white p-6 small:p-8"
+      data-testid="create-account-prompt"
+    >
+      <Heading level="h2" className="text-xl mb-2">
+        Créez votre compte
+      </Heading>
+      <p className="text-sm text-gm-ink-muted mb-6">
+        {phone
+          ? `Retrouvez toutes vos commandes en créant un compte avec le numéro ${phone}. Choisissez simplement un mot de passe.`
+          : "Retrouvez toutes vos commandes en créant un compte. Choisissez simplement un mot de passe."}
+      </p>
+      <form action={formAction} className="flex flex-col gap-y-2">
+        <input type="hidden" name="order_id" value={orderId} />
+        <Input
+          label="Mot de passe"
+          name="password"
+          type="password"
+          required
+          autoComplete="new-password"
+          data-testid="create-account-password-input"
+        />
+        <Input
+          label="Confirmer le mot de passe"
+          name="confirm_password"
+          type="password"
+          required
+          autoComplete="new-password"
+          data-testid="create-account-confirm-password-input"
+        />
+        <ErrorMessage
+          error={message?.state === "error" ? message.error : null}
+          data-testid="create-account-error"
+        />
+        <SubmitButton className="mt-4" data-testid="create-account-button">
+          Créer mon compte
+        </SubmitButton>
+      </form>
+    </div>
+  )
+}
+
+export default CreateAccountPrompt
+```
+
+- [ ] **Step 4: Render it on the order confirmation page for guest orders**
+
+In `apps/storefront/src/modules/order/templates/order-completed-template.tsx`,
+add the import:
+
+```typescript
+import CreateAccountPrompt from "@modules/order/components/create-account-prompt"
+```
+
+Add, right after the closing `</div>` of the `data-testid="order-complete-container"`
+block (as a sibling inside the outer `flex flex-col ... gap-y-10` container):
+
+```typescript
+        {!order.customer_id && (
+          <CreateAccountPrompt
+            orderId={order.id}
+            phone={(order as unknown as { shipping_address?: { phone?: string } }).shipping_address?.phone}
+          />
+        )}
+```
+
+`order.customer_id` needs to be on the type Next.js infers for `order` —
+`HttpTypes.StoreOrder` already declares `customer_id` as an optional field
+(standard Medusa type, unaffected by this plan), so no cast is needed for
+that specific check; the cast above is only for `shipping_address.phone`,
+which is read the same way `ShippingDetails`/`PaymentDetails` already do
+elsewhere in this same file (check either of those two components' props
+for the exact existing pattern and match it instead of introducing a new
+one, if they already narrow this field cleanly).
+
+- [ ] **Step 5: Verify the storefront still builds**
+
+Run: `cd apps/storefront && npx tsc --noEmit -p tsconfig.json`
+Expected: no new errors.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/storefront/src/lib/data/orders.ts apps/storefront/src/lib/data/customer.ts apps/storefront/src/modules/order/components/create-account-prompt/index.tsx apps/storefront/src/modules/order/templates/order-completed-template.tsx
+git commit -m "feat(auth): propose la création de compte à la fin d'une commande invité"
+```
+
+---
+
+## Rollout (after all 14 tasks)
+
+1. Push the full branch to `staging`, wait for deploy, re-run Task 3 Step 5's
+   login check and Task 3 Step 6's verification-gate check, plus a full
+   manual pass: register with phone only, register with phone + email,
+   confirm login works with both identifiers for the second account.
 2. The WhatsApp code will not actually arrive until the
    `account_verification_code` Meta template is approved — if it isn't yet,
    verify the code path with `curl` directly against
    `/auth/verification/request` and `/auth/verification/confirm` (the code
    is visible in the backend's own generated response before Meta delivery
    is wired in for real use, and in subscriber logs via `docker logs`).
-3. Once verified on staging, merge to `main` and deploy to production
+3. Manually test Task 13/14's flow end-to-end on staging: place a real
+   guest order (no login), land on the confirmation page, confirm the
+   prompt appears, set a password, confirm the account is created and the
+   just-placed order appears under "Mes commandes" — with no WhatsApp
+   message sent for this specific flow (per the approved design).
+4. Once verified on staging, merge to `main` and deploy to production
    following this project's usual circuit.
-4. Update `HANDOFF.md` with a session entry, and update the project's
+5. Update `HANDOFF.md` with a session entry, and update the project's
    memory file for the WhatsApp agent audit / Meta catalog sync topics if
    the new template's approval status becomes relevant there later.
