@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 
 import OrderOverview from "@modules/account/components/order-overview"
-import { notFound } from "next/navigation"
+import { retrieveCustomer } from "@lib/data/customer"
 import { listOrders } from "@lib/data/orders"
 import Divider from "@modules/common/components/divider"
 import TransferRequestForm from "@modules/account/components/transfer-request-form"
@@ -12,10 +12,24 @@ export const metadata: Metadata = {
 }
 
 export default async function Orders() {
+  // Un visiteur non connecté qui atterrit directement sur cette sous-page
+  // (ex. le lien "Suivre ma commande" du pied de page) ne doit jamais voir
+  // "Page not found" : le layout parent affiche déjà @login dans ce cas,
+  // mais Next.js résout d'abord CE composant, et listOrders() échoue
+  // silencieusement sans session (pas d'en-tête d'autorisation) - notFound()
+  // ne doit donc s'appliquer qu'à un vrai échec de récupération, jamais au
+  // simple fait de ne pas être connecté (confirmé en production le
+  // 2026-09-19).
+  const customer = await retrieveCustomer().catch(() => null)
+
+  if (!customer) {
+    return null
+  }
+
   const orders = await listOrders()
 
   if (!orders) {
-    notFound()
+    return null
   }
 
   return (
