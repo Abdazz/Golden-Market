@@ -101,3 +101,4 @@ stg-*.png
 prod-*.png
 *-v2.png
 *-v3.png
+apps/*/tsconfig.tsbuildinfo
