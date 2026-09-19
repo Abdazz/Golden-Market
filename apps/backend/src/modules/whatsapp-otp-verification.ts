@@ -1,11 +1,13 @@
 import crypto from "node:crypto"
 import { ModuleProvider, Modules } from "@medusajs/framework/utils"
+import { MedusaError } from "@medusajs/framework/utils"
 import type {
   IAuthVerificationProvider,
   RequestAuthVerificationDTO,
   RequestAuthVerificationResponse,
   ConfirmAuthVerificationDTO,
   ConfirmAuthVerificationResponse,
+  Context,
 } from "@medusajs/framework/types"
 
 // Code à 6 chiffres plus sensible au brute-force qu'un jeton opaque long :
@@ -46,14 +48,18 @@ export class WhatsappOtpVerificationProvider implements IAuthVerificationProvide
     this.authVerificationService_ = authVerificationService
   }
 
-  async request(data: RequestAuthVerificationDTO): Promise<RequestAuthVerificationResponse> {
+  async request(
+    data: RequestAuthVerificationDTO,
+    sharedContext: Context = {}
+  ): Promise<RequestAuthVerificationResponse> {
     const existing = await this.authVerificationService_.list(
       {
         auth_identity_id: data.auth_identity_id,
         entity_id: data.entity_id,
         entity_type: data.entity_type,
       },
-      { take: 1, skip: 0 }
+      { take: 1, skip: 0 },
+      sharedContext
     )
 
     if (existing.length && existing[0].verified_at) {
@@ -67,54 +73,73 @@ export class WhatsappOtpVerificationProvider implements IAuthVerificationProvide
 
     let verification
     if (existing.length) {
-      verification = await this.authVerificationService_.update({
-        id: existing[0].id,
-        code_provider: data.code_provider,
-        provider_metadata: { code_hash: codeHash },
-        requested_at: requestedAt,
-        verified_at: null,
-      })
+      verification = await this.authVerificationService_.update(
+        {
+          id: existing[0].id,
+          code_provider: data.code_provider,
+          provider_metadata: { code_hash: codeHash },
+          requested_at: requestedAt,
+          verified_at: null,
+        },
+        sharedContext
+      )
     } else {
-      verification = await this.authVerificationService_.create({
-        auth_identity_id: data.auth_identity_id,
-        entity_id: data.entity_id,
-        entity_type: data.entity_type,
-        code_provider: data.code_provider,
-        provider_metadata: { code_hash: codeHash },
-        requested_at: requestedAt,
-        metadata: data.metadata ?? null,
-      })
+      verification = await this.authVerificationService_.create(
+        {
+          auth_identity_id: data.auth_identity_id,
+          entity_id: data.entity_id,
+          entity_type: data.entity_type,
+          code_provider: data.code_provider,
+          provider_metadata: { code_hash: codeHash },
+          requested_at: requestedAt,
+          metadata: data.metadata ?? null,
+        },
+        sharedContext
+      )
     }
 
     return { ...verification, code, expires_at: expiresAt }
   }
 
-  async confirm(data: ConfirmAuthVerificationDTO): Promise<ConfirmAuthVerificationResponse> {
+  async confirm(
+    data: ConfirmAuthVerificationDTO,
+    sharedContext: Context = {}
+  ): Promise<ConfirmAuthVerificationResponse> {
     if (!data.code) {
-      throw new Error("Verification code is required")
+      throw new MedusaError(MedusaError.Types.INVALID_DATA, "Verification code is required")
     }
 
-    const [verification] = await this.authVerificationService_.list({
-      provider_metadata: { code_hash: hashCode(data.code) },
-    })
+    const [verification] = await this.authVerificationService_.list(
+      {
+        provider_metadata: { code_hash: hashCode(data.code) },
+      },
+      undefined,
+      sharedContext
+    )
 
     if (!verification || verification.verified_at) {
-      throw new Error("Verification code is invalid or already used")
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Verification code is invalid or already used")
     }
 
     if (data.code_provider && data.code_provider !== verification.code_provider) {
-      throw new Error(`Verification code does not belong to provider "${data.code_provider}"`)
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        `Verification code does not belong to provider "${data.code_provider}"`
+      )
     }
 
     const expiresAt = new Date(verification.requested_at).getTime() + CODE_TTL_MS
     if (expiresAt <= Date.now()) {
-      throw new Error("Verification code has expired")
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Verification code has expired")
     }
 
-    return await this.authVerificationService_.update({
-      id: verification.id,
-      verified_at: new Date(Date.now()),
-    })
+    return await this.authVerificationService_.update(
+      {
+        id: verification.id,
+        verified_at: new Date(Date.now()),
+      },
+      sharedContext
+    )
   }
 }
 

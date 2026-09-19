@@ -120,4 +120,28 @@ describe("WhatsappOtpVerificationProvider", () => {
 
     await expect(provider.confirm({ code })).rejects.toThrow("Verification code has expired")
   })
+
+  it("met à jour un enregistrement non vérifié existant lors d'une deuxième demande (chemin resend-code)", async () => {
+    const service = createFakeAuthVerificationService()
+    const provider = new WhatsappOtpVerificationProvider({ authVerificationService: service }, {})
+
+    // Première demande
+    const firstResult = await provider.request(baseRequestData)
+    const firstCode = firstResult.code
+    const firstHash = service._records[0].provider_metadata.code_hash
+
+    // Réinitialiser les mocks pour isoler les appels
+    service.create.mockClear()
+    service.update.mockClear()
+
+    // Deuxième demande avec les mêmes identifiants
+    const secondResult = await provider.request(baseRequestData)
+    const secondCode = secondResult.code
+
+    // Assertions pour le chemin "update" (Finding 3)
+    expect(service.update).toHaveBeenCalledTimes(1)
+    expect(service.create).not.toHaveBeenCalled()
+    expect(secondCode).not.toBe(firstCode)
+    expect(service._records[0].provider_metadata.code_hash).not.toBe(firstHash)
+  })
 })
