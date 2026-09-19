@@ -1,4 +1,4 @@
-import { defineMiddlewares, errorHandler } from "@medusajs/framework/http"
+import { authenticate, defineMiddlewares, errorHandler } from "@medusajs/framework/http"
 import type { MedusaRequest, MedusaResponse, MedusaNextFunction } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import * as Sentry from "@sentry/node"
@@ -185,6 +185,11 @@ export default defineMiddlewares({
       matcher: "/auth/verification/request",
       methods: ["POST"],
       middlewares: [whatsappOtpVerificationRateLimitMiddleware],
+    },
+    {
+      matcher: "/store/customers/me/link-email-identity",
+      methods: ["POST"],
+      middlewares: [authenticate("customer", ["session", "bearer"])],
     },
   ],
   errorHandler: (error: any, req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
