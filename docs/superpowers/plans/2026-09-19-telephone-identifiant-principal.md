@@ -4,7 +4,7 @@
 
 **Goal:** Make phone the required, primary identifier for customer accounts (email becomes optional), let a customer log in with either if both are set, and gate phone-based signup behind a 6-digit WhatsApp verification code.
 
-**Architecture:** Reuse Medusa's built-in `emailpass` auth provider for phone identifiers too (it does zero format validation on its "email" parameter — verified in `@medusajs/auth-emailpass` source). When both phone and email are supplied, register two separate `emailpass` auth identities and link both to the same `customer.id` via Medusa's exported `setAuthAppMetadataWorkflow`. Add a new custom Medusa verification provider (`whatsapp-otp`) that generates and checks 6-digit codes, delivered through the WhatsApp webhook that already exists for order confirmations.
+**Architecture:** Reuse Medusa's built-in `@medusajs/medusa/auth-emailpass` package for phone identifiers too (it does zero format validation on its "email" parameter — verified in the source), registered a **second time** under a separate provider id `"phone-pass"` (same code, different routing name — required so `authVerificationsPerActor` can gate phone without also gating the existing email account). When both phone and email are supplied, register two separate auth identities — one via `phone-pass`, one via `emailpass` — and link both to the same `customer.id` via Medusa's exported `setAuthAppMetadataWorkflow`. Add a new custom Medusa verification provider (`whatsapp-otp`) that generates and checks 6-digit codes, delivered through the WhatsApp webhook that already exists for order confirmations, and wire it as the required verification for the `phone-pass` provider via `projectConfig.http.authVerificationsPerActor`.
 
 **Tech Stack:** Medusa v2 (`@medusajs/framework`, `@medusajs/auth`, `@medusajs/core-flows`), Next.js App Router storefront, Jest (`TEST_TYPE=unit`), existing n8n WhatsApp webhook (`N8N_ORDER_CONFIRMATION_WEBHOOK_URL`/`_SECRET`).
 
@@ -419,27 +419,51 @@ git commit -m "feat(auth): ajoute le provider de vérification WhatsApp (code à
 
 **Interfaces:**
 - Consumes: `WhatsappOtpVerificationProvider` from Task 2 (via its file path, not a direct import — Medusa resolves it dynamically from the `resolve` string).
-- Produces: nothing new for later tasks — this only activates what Task 2 built.
+- Produces: the auth provider id `"phone-pass"` (registered here, resolves to the stock `@medusajs/medusa/auth-emailpass` package) — Task 8 calls `sdk.auth.register`/`sdk.auth.login("customer", "phone-pass", ...)` for every phone-based operation, and must use `"emailpass"` (unchanged) for every email-based one. Getting this provider id wrong in Task 8 silently disables the verification gate this task sets up.
 
-**Why this task is dangerous if done wrong:** Medusa's own config merging
-(`@medusajs/utils/dist/common/define-config.js`, read directly to confirm
-this) works by building an array of `[...defaultModules, ...yourModules]`
-and then folding it into an object **keyed by module name, last one wins,
-no deep merge**. Medusa's own default already registers `auth` with
-`options.providers: [{ resolve: "@medusajs/medusa/auth-emailpass", id:
-"emailpass" }]`. The moment this project's own `medusa-config.ts` adds
-*any* `modules.auth` entry, it **completely replaces** that default —
-including silently dropping `emailpass` — unless `emailpass` is
-re-declared explicitly. Getting this wrong breaks **all** customer and
-admin login in production. Step 3 below re-declares it explicitly for
-exactly this reason. Step 4 is a mandatory manual check that login still
-works — do not skip it and do not mark this task done without running it.
+**Why this task is dangerous if done wrong (two separate ways):**
 
-- [ ] **Step 1: Read the current file to confirm the insertion point**
+1. Medusa's own config merging (`@medusajs/utils/dist/common/define-config.js`,
+   read directly to confirm this) works by building an array of
+   `[...defaultModules, ...yourModules]` and then folding it into an object
+   **keyed by module name, last one wins, no deep merge**. Medusa's own
+   default already registers `auth` with `options.providers: [{ resolve:
+   "@medusajs/medusa/auth-emailpass", id: "emailpass" }]`. The moment this
+   project's own `medusa-config.ts` adds *any* `modules.auth` entry, it
+   **completely replaces** that default — including silently dropping
+   `emailpass` — unless `emailpass` is re-declared explicitly. Getting this
+   wrong breaks **all** customer and admin login in production. Step 3
+   below re-declares it explicitly for exactly this reason.
+
+2. Separately: Medusa only actually *enforces* the verification gate at
+   login if `projectConfig.http.authVerificationsPerActor` names the auth
+   provider (`@medusajs/medusa/dist/api/auth/utils/validate-verification.js`,
+   also read directly — the lookup matches **only by provider name**, never
+   by `entity_type`). If phone reused the `"emailpass"` id, there would be
+   no way to require verification for phone without *also* requiring it for
+   email — which would break login for the one existing production account
+   (it has no verification record at all). This is why Step 3 registers
+   the **same** `@medusajs/medusa/auth-emailpass` package a second time
+   under a different id, `"phone-pass"` — same code, separate routing name,
+   so the verification requirement can target phone only. Without this,
+   the whole `whatsapp-otp` provider from Task 2 would be built and wired
+   but **never actually invoked** — a customer would get a real, usable
+   account immediately upon registering a phone, no code required, exactly
+   like the already-dead email verification flow this project discovered
+   during the spec phase.
+
+Step 4 is a mandatory manual check that existing login still works, and
+Step 5 is a mandatory manual check that the phone verification gate is
+actually enforced — do not skip either, and do not mark this task done
+without running both.
+
+- [ ] **Step 1: Read the current file to confirm the insertion points**
 
 Read `apps/backend/medusa-config.ts`. The `modules: { ... }` object currently
 has `cache`, `eventBus`, `file`, `payment`, `notification` keys, no `auth`
-key at all.
+key at all. The `projectConfig.http` object currently has `storeCors`,
+`adminCors`, `authCors`, `jwtSecret`, `cookieSecret` — no
+`authVerificationsPerActor`.
 
 - [ ] **Step 2: Add the `auth` module entry**
 
@@ -453,7 +477,15 @@ Add this key inside the `modules: { ... }` object (alongside `cache`,
     // Medusa fusionne les modules par simple remplacement (dernier gagne, pas
     // de fusion profonde - voir @medusajs/utils/common/define-config.js), donc
     // omettre "emailpass" ici désactiverait silencieusement toute connexion
-    // email/mot de passe existante (clients ET admin). Voir
+    // email/mot de passe existante (clients ET admin).
+    //
+    // "phone-pass" est le MÊME package (@medusajs/medusa/auth-emailpass),
+    // enregistré une seconde fois sous un id de routage différent - pas un
+    // provider distinct. Nécessaire car authVerificationsPerActor
+    // (voir projectConfig.http ci-dessous) ne peut cibler que par nom de
+    // provider, jamais par entity_type : sans ce second id, il serait
+    // impossible d'exiger la vérification pour le téléphone sans l'exiger
+    // aussi pour l'email existant. Voir
     // docs/superpowers/plans/2026-09-19-telephone-identifiant-principal.md
     // Task 3 pour le détail de cette investigation.
     auth: {
@@ -461,6 +493,7 @@ Add this key inside the `modules: { ... }` object (alongside `cache`,
       options: {
         providers: [
           { resolve: '@medusajs/medusa/auth-emailpass', id: 'emailpass' },
+          { resolve: '@medusajs/medusa/auth-emailpass', id: 'phone-pass' },
         ],
         verification: {
           providers: [
@@ -471,12 +504,31 @@ Add this key inside the `modules: { ... }` object (alongside `cache`,
     },
 ```
 
-- [ ] **Step 3: Verify the backend still builds**
+- [ ] **Step 3: Require verification for the `phone-pass` provider**
+
+Add `authVerificationsPerActor` inside the existing `projectConfig.http`
+object (alongside `storeCors`, `jwtSecret`, etc. — do not create a second
+`http` key, extend the existing one):
+
+```typescript
+      // Sans ceci, Medusa ne bloque jamais le login même si un provider de
+      // vérification (whatsapp-otp) existe : la vérification n'est
+      // appliquée que pour les combinaisons actor_type/auth_provider
+      // listées ici (voir @medusajs/medusa/dist/api/auth/utils/validate-verification.js).
+      // Ne cible QUE "phone-pass" : l'email ("emailpass") garde son
+      // comportement actuel (jamais bloqué), pour ne pas casser la
+      // connexion du compte existant en production.
+      authVerificationsPerActor: {
+        customer: [{ entity_type: 'phone', auth_provider: 'phone-pass' }],
+      },
+```
+
+- [ ] **Step 4: Verify the backend still builds**
 
 Run: `cd apps/backend && npx tsc --noEmit -p tsconfig.json`
 Expected: no new errors.
 
-- [ ] **Step 4: MANDATORY — verify existing login still works before continuing**
+- [ ] **Step 5: MANDATORY — verify existing login still works before continuing**
 
 This step cannot be skipped or deferred to a later task.
 
@@ -499,9 +551,33 @@ curl -s -X POST "https://staging.golden-market.co/auth/customer/emailpass" \
 Expected: `HTTP:200` with a JWT token in the body (not a 401/500). If there
 is no existing staging customer to test with, register one first via the
 same endpoint's `/register` path, or via the storefront's own sign-up form,
-then retry. Do not proceed to Task 4 until this returns 200.
+then retry. Do not proceed until this returns 200.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: MANDATORY — verify the phone-pass verification gate actually blocks login**
+
+```bash
+# Register a throwaway phone-pass identity directly:
+curl -s -X POST "https://staging.golden-market.co/auth/customer/phone-pass/register" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"+22670009999","password":"test-password-123"}' \
+  -w "\nHTTP:%{http_code}\n"
+
+# Attempt to log in with it immediately (no verification confirmed yet):
+curl -s -X POST "https://staging.golden-market.co/auth/customer/phone-pass" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"+22670009999","password":"test-password-123"}' \
+  -w "\nHTTP:%{http_code}\n"
+```
+
+Expected on the second call: HTTP 200 (Medusa returns 200 with a body
+shape, not an error status) but the **body** must contain
+`"verification_required": true`, not a plain JWT string — this confirms
+Medusa is actually gating this specific provider. If it returns a plain
+token instead, Step 2 or Step 3 above has a mistake — stop and re-check
+before continuing to any later task, since Tasks 2, 4, and 5 all become
+pointless without this gate actually working.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add apps/backend/medusa-config.ts
@@ -1405,7 +1481,7 @@ export async function resendPhoneVerification(phone: string): Promise<{ success:
   }
 
   try {
-    const loginResult = await sdk.auth.login("customer", "emailpass", {
+    const loginResult = await sdk.auth.login("customer", "phone-pass", {
       email: phone,
       password: (pending as unknown as { password?: string }).password ?? "",
     })
@@ -1469,7 +1545,10 @@ export async function signup(
   }
 
   try {
-    await sdk.auth.register("customer", "emailpass", {
+    // "phone-pass" (pas "emailpass") : voir Task 3 pour pourquoi le
+    // téléphone utilise un id de provider séparé (même package, requis pour
+    // que la vérification WhatsApp cible uniquement le téléphone).
+    await sdk.auth.register("customer", "phone-pass", {
       email: phone,
       password,
     })
@@ -1516,9 +1595,47 @@ Add the import at the top of `customer.ts`:
 import { normalizePhone } from "@lib/util/normalize-phone"
 ```
 
-- [ ] **Step 6: Update `completeLogin` to branch on `verification_required` for phone vs. email, and to link an email identity when present**
+- [ ] **Step 6: Update `completeLogin` to call the right provider, branch on `verification_required` for phone vs. email, and link an email identity when present**
 
-Find this block inside `completeLogin`:
+Find the top of `completeLogin`:
+
+```typescript
+async function completeLogin(
+  email: string,
+  password: string
+): Promise<CustomerAuthState> {
+  let result: Awaited<ReturnType<typeof sdk.auth.login>>
+
+  try {
+    result = await sdk.auth.login("customer", "emailpass", { email, password })
+  } catch (error) {
+    return { state: "error", error: String(error) }
+  }
+```
+
+Replace with:
+
+```typescript
+async function completeLogin(
+  email: string,
+  password: string
+): Promise<CustomerAuthState> {
+  // "email" ici est en réalité soit un vrai email, soit un numéro de
+  // téléphone normalisé (toujours préfixé "+") - voir Task 3 pour pourquoi
+  // ça détermine un provider d'authentification différent ("phone-pass" vs
+  // "emailpass"), pas juste une différence cosmétique de nom de champ.
+  const provider = email.startsWith("+") ? "phone-pass" : "emailpass"
+
+  let result: Awaited<ReturnType<typeof sdk.auth.login>>
+
+  try {
+    result = await sdk.auth.login("customer", provider, { email, password })
+  } catch (error) {
+    return { state: "error", error: String(error) }
+  }
+```
+
+Find this block further down inside the same function:
 
 ```typescript
   if (
@@ -1543,12 +1660,7 @@ Replace with:
     "verification_required" in result &&
     result.verification_required
   ) {
-    // "email" ici est en réalité soit un vrai email (login direct par
-    // email), soit un numéro de téléphone normalisé (inscription/login par
-    // téléphone) - le nom du paramètre reste "email" car c'est le champ que
-    // le provider emailpass attend tel quel, voir la spec pour le détail de
-    // cette réutilisation volontaire.
-    const isPhone = email.startsWith("+")
+    const isPhone = provider === "phone-pass"
 
     try {
       if (isPhone) {
@@ -1601,7 +1713,7 @@ Replace with:
 ```typescript
   if (!customerExists) {
     const pending = await getPendingCustomer()
-    const isPhoneLogin = email.startsWith("+")
+    const isPhoneLogin = provider === "phone-pass"
 
     try {
       const createdCustomer = await sdk.store.customer.create(
@@ -1618,7 +1730,7 @@ Replace with:
         { authorization: `Bearer ${token}` }
       )
 
-      token = (await sdk.auth.login("customer", "emailpass", {
+      token = (await sdk.auth.login("customer", provider, {
         email,
         password,
       })) as string
