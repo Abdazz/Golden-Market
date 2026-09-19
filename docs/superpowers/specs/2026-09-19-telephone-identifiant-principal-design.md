@@ -50,31 +50,82 @@ mécanisme email supposé déjà fonctionnel.
   compte, WhatsApp ou storefront) — hors champ, ce flux ne passe pas par
   l'auth module.
 
-## Décision : réutiliser `emailpass` pour le téléphone, pas de provider dédié
+## Décision : réutiliser `emailpass` pour le téléphone, sous un second `id`
 
 Vérifié dans le code source (`@medusajs/auth-emailpass`) : le provider ne
 valide jamais le format de son paramètre `email` — il l'utilise tel quel
 comme `entity_id` pour le hash du mot de passe et la recherche
 d'identité. Rien ne l'empêche donc de recevoir un numéro de téléphone à la
-place d'un email. Un second provider dédié au téléphone dupliquerait ~180
-lignes de hashing scrypt pour zéro bénéfice fonctionnel.
+place d'un email. Écrire un second provider dédié au téléphone dupliquerait
+~180 lignes de hashing scrypt pour zéro bénéfice fonctionnel.
+
+**Mais** un second enregistrement du même package sous un `id` différent
+est nécessaire, pas juste une réutilisation du même `id` "emailpass" — voir
+la décision suivante sur `authVerificationsPerActor`, qui ne peut cibler
+que par nom de provider, pas par `entity_type`. Deux entrées dans
+`modules.auth.options.providers`, toutes deux résolues vers
+`@medusajs/medusa/auth-emailpass` :
+- `{ resolve: "@medusajs/medusa/auth-emailpass", id: "emailpass" }` (déjà
+  existant, pour l'email).
+- `{ resolve: "@medusajs/medusa/auth-emailpass", id: "phone-pass" }`
+  (nouveau, même code, seul l'`id` de routage change — la route HTTP
+  devient `/auth/customer/phone-pass` au lieu de `/auth/customer/emailpass`).
 
 Conséquence : le champ « email » envoyé à `sdk.auth.register`/`sdk.auth.login`
 côté téléphone est en réalité le numéro de téléphone normalisé (voir
-normalisation ci-dessous) — un détail d'implémentation invisible depuis le
+normalisation ci-dessous), et le provider passé est `"phone-pass"` plutôt
+que `"emailpass"` — un détail d'implémentation invisible depuis le
 storefront et l'admin (le vrai champ `customer.phone` reste correct et
 distinct).
+
+## Décision : `authVerificationsPerActor` ne peut cibler que par provider
+
+Vérifié dans le code source (`@medusajs/medusa/dist/api/auth/utils/validate-verification.js`) :
+la vérification n'est déclenchée par Medusa au login que si
+`projectConfig.http.authVerificationsPerActor.customer` contient une entrée
+dont `auth_provider` correspond au provider utilisé — la recherche se fait
+**uniquement par nom de provider**, jamais par `entity_type`. Si téléphone
+et email partageaient le même `id` de provider ("emailpass"), il serait
+impossible d'exiger la vérification pour le téléphone sans l'exiger aussi
+pour l'email (et donc casser la connexion du seul compte existant en
+production, qui n'a pas d'entrée `auth_verification` du tout).
+
+C'est la vraie raison du second `id` de provider ci-dessus : avec
+`auth_provider: "phone-pass"` distinct d'`"emailpass"`, la configuration
+
+```ts
+projectConfig: {
+  http: {
+    authVerificationsPerActor: {
+      customer: [{ entity_type: "phone", auth_provider: "phone-pass" }],
+    },
+  },
+},
+```
+
+n'affecte que les identités enregistrées via `phone-pass` — l'email garde
+son comportement actuel (jamais bloqué, cohérent avec le constat que la
+vérification email n'a de toute façon jamais été appliquée). **Sans cette
+configuration, le provider de vérification whatsapp-otp serait développé
+mais jamais réellement invoqué par Medusa** - un compte téléphone serait
+créé immédiatement sans jamais passer par la case code WhatsApp, exactement
+comme le flux email mort aujourd'hui. Découvert en lisant le code source
+pendant l'écriture du plan d'implémentation, après l'approbation de cette
+spec — corrigé ici plutôt que silencieusement dans le seul plan, pour que
+les deux documents restent cohérents.
 
 ## Décision : deux identités liées au même client
 
 Quand téléphone ET email sont fournis, on enregistre **deux
-`auth_identity`** distinctes via `emailpass` (une par `entity_id` :
-téléphone, puis email), toutes deux liées au **même** `customer.id` via
-`setAuthAppMetadataStep` (step déjà exporté par `@medusajs/core-flows`,
-utilisé nativement par `createCustomerAccountWorkflow`). La connexion reste
-un formulaire à un seul champ : `emailpass.authenticate()` fait une simple
-recherche par `entity_id`, peu importe que la chaîne ressemble à un
-téléphone ou à un email.
+`auth_identity`** distinctes — une via `phone-pass` (`entity_id` = numéro
+normalisé) et une via `emailpass` (`entity_id` = email) — toutes deux liées
+au **même** `customer.id` via `setAuthAppMetadataWorkflow` (déjà exporté
+par `@medusajs/core-flows`, utilisé nativement par
+`createCustomerAccountWorkflow`). Le client ne voit qu'un seul champ de
+connexion : c'est le **storefront** qui détermine quel provider appeler
+(`phone-pass` ou `emailpass`) selon que la saisie ressemble à un téléphone
+ou à un email, avant d'appeler `sdk.auth.login` — `authenticate()` lui-même
+reste une simple recherche par `entity_id`, peu importe le provider.
 
 ## Décision : normalisation du numéro de téléphone
 
