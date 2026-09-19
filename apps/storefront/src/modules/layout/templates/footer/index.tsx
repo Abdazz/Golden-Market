@@ -6,9 +6,10 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 // Footer conforme à la maquette ("Golden Market · Panier" / "Mon compte",
 // artifacts claude.ai) : marque + tagline, puis colonnes Boutique / Aide /
 // Contact avec les vrais numéros, et une barre inférieure copyright + liens
-// légaux. "Moyens de paiement" et "Livraison et retours" pointent vers la
-// FAQ, qui décrit réellement les 3 méthodes de paiement disponibles (palier
-// 3 puis palier 4 du backlog 2026-09-02).
+// légaux. "Moyens de paiement" et "Livraison et retours" pointaient vers la
+// FAQ faute de page dédiée - retirés le 2026-09-19 (remarque du propriétaire :
+// un lien qui pointe vers une page sans rapport avec son intitulé est pire
+// que pas de lien).
 const SHOP_LINKS = [
   { label: "Toutes les catégories", href: "/store" },
   { label: "Promotions", href: "/store" },
@@ -18,8 +19,6 @@ const SHOP_LINKS = [
 const HELP_LINKS = [
   { label: "Suivre ma commande", href: "/account/orders" },
   { label: "Questions fréquentes", href: "/faq" },
-  { label: "Moyens de paiement", href: "/faq" },
-  { label: "Livraison et retours", href: "/faq" },
 ]
 
 export default function Footer() {
