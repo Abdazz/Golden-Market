@@ -18,9 +18,50 @@ module.exports = defineConfig({
       authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET,
       cookieSecret: process.env.COOKIE_SECRET,
+      // Sans ceci, Medusa ne bloque jamais le login même si un provider de
+      // vérification (whatsapp-otp) existe : la vérification n'est
+      // appliquée que pour les combinaisons actor_type/auth_provider
+      // listées ici (voir @medusajs/medusa/dist/api/auth/utils/validate-verification.js).
+      // Ne cible QUE "phone-pass" : l'email ("emailpass") garde son
+      // comportement actuel (jamais bloqué), pour ne pas casser la
+      // connexion du compte existant en production.
+      authVerificationsPerActor: {
+        customer: [{ entity_type: 'phone', auth_provider: 'phone-pass' }],
+      },
     }
   },
   modules: {
+    // Le module auth n'a jamais été configuré explicitement avant ce jour
+    // (Medusa enregistre "emailpass" par défaut tout seul). Le réenregistrer
+    // ici EST OBLIGATOIRE dès qu'on ajoute quoi que ce soit sous modules.auth :
+    // Medusa fusionne les modules par simple remplacement (dernier gagne, pas
+    // de fusion profonde - voir @medusajs/utils/common/define-config.js), donc
+    // omettre "emailpass" ici désactiverait silencieusement toute connexion
+    // email/mot de passe existante (clients ET admin).
+    //
+    // "phone-pass" est le MÊME package (@medusajs/medusa/auth-emailpass),
+    // enregistré une seconde fois sous un id de routage différent - pas un
+    // provider distinct. Nécessaire car authVerificationsPerActor
+    // (voir projectConfig.http ci-dessus) ne peut cibler que par nom de
+    // provider, jamais par entity_type : sans ce second id, il serait
+    // impossible d'exiger la vérification pour le téléphone sans l'exiger
+    // aussi pour l'email existant. Voir
+    // docs/superpowers/plans/2026-09-19-telephone-identifiant-principal.md
+    // Task 3 pour le détail de cette investigation.
+    auth: {
+      resolve: '@medusajs/medusa/auth',
+      options: {
+        providers: [
+          { resolve: '@medusajs/medusa/auth-emailpass', id: 'emailpass' },
+          { resolve: '@medusajs/medusa/auth-emailpass', id: 'phone-pass' },
+        ],
+        verification: {
+          providers: [
+            { resolve: './src/modules/whatsapp-otp-verification', id: 'whatsapp-otp' },
+          ],
+        },
+      },
+    },
     // Cache et event bus sur Redis (requis en prod ; le défaut in-memory
     // ne survit pas aux redémarrages et casse les subscribers/workflows)
     cache: {
