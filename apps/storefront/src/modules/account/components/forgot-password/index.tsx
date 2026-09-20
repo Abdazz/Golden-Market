@@ -20,9 +20,14 @@ const ForgotPassword = ({ setCurrentView }: Props) => {
       data-testid="forgot-password-page"
     >
       <h1 className="font-display font-bold text-xl text-gm-ink mb-2">Mot de passe oublié</h1>
+      {/* La réinitialisation ne fonctionne aujourd'hui que pour un compte
+          ayant un email : voir docs/superpowers/specs/2026-09-19-telephone-identifiant-principal-design.md,
+          section Non-objectifs. Le libellé reste volontairement générique
+          (cohérent avec le reste du flux de connexion) plutôt que d'exposer
+          cette limitation interne au client. */}
       <p className="text-center text-sm text-gm-ink-muted mb-6">
-        Indiquez votre email, nous vous enverrons un lien pour réinitialiser
-        votre mot de passe.
+        Indiquez votre téléphone (WhatsApp) ou email, nous vous enverrons un
+        lien pour réinitialiser votre mot de passe.
       </p>
 
       {message?.state === "success" ? (
