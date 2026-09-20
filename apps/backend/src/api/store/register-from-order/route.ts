@@ -2,16 +2,21 @@ import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { normalizePhone } from "../../../lib/normalize-phone"
 import { registerCustomerFromOrder } from "../../../lib/register-customer-from-order"
+import {
+  verifyOrderRegistrationToken,
+  type OrderRegistrationTokenMetadata,
+} from "../../../lib/order-registration-token"
 
 type OrderForRegistration = {
   id: string
   customer_id: string | null
   email: string | null
+  metadata?: OrderRegistrationTokenMetadata | null
   shipping_address?: { first_name?: string; last_name?: string; phone?: string }
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
-  const { order_id, password } = (req.body as Record<string, unknown>) ?? {}
+  const { order_id, password, registration_token } = (req.body as Record<string, unknown>) ?? {}
 
   if (typeof order_id !== "string" || !order_id) {
     res.status(400).json({ message: "order_id requis." })
@@ -23,6 +28,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return
   }
 
+  if (typeof registration_token !== "string" || !registration_token) {
+    res.status(400).json({ message: "registration_token requis." })
+    return
+  }
+
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
 
@@ -30,7 +40,15 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     data: [order],
   } = await query.graph({
     entity: "order",
-    fields: ["id", "customer_id", "email", "shipping_address.first_name", "shipping_address.last_name", "shipping_address.phone"],
+    fields: [
+      "id",
+      "customer_id",
+      "email",
+      "metadata",
+      "shipping_address.first_name",
+      "shipping_address.last_name",
+      "shipping_address.phone",
+    ],
     filters: { id: order_id },
   })
 
@@ -46,6 +64,13 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return
   }
 
+  const tokenCheck = verifyOrderRegistrationToken(typedOrder.metadata, registration_token)
+
+  if (!tokenCheck.valid) {
+    res.status(403).json({ message: tokenCheck.reason })
+    return
+  }
+
   const rawPhone = typedOrder.shipping_address?.phone
 
   if (!rawPhone) {
@@ -55,6 +80,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   const phone = normalizePhone(rawPhone)
   const authModuleService = req.scope.resolve(Modules.AUTH)
+  const orderModuleService = req.scope.resolve(Modules.ORDER)
 
   try {
     const result = await registerCustomerFromOrder(authModuleService, { phone, password })
@@ -63,6 +89,17 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       res.status(400).json({ message: result.error })
       return
     }
+
+    // Jeton à usage unique : marqué consommé seulement après la création
+    // réussie du compte, pour permettre un nouvel essai si l'étape
+    // précédente échoue pour une raison récupérable (ex: identité déjà
+    // existante avec un mot de passe différent).
+    await orderModuleService.updateOrders(order_id, {
+      metadata: {
+        ...typedOrder.metadata,
+        registration_token_used_at: new Date().toISOString(),
+      },
+    })
 
     res.status(200).json({
       phone,
