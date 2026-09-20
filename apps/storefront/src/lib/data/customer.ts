@@ -21,6 +21,9 @@ import {
   setPendingCustomer,
 } from "./cookies"
 
+const PHONE_AUTH_PROVIDER = "phone-pass"
+const EMAIL_AUTH_PROVIDER = "emailpass"
+
 export type CustomerAuthState =
   | { state: "error"; error: string }
   | { state: "verification_required"; email: string }
@@ -62,9 +65,9 @@ export async function resendPhoneVerification(phone: string): Promise<{ success:
   }
 
   try {
-    const loginResult = await sdk.auth.login("customer", "phone-pass", {
+    const loginResult = await sdk.auth.login("customer", PHONE_AUTH_PROVIDER, {
       email: phone,
-      password: (pending as unknown as { password?: string }).password ?? "",
+      password: pending.password ?? "",
     })
 
     if (typeof loginResult !== "string") {
@@ -91,7 +94,7 @@ export async function confirmPhoneVerification(code: string): Promise<CustomerAu
     return { state: "error", error: "Session d'inscription expirée, recommencez." }
   }
 
-  return completeLogin(pending.phone, (pending as unknown as { password?: string }).password ?? "")
+  return completeLogin(pending.phone, pending.password ?? "")
 }
 
 export const retrieveCustomer =
@@ -167,12 +170,15 @@ export async function signup(
     // "phone-pass" (pas "emailpass") : voir Task 3 pour pourquoi le
     // téléphone utilise un id de provider séparé (même package, requis pour
     // que la vérification WhatsApp cible uniquement le téléphone).
-    await sdk.auth.register("customer", "phone-pass", {
+    await sdk.auth.register("customer", PHONE_AUTH_PROVIDER, {
       email: phone,
       password,
     })
   } catch (error) {
     const fetchError = error as FetchError
+    // Une identité "phone-pass" existante et non finalisée pour ce numéro est
+    // attendue et gérée : par exemple un client qui recommence l'inscription
+    // après avoir quitté avant de terminer la vérification WhatsApp.
     if (
       fetchError.statusText !== "Unauthorized" ||
       fetchError.message !== "Identity with email already exists"
@@ -221,7 +227,7 @@ async function completeLogin(
   // téléphone normalisé (toujours préfixé "+") - voir Task 3 pour pourquoi
   // ça détermine un provider d'authentification différent ("phone-pass" vs
   // "emailpass"), pas juste une différence cosmétique de nom de champ.
-  const provider = email.startsWith("+") ? "phone-pass" : "emailpass"
+  const provider = email.startsWith("+") ? PHONE_AUTH_PROVIDER : EMAIL_AUTH_PROVIDER
 
   let result: Awaited<ReturnType<typeof sdk.auth.login>>
 
@@ -247,7 +253,7 @@ async function completeLogin(
     "verification_required" in result &&
     result.verification_required
   ) {
-    const isPhone = provider === "phone-pass"
+    const isPhone = provider === PHONE_AUTH_PROVIDER
 
     try {
       if (isPhone) {
@@ -285,7 +291,7 @@ async function completeLogin(
 
   if (!customerExists) {
     const pending = await getPendingCustomer()
-    const isPhoneLogin = provider === "phone-pass"
+    const isPhoneLogin = provider === PHONE_AUTH_PROVIDER
 
     try {
       const createdCustomer = await sdk.store.customer.create(
