@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect } from "react"
 import Input from "@modules/common/components/input"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -16,6 +16,12 @@ type Props = {
 const Register = ({ setCurrentView }: Props) => {
   const [message, formAction] = useActionState(signup, null)
 
+  useEffect(() => {
+    if (message?.state === "phone_verification_required") {
+      setCurrentView(LOGIN_VIEW.VERIFY_PHONE)
+    }
+  }, [message, setCurrentView])
+
   return (
     <div
       className="max-w-sm w-full flex flex-col items-center rounded-2xl border border-gm-border bg-white p-6 small:p-8"
@@ -28,16 +34,6 @@ const Register = ({ setCurrentView }: Props) => {
         Créez votre profil pour profiter d&apos;une meilleure expérience
         d&apos;achat.
       </p>
-      {message?.state === "verification_required" && (
-        <div
-          className="w-full mb-6 text-center text-sm text-gm-ink bg-gm-ivoire-2 border border-gm-border rounded-lg p-4"
-          data-testid="register-verification-message"
-        >
-          Nous avons envoyé un lien de vérification à{" "}
-          <strong>{message.email}</strong>. Vérifiez votre boîte de
-          réception, puis connectez-vous.
-        </div>
-      )}
       <form className="w-full flex flex-col" action={formAction}>
         <div className="flex flex-col w-full gap-y-2">
           <Input
@@ -55,17 +51,17 @@ const Register = ({ setCurrentView }: Props) => {
             data-testid="last-name-input"
           />
           <Input
-            label="Email"
+            label="Email (facultatif)"
             name="email"
-            required
             type="email"
             autoComplete="email"
             data-testid="email-input"
           />
           <Input
-            label="Téléphone"
+            label="Téléphone (WhatsApp)"
             name="phone"
             type="tel"
+            required
             autoComplete="tel"
             data-testid="phone-input"
           />
