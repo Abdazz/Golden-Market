@@ -191,6 +191,11 @@ export default defineMiddlewares({
       methods: ["POST"],
       middlewares: [authenticate("customer", ["session", "bearer"])],
     },
+    {
+      matcher: "/store/customers/me/claim-order",
+      methods: ["POST"],
+      middlewares: [authenticate("customer", ["session", "bearer"])],
+    },
   ],
   errorHandler: (error: any, req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
     Sentry.captureException(error)
