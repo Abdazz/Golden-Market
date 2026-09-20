@@ -126,6 +126,23 @@ cd apps/backend
 
 Ces deux scripts ne sont **pas** joués automatiquement par `medusa db:migrate` ni par les workflows de déploiement — nécessaires sur tout environnement (nouvelle machine de dev, nouveau volume Postgres, nouvel environnement de staging) qui n'a jamais reçu ces schémas, sans quoi le subscriber d'embeddings logue une erreur à chaque sauvegarde produit et la route `/store/products-semantic-search` répond 500. Nécessite l'extension Postgres `pgvector` disponible sur l'image utilisée par `docker-compose.yml`/`docker-compose.prod.yml` (absente de l'image `postgres:16-alpine` par défaut au moment d'écrire cette entrée). Voir `docs/superpowers/specs/2026-09-17-recherche-semantique-produits-design.md`.
 
+### Téléphone comme identifiant principal du compte client
+
+Le téléphone est l'identifiant d'authentification principal (obligatoire à
+l'inscription), l'email est facultatif — voir
+`docs/superpowers/specs/2026-09-19-telephone-identifiant-principal-design.md`.
+Nouveau provider de vérification Medusa `whatsapp-otp`
+(`apps/backend/src/modules/whatsapp-otp-verification.ts`, code à 6 chiffres,
+livré par le webhook n8n existant). **Nécessite le template Meta
+`account_verification_code` approuvé** pour fonctionner en conditions
+réelles - sans lui, le code est généré et stocké côté backend mais jamais
+livré au client.
+
+**Non traité, limite connue et documentée** : réinitialisation de mot de
+passe pour un compte inscrit uniquement par téléphone (le subscriber
+`auth-password-reset.ts` traite l'identifiant comme un email et échoue
+silencieusement sinon).
+
 ## Medusa Skills & MCP Server
 
 These are optional but strongly recommended — they give documentation-backed answers instead of guesses about Medusa APIs. **Use them when available; if they are not, mention to the user that installing them meaningfully improves development on this project.**
