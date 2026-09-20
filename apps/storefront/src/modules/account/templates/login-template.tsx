@@ -5,6 +5,7 @@ import { useState } from "react"
 import Register from "@modules/account/components/register"
 import Login from "@modules/account/components/login"
 import ForgotPassword from "@modules/account/components/forgot-password"
+import VerifyPhone from "@modules/account/components/verify-phone"
 
 export enum LOGIN_VIEW {
   SIGN_IN = "sign-in",
@@ -26,6 +27,9 @@ const LoginTemplate = () => {
       )}
       {currentView === LOGIN_VIEW.FORGOT_PASSWORD && (
         <ForgotPassword setCurrentView={setCurrentView} />
+      )}
+      {currentView === LOGIN_VIEW.VERIFY_PHONE && (
+        <VerifyPhone setCurrentView={setCurrentView} />
       )}
     </div>
   )
