@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState, useState, useEffect } from "react"
 import Input from "@modules/common/components/input"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -27,11 +27,14 @@ const VerifyPhone = ({ setCurrentView }: Props) => {
       await resendPhoneVerification(pending.phone)
     }
     setResendState("sent")
+    setTimeout(() => setResendState("idle"), 5000)
   }
 
-  if (message?.state === "success") {
-    setCurrentView(LOGIN_VIEW.SIGN_IN)
-  }
+  useEffect(() => {
+    if (message?.state === "success") {
+      setCurrentView(LOGIN_VIEW.SIGN_IN)
+    }
+  }, [message, setCurrentView])
 
   return (
     <div
