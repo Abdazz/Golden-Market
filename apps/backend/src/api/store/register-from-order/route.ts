@@ -83,7 +83,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const orderModuleService = req.scope.resolve(Modules.ORDER)
 
   try {
-    const result = await registerCustomerFromOrder(authModuleService, { phone, password })
+    const result = await registerCustomerFromOrder(authModuleService, req.scope, { phone, password })
 
     if (!result.success) {
       res.status(400).json({ message: result.error })
