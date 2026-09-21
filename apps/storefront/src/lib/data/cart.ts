@@ -12,6 +12,7 @@ import {
   getCartId,
   removeCartId,
   setCartId,
+  setOrderRegistrationProof,
 } from "./cookies"
 import { getRegion } from "./regions"
 import { getLocale } from "./locale-actions"
@@ -417,6 +418,19 @@ export async function placeOrder(cartId?: string) {
 
     const orderCacheTag = await getCacheTag("orders")
     revalidateTag(orderCacheTag)
+
+    // Ajouté par l'addendum "jeton de création de compte" du Task 13 :
+    // présent uniquement pour une commande invité, jamais placé dans l'URL.
+    const registrationToken = (
+      cartRes as unknown as { registration_token?: string }
+    ).registration_token
+
+    if (registrationToken) {
+      await setOrderRegistrationProof({
+        orderId: cartRes.order.id,
+        token: registrationToken,
+      })
+    }
 
     removeCartId()
     redirect(`/${countryCode}/order/${cartRes?.order.id}/confirmed`)

@@ -29,7 +29,7 @@ const LoginTemplate = () => {
         <ForgotPassword setCurrentView={setCurrentView} />
       )}
       {currentView === LOGIN_VIEW.VERIFY_PHONE && (
-        <VerifyPhone setCurrentView={setCurrentView} />
+        <VerifyPhone onVerified={() => setCurrentView(LOGIN_VIEW.SIGN_IN)} />
       )}
     </div>
   )

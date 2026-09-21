@@ -12,10 +12,12 @@ import {
   getCacheOptions,
   getCacheTag,
   getCartId,
+  getOrderRegistrationProof,
   getPendingCustomer,
   PendingCustomer,
   removeAuthToken,
   removeCartId,
+  removeOrderRegistrationProof,
   removePendingCustomer,
   setAuthToken,
   setPendingCustomer,
@@ -94,7 +96,87 @@ export async function confirmPhoneVerification(code: string): Promise<CustomerAu
     return { state: "error", error: "Session d'inscription expirée, recommencez." }
   }
 
-  return completeLogin(pending.phone, pending.password ?? "")
+  const loginResult = await completeLogin(pending.phone, pending.password ?? "")
+
+  if (loginResult?.state === "success" && pending.orderIdToClaim) {
+    try {
+      await sdk.client.fetch("/store/customers/me/claim-order", {
+        method: "POST",
+        headers: { ...(await getAuthHeaders()) },
+        body: { order_id: pending.orderIdToClaim },
+      })
+    } catch {
+      // Le compte est créé et utilisable même si le rattachement de cette
+      // commande précise échoue - ne jamais faire échouer toute l'opération
+      // pour ça.
+    }
+  }
+
+  return loginResult
+}
+
+type RegisterFromOrderResponse = {
+  phone: string
+  email: string | null
+  first_name?: string
+  last_name?: string
+}
+
+// register-from-order (Task 13, Addendum 2) crée l'identité et envoie un
+// vrai code WhatsApp - elle ne connecte plus le client elle-même. On dépose
+// tout ce dont confirmPhoneVerification aura besoin (y compris le mot de
+// passe et la commande à rattacher) dans le cookie pending, exactement
+// comme signup() le fait déjà, puis on retourne le même état
+// "phone_verification_required" que l'inscription normale : la page de
+// confirmation de commande peut donc réutiliser VerifyPhone tel quel.
+export async function createAccountFromOrder(
+  _currentState: unknown,
+  formData: FormData
+): Promise<CustomerAuthState> {
+  const orderId = formData.get("order_id") as string
+  const password = formData.get("password") as string
+  const confirmPassword = formData.get("confirm_password") as string
+
+  if (password !== confirmPassword) {
+    return { state: "error", error: "Les mots de passe ne correspondent pas." }
+  }
+
+  if (password.length < 8) {
+    return { state: "error", error: "Le mot de passe doit contenir au moins 8 caractères." }
+  }
+
+  const proof = await getOrderRegistrationProof()
+  const registrationToken = proof?.orderId === orderId ? proof.token : ""
+
+  let registration: RegisterFromOrderResponse
+
+  try {
+    registration = await sdk.client.fetch<RegisterFromOrderResponse>(
+      "/store/register-from-order",
+      {
+        method: "POST",
+        body: { order_id: orderId, password, registration_token: registrationToken },
+      }
+    )
+  } catch (error) {
+    return { state: "error", error: String(error) }
+  }
+
+  // Le jeton est à usage unique côté backend (marqué consommé après cet
+  // appel réussi) - on nettoie le cookie ici pour éviter toute tentative de
+  // réutilisation, même si elle échouerait déjà côté serveur.
+  await removeOrderRegistrationProof()
+
+  await setPendingCustomer({
+    email: registration.email ?? undefined,
+    first_name: registration.first_name,
+    last_name: registration.last_name,
+    phone: registration.phone,
+    password,
+    orderIdToClaim: orderId,
+  } as unknown as PendingCustomer)
+
+  return { state: "phone_verification_required", phone: registration.phone }
 }
 
 export const retrieveCustomer =

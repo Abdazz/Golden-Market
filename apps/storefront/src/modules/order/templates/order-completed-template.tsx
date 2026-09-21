@@ -10,6 +10,7 @@ import OrderDetails from "@modules/order/components/order-details"
 import OrderTracker from "@modules/analytics/components/order-tracker"
 import ShippingDetails from "@modules/order/components/shipping-details"
 import PaymentDetails from "@modules/order/components/payment-details"
+import CreateAccountPrompt from "@modules/order/components/create-account-prompt"
 import { HttpTypes } from "@medusajs/types"
 
 type OrderCompletedTemplateProps = {
@@ -69,6 +70,12 @@ export default async function OrderCompletedTemplate({
           <PaymentDetails order={order} />
           <Help />
         </div>
+        {!order.customer_id && (
+          <CreateAccountPrompt
+            orderId={order.id}
+            phone={order.shipping_address?.phone}
+          />
+        )}
       </div>
     </div>
   )

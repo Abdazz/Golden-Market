@@ -72,6 +72,7 @@ export type PendingCustomer = {
   last_name?: string
   phone?: string
   password?: string
+  orderIdToClaim?: string
 }
 
 // During the email verification flow the customer record isn't created until
@@ -106,6 +107,47 @@ export const getPendingCustomer = async (): Promise<PendingCustomer | null> => {
 export const removePendingCustomer = async () => {
   const cookies = await nextCookies()
   cookies.set("_medusa_pending_customer", "", {
+    maxAge: -1,
+  })
+}
+
+export type OrderRegistrationProof = {
+  orderId: string
+  token: string
+}
+
+// Doit rester cohérent avec ORDER_REGISTRATION_TOKEN_TTL_MS côté backend
+// (apps/backend/src/lib/order-registration-token.ts).
+const ORDER_REGISTRATION_PROOF_MAX_AGE = 60 * 30
+
+export const setOrderRegistrationProof = async (proof: OrderRegistrationProof) => {
+  const cookies = await nextCookies()
+  cookies.set("_medusa_order_registration_token", JSON.stringify(proof), {
+    maxAge: ORDER_REGISTRATION_PROOF_MAX_AGE,
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+  })
+}
+
+export const getOrderRegistrationProof = async (): Promise<OrderRegistrationProof | null> => {
+  const cookies = await nextCookies()
+  const value = cookies.get("_medusa_order_registration_token")?.value
+
+  if (!value) {
+    return null
+  }
+
+  try {
+    return JSON.parse(value) as OrderRegistrationProof
+  } catch {
+    return null
+  }
+}
+
+export const removeOrderRegistrationProof = async () => {
+  const cookies = await nextCookies()
+  cookies.set("_medusa_order_registration_token", "", {
     maxAge: -1,
   })
 }

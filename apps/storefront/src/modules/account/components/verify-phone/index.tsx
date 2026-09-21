@@ -2,7 +2,6 @@
 
 import { useActionState, useState, useEffect } from "react"
 import Input from "@modules/common/components/input"
-import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { Heading } from "@modules/common/components/ui"
@@ -10,10 +9,10 @@ import { confirmPhoneVerification, resendPhoneVerification } from "@lib/data/cus
 import { getPendingCustomer } from "@lib/data/cookies"
 
 type Props = {
-  setCurrentView: (view: LOGIN_VIEW) => void
+  onVerified: () => void
 }
 
-const VerifyPhone = ({ setCurrentView }: Props) => {
+const VerifyPhone = ({ onVerified }: Props) => {
   const [message, formAction] = useActionState(
     async (_currentState: unknown, formData: FormData) => confirmPhoneVerification(formData.get("code") as string),
     null
@@ -32,9 +31,9 @@ const VerifyPhone = ({ setCurrentView }: Props) => {
 
   useEffect(() => {
     if (message?.state === "success") {
-      setCurrentView(LOGIN_VIEW.SIGN_IN)
+      onVerified()
     }
-  }, [message, setCurrentView])
+  }, [message, onVerified])
 
   return (
     <div
