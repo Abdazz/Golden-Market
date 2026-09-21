@@ -18,6 +18,8 @@ const SEMANTIC_SEARCH_WINDOW_SECONDS = 60
 
 const WHATSAPP_OTP_MAX_REQUESTS = 5
 const WHATSAPP_OTP_WINDOW_SECONDS = 15 * 60
+const WHATSAPP_OTP_IP_MAX_REQUESTS = 30
+const WHATSAPP_OTP_IP_WINDOW_SECONDS = 15 * 60
 
 // Exporté séparément (plutôt que défini en ligne dans `defineMiddlewares`) pour pouvoir
 // être testé directement avec un req/res/next factice, sans démarrer l'application Medusa.
@@ -112,8 +114,6 @@ export async function semanticSearchRateLimitMiddleware(
 // cette itération. La route /auth/verification/request est générique à
 // tous les code_provider, donc le filtre se fait ici sur le corps de la
 // requête plutôt que sur l'URL.
-// Limitation : applique un bucket indépendant par entity_id (numéro de
-// téléphone), pas une limite globale par IP.
 export async function whatsappOtpVerificationRateLimitMiddleware(
   req: MedusaRequest,
   res: MedusaResponse,
@@ -127,32 +127,37 @@ export async function whatsappOtpVerificationRateLimitMiddleware(
 
   try {
     const cache = req.scope.resolve(Modules.CACHE)
-    const rateLimitOptions = {
-      maxRequests: WHATSAPP_OTP_MAX_REQUESTS,
-      windowSeconds: WHATSAPP_OTP_WINDOW_SECONDS,
+    const ip = req.ip ?? req.socket.remoteAddress ?? "unknown"
+
+    // Bucket IP indépendant et plus large que le bucket par numéro : limite
+    // un même appelant qui pulvériserait des codes vers de nombreux numéros
+    // distincts (chacun ayant son propre budget de 5/15min), sans pénaliser
+    // des clients légitimes partageant une IP opérateur NAT'ée.
+    const ipResult = await checkRateLimit(cache, `rate-limit:auth-whatsapp-otp:ip:${ip}`, {
+      maxRequests: WHATSAPP_OTP_IP_MAX_REQUESTS,
+      windowSeconds: WHATSAPP_OTP_IP_WINDOW_SECONDS,
+    })
+
+    if (!ipResult.allowed) {
+      res.setHeader("Retry-After", String(ipResult.retryAfterSeconds))
+      res.status(429).json({
+        type: "rate_limit_exceeded",
+        message: "Trop de demandes de code de vérification. Réessayez plus tard.",
+      })
+      return
     }
 
     const rawEntityId = (req.body as Record<string, unknown> | undefined)?.entity_id
 
     if (typeof rawEntityId === "string") {
-      // Limite par entity_id (numéro de téléphone)
-      const entityResult = await checkRateLimit(cache, `rate-limit:auth-whatsapp-otp:entity:${rawEntityId}`, rateLimitOptions)
+      const entityResult = await checkRateLimit(
+        cache,
+        `rate-limit:auth-whatsapp-otp:entity:${rawEntityId}`,
+        { maxRequests: WHATSAPP_OTP_MAX_REQUESTS, windowSeconds: WHATSAPP_OTP_WINDOW_SECONDS }
+      )
 
       if (!entityResult.allowed) {
         res.setHeader("Retry-After", String(entityResult.retryAfterSeconds))
-        res.status(429).json({
-          type: "rate_limit_exceeded",
-          message: "Trop de demandes de code de vérification. Réessayez plus tard.",
-        })
-        return
-      }
-    } else {
-      // Fallback sur IP si entity_id absent
-      const ip = req.ip ?? req.socket.remoteAddress ?? "unknown"
-      const ipResult = await checkRateLimit(cache, `rate-limit:auth-whatsapp-otp:${ip}`, rateLimitOptions)
-
-      if (!ipResult.allowed) {
-        res.setHeader("Retry-After", String(ipResult.retryAfterSeconds))
         res.status(429).json({
           type: "rate_limit_exceeded",
           message: "Trop de demandes de code de vérification. Réessayez plus tard.",
@@ -163,7 +168,7 @@ export async function whatsappOtpVerificationRateLimitMiddleware(
   } catch (error) {
     const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
     const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error(`Limiteur de débit indisponible pour la vérification whatsapp-otp, requête laissée passer : ${errorMessage}`)
+    logger.error(`Limiteur de débit indisponible pour la vérification WhatsApp, requête laissée passer : ${errorMessage}`)
   }
 
   next()

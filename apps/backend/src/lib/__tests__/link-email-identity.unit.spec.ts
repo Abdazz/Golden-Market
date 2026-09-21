@@ -41,6 +41,9 @@ describe("linkEmailIdentity", () => {
     })
 
     expect(result).toEqual({ success: true })
+    expect(authModuleService.listAuthIdentities).toHaveBeenCalledWith({
+      provider_identities: { entity_id: "client@example.com", provider: "emailpass" },
+    })
     expect(authModuleService.register).toHaveBeenCalledWith("emailpass", {
       body: { email: "client@example.com", password: "motdepasse123" },
     })

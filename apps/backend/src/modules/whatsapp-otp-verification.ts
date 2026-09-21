@@ -15,6 +15,11 @@ import type {
 // natif de Medusa (15 min).
 const CODE_TTL_MS = 10 * 60 * 1000
 
+// 5 tentatives max avant de devoir redemander un code - sans ça, un code à
+// 6 chiffres est devinable par force brute (endpoint non authentifié côté
+// Medusa core).
+const MAX_CONFIRM_ATTEMPTS = 5
+
 const generateCode = (): string => {
   return crypto.randomInt(0, 1_000_000).toString().padStart(6, "0")
 }
@@ -109,28 +114,54 @@ export class WhatsappOtpVerificationProvider implements IAuthVerificationProvide
       throw new MedusaError(MedusaError.Types.INVALID_DATA, "Verification code is required")
     }
 
+    if (!data.auth_identity_id) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        "Authentication context required to confirm a verification code"
+      )
+    }
+
     const [verification] = await this.authVerificationService_.list(
       {
-        provider_metadata: { code_hash: hashCode(data.code) },
+        auth_identity_id: data.auth_identity_id,
+        code_provider: data.code_provider,
+        verified_at: null,
       },
-      undefined,
+      { take: 1, order: { requested_at: "DESC" } },
       sharedContext
     )
 
-    if (!verification || verification.verified_at) {
+    if (!verification) {
       throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Verification code is invalid or already used")
     }
 
-    if (data.code_provider && data.code_provider !== verification.code_provider) {
-      throw new MedusaError(
-        MedusaError.Types.NOT_ALLOWED,
-        `Verification code does not belong to provider "${data.code_provider}"`
-      )
+    const attempts = (verification.provider_metadata?.attempts as number | undefined) ?? 0
+
+    if (attempts >= MAX_CONFIRM_ATTEMPTS) {
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Too many attempts, request a new code")
     }
 
     const expiresAt = new Date(verification.requested_at).getTime() + CODE_TTL_MS
     if (expiresAt <= Date.now()) {
       throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Verification code has expired")
+    }
+
+    const storedHash = verification.provider_metadata?.code_hash
+
+    const codeMatches =
+      typeof storedHash === "string" &&
+      storedHash.length === 64 &&
+      crypto.timingSafeEqual(Buffer.from(hashCode(data.code)), Buffer.from(storedHash))
+
+    if (!codeMatches) {
+      await this.authVerificationService_.update(
+        {
+          id: verification.id,
+          provider_metadata: { ...verification.provider_metadata, attempts: attempts + 1 },
+        },
+        sharedContext
+      )
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Verification code is invalid or already used")
     }
 
     return await this.authVerificationService_.update(

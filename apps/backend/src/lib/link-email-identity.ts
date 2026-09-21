@@ -1,5 +1,5 @@
 import { setAuthAppMetadataWorkflow } from "@medusajs/core-flows"
-import type { MedusaContainer } from "@medusajs/framework/types"
+import type { IAuthModuleService, MedusaContainer } from "@medusajs/framework/types"
 
 export type LinkEmailIdentityInput = {
   email: string
@@ -17,13 +17,12 @@ export type LinkEmailIdentityResult = { success: true } | { success: false; erro
  * section "Décision : deux identités liées au même client".
  */
 export async function linkEmailIdentity(
-  authModuleService: any,
+  authModuleService: IAuthModuleService,
   container: MedusaContainer,
   input: LinkEmailIdentityInput
 ): Promise<LinkEmailIdentityResult> {
   const existingIdentities = await authModuleService.listAuthIdentities({
-    entity_id: input.email,
-    provider: "emailpass",
+    provider_identities: { entity_id: input.email, provider: "emailpass" },
   })
 
   const existingCustomerId = existingIdentities[0]?.app_metadata?.customer_id

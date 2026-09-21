@@ -29,4 +29,16 @@ describe("normalizePhone", () => {
   it("lève une erreur sur une chaîne vide", () => {
     expect(() => normalizePhone("")).toThrow("Numéro de téléphone invalide")
   })
+
+  it("lève une erreur si le numéro local est trop court", () => {
+    expect(() => normalizePhone("7000")).toThrow("Numéro de téléphone invalide")
+  })
+
+  it("lève une erreur si le numéro local est trop long", () => {
+    expect(() => normalizePhone("7000000000")).toThrow("Numéro de téléphone invalide")
+  })
+
+  it("lève une erreur pour un numéro à 9 chiffres avec un zéro initial (habitude de saisie locale) plutôt que de produire un identifiant différent de la même personne", () => {
+    expect(() => normalizePhone("070000000")).toThrow("Numéro de téléphone invalide")
+  })
 })
