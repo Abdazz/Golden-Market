@@ -11,9 +11,10 @@ import VerifyPhone from "@modules/account/components/verify-phone"
 type Props = {
   orderId: string
   phone?: string
+  resumePhone?: string
 }
 
-const CreateAccountPrompt = ({ orderId, phone }: Props) => {
+const CreateAccountPrompt = ({ orderId, phone, resumePhone }: Props) => {
   const [message, formAction] = useActionState(createAccountFromOrder, null)
   const [verified, setVerified] = useState(false)
 
@@ -29,7 +30,7 @@ const CreateAccountPrompt = ({ orderId, phone }: Props) => {
     )
   }
 
-  if (message?.state === "phone_verification_required") {
+  if (message?.state === "phone_verification_required" || resumePhone) {
     return <VerifyPhone onVerified={() => setVerified(true)} />
   }
 

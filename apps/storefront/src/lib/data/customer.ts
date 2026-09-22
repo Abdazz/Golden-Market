@@ -14,7 +14,6 @@ import {
   getCartId,
   getOrderRegistrationProof,
   getPendingCustomer,
-  PendingCustomer,
   removeAuthToken,
   removeCartId,
   removeOrderRegistrationProof,
@@ -55,6 +54,22 @@ async function requestPhoneVerification(phone: string, token: string) {
   )
 }
 
+// Le customer n'a pas encore de session à ce stade (compte non vérifié) -
+// on récupère un jeton provisoire (non lié à un customer) en se
+// reconnectant avec les identifiants déjà saisis, réutilisé par
+// resendPhoneVerification ET confirmPhoneVerification.
+async function getProvisionalPhoneToken(phone: string, password: string): Promise<string | null> {
+  try {
+    const loginResult = await sdk.auth.login("customer", PHONE_AUTH_PROVIDER, {
+      email: phone,
+      password,
+    })
+    return typeof loginResult === "string" ? loginResult : null
+  } catch {
+    return null
+  }
+}
+
 // Exposé pour le bouton "Renvoyer le code" du nouvel écran de vérification
 // (Task 11) - le customer n'existe pas encore à ce stade, donc pas de
 // session à réutiliser : on ré-enregistre (idempotent, voir emailpass côté
@@ -66,17 +81,14 @@ export async function resendPhoneVerification(phone: string): Promise<{ success:
     return { success: false }
   }
 
+  const token = await getProvisionalPhoneToken(phone, pending.password ?? "")
+
+  if (!token) {
+    return { success: false }
+  }
+
   try {
-    const loginResult = await sdk.auth.login("customer", PHONE_AUTH_PROVIDER, {
-      email: phone,
-      password: pending.password ?? "",
-    })
-
-    if (typeof loginResult !== "string") {
-      return { success: false }
-    }
-
-    await requestPhoneVerification(phone, loginResult)
+    await requestPhoneVerification(phone, token)
     return { success: true }
   } catch {
     return { success: false }
@@ -84,16 +96,25 @@ export async function resendPhoneVerification(phone: string): Promise<{ success:
 }
 
 export async function confirmPhoneVerification(code: string): Promise<CustomerAuthState> {
-  try {
-    await sdk.auth.verification.confirm({ code, code_provider: "whatsapp-otp" })
-  } catch (error) {
-    return { state: "error", error: String(error) }
-  }
-
   const pending = await getPendingCustomer()
 
   if (!pending?.phone) {
     return { state: "error", error: "Session d'inscription expirée, recommencez." }
+  }
+
+  const token = await getProvisionalPhoneToken(pending.phone, pending.password ?? "")
+
+  if (!token) {
+    return { state: "error", error: "Session d'inscription expirée, recommencez." }
+  }
+
+  try {
+    await sdk.auth.verification.confirm(
+      { code, code_provider: "whatsapp-otp" },
+      { authorization: `Bearer ${token}` }
+    )
+  } catch (error) {
+    return { state: "error", error: String(error) }
   }
 
   const loginResult = await completeLogin(pending.phone, pending.password ?? "")
@@ -168,13 +189,12 @@ export async function createAccountFromOrder(
   await removeOrderRegistrationProof()
 
   await setPendingCustomer({
-    email: registration.email ?? undefined,
     first_name: registration.first_name,
     last_name: registration.last_name,
     phone: registration.phone,
     password,
     orderIdToClaim: orderId,
-  } as unknown as PendingCustomer)
+  })
 
   return { state: "phone_verification_required", phone: registration.phone }
 }
@@ -238,7 +258,7 @@ export async function signup(
   }
 
   const customerForm = {
-    email: formData.get("email") as string,
+    email: (formData.get("email") as string)?.trim() || undefined,
     first_name: formData.get("first_name") as string,
     last_name: formData.get("last_name") as string,
     phone,
@@ -269,7 +289,7 @@ export async function signup(
     }
   }
 
-  await setPendingCustomer(customerForm as unknown as PendingCustomer)
+  await setPendingCustomer(customerForm)
 
   return completeLogin(phone, password)
 }
@@ -381,7 +401,7 @@ async function completeLogin(
           // Un login par téléphone ne doit jamais écrire le numéro dans le
           // champ email du client - seul un email fourni par le client
           // (pending.email) va dans customer.email.
-          email: isPhoneLogin ? pending?.email : email,
+          email: isPhoneLogin ? (pending?.email || undefined) : email,
           first_name: pending?.first_name,
           last_name: pending?.last_name,
           phone: isPhoneLogin ? email : pending?.phone,
@@ -394,19 +414,26 @@ async function completeLogin(
         email,
         password,
       })) as string
+    } catch (error) {
+      return { state: "error", error: String(error) }
+    }
 
-      // Client inscrit par téléphone ET ayant renseigné un email : lie une
-      // seconde identité emailpass au même client pour permettre la
-      // connexion par les deux (voir spec, "Décision : deux identités liées").
-      if (isPhoneLogin && pending?.email) {
+    // Client inscrit par téléphone ET ayant renseigné un email : lie une
+    // seconde identité emailpass au même client pour permettre la
+    // connexion par les deux (voir spec, "Décision : deux identités liées").
+    // Échec isolé et avalé : le compte téléphone reste créé et utilisable
+    // même si cette liaison échoue (ex: email déjà associé à un autre
+    // compte) - voir spec, section "Erreurs et cas limites".
+    if (isPhoneLogin && pending?.email) {
+      try {
         await sdk.client.fetch("/store/customers/me/link-email-identity", {
           method: "POST",
           headers: { authorization: `Bearer ${token}` },
           body: { email: pending.email, password },
         })
+      } catch {
+        // Voir commentaire ci-dessus.
       }
-    } catch (error) {
-      return { state: "error", error: String(error) }
     }
 
     await removePendingCustomer()

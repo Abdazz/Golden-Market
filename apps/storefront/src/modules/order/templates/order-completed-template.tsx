@@ -1,5 +1,6 @@
 import { Heading } from "@modules/common/components/ui"
 import { cookies as nextCookies } from "next/headers"
+import { getPendingCustomer } from "@lib/data/cookies"
 
 import Breadcrumb from "@modules/common/components/breadcrumb"
 import CartTotals from "@modules/common/components/cart-totals"
@@ -23,6 +24,10 @@ export default async function OrderCompletedTemplate({
   const cookies = await nextCookies()
 
   const isOnboarding = cookies.get("_medusa_onboarding")?.value === "true"
+
+  const pending = await getPendingCustomer()
+  const resumePhone =
+    pending?.orderIdToClaim === order.id ? pending.phone : undefined
 
   return (
     <div className="content-container py-6 min-h-[calc(100vh-64px)]">
@@ -74,6 +79,7 @@ export default async function OrderCompletedTemplate({
           <CreateAccountPrompt
             orderId={order.id}
             phone={order.shipping_address?.phone}
+            resumePhone={resumePhone}
           />
         )}
       </div>
