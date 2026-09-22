@@ -9,6 +9,7 @@ export const PRODUCT_FIELDS = [
   "handle",
   "thumbnail",
   "images.url",
+  "metadata",
   "variants.id",
   "variants.title",
   "variants.manage_inventory",

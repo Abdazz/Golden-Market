@@ -4,7 +4,7 @@ import { buildCatalogItem, type CatalogProduct, type CatalogVariant, type MetaCa
 import { PRODUCT_FIELDS } from "../../lib/meta-catalog-sync"
 
 const CSV_HEADER =
-  "id,title,description,availability,condition,price,link,image_link,brand,item_group_id"
+  "id,title,description,availability,condition,price,link,image_link,brand,item_group_id,video[0].url"
 
 function csvEscape(value: string): string {
   return `"${value.replace(/"/g, '""')}"`
@@ -22,6 +22,7 @@ function toCsvRow(item: MetaCatalogItem): string {
     item.image_link,
     item.brand,
     item.item_group_id,
+    item.video_url ?? "",
   ]
     .map((value) => csvEscape(String(value)))
     .join(",")

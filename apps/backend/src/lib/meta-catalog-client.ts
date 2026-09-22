@@ -30,12 +30,21 @@ export async function upsertCatalogItem(
     throw new Error("META_CATALOG_ACCESS_TOKEN non configuré")
   }
 
+  // Meta attend "videos: [{url}]" (voir doc Product Item), pas notre champ
+  // interne "video_url" - absent plutôt que null quand il n'y a pas de vidéo
+  // (Meta rejette certains champs inconnus/mal typés selon l'endpoint).
+  const { video_url, ...itemWithoutVideoUrl } = item
+  const data: Record<string, unknown> = { ...itemWithoutVideoUrl }
+  if (video_url) {
+    data.videos = [{ url: video_url }]
+  }
+
   const body = new FormData()
   body.append("access_token", accessToken)
   body.append("item_type", "PRODUCT_ITEM")
   body.append(
     "requests",
-    JSON.stringify([{ method: "UPDATE", data: item }])
+    JSON.stringify([{ method: "UPDATE", data }])
   )
 
   const response = await fetchImpl(

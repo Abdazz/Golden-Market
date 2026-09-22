@@ -13,6 +13,7 @@ describe("upsertCatalogItem", () => {
     link: "https://golden-market.co/bf/products/produit",
     image_link: "https://example.com/img.jpg",
     brand: "Golden Market",
+    video_url: null,
   }
 
   const config = { catalogId: "catalog_123", accessToken: "token_abc" }
@@ -30,9 +31,38 @@ describe("upsertCatalogItem", () => {
     const body = init.body as FormData
     expect(body.get("access_token")).toBe("token_abc")
     expect(body.get("item_type")).toBe("PRODUCT_ITEM")
+    const { video_url, ...itemWithoutVideoUrl } = item
     expect(JSON.parse(body.get("requests") as string)).toEqual([
-      { method: "UPDATE", data: item },
+      { method: "UPDATE", data: itemWithoutVideoUrl },
     ])
+  })
+
+  it("translates video_url into Meta's 'videos' array field, and omits the internal video_url key", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 })
+    const itemWithVideo: MetaCatalogItem = {
+      ...item,
+      video_url: "https://golden-market.co/static/video.mp4",
+    }
+
+    await upsertCatalogItem(itemWithVideo, config, fetchMock as unknown as typeof fetch)
+
+    const body = fetchMock.mock.calls[0][1].body as FormData
+    const sentData = JSON.parse(body.get("requests") as string)[0].data
+    expect(sentData.videos).toEqual([
+      { url: "https://golden-market.co/static/video.mp4" },
+    ])
+    expect(sentData).not.toHaveProperty("video_url")
+  })
+
+  it("does not send a 'videos' field at all when there is no video", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 })
+
+    await upsertCatalogItem(item, config, fetchMock as unknown as typeof fetch)
+
+    const body = fetchMock.mock.calls[0][1].body as FormData
+    const sentData = JSON.parse(body.get("requests") as string)[0].data
+    expect(sentData).not.toHaveProperty("videos")
+    expect(sentData).not.toHaveProperty("video_url")
   })
 
   it("throws when the catalog id is not configured", async () => {

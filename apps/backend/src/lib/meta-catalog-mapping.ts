@@ -16,6 +16,7 @@ export type MetaCatalogItem = {
   link: string
   image_link: string
   brand: string
+  video_url: string | null
 }
 
 export type CatalogProduct = {
@@ -25,6 +26,7 @@ export type CatalogProduct = {
   handle: string
   thumbnail: string | null
   images?: Array<{ url: string }> | null
+  metadata?: Record<string, unknown> | null
 }
 
 export type CatalogVariant = {
@@ -73,6 +75,17 @@ export function resolveImageLink(
   )
 }
 
+// La vidéo se règle une fois pour le produit entier (upload via le widget
+// admin "product-video", voir apps/backend/src/admin/widgets), pas par
+// variante - un produit n'a généralement qu'une seule vidéo publicitaire,
+// contrairement aux images qui peuvent différer par variante (couleur...).
+export function resolveVideoLink(
+  product: Pick<CatalogProduct, "metadata">
+): string | null {
+  const videoUrl = product.metadata?.video_url
+  return typeof videoUrl === "string" && videoUrl.length > 0 ? videoUrl : null
+}
+
 export function buildCatalogItem(
   product: CatalogProduct,
   variant: CatalogVariant,
@@ -103,5 +116,6 @@ export function buildCatalogItem(
     link: `${STORE_PRODUCT_BASE_URL}/${product.handle}`,
     image_link: resolveImageLink(variant, product),
     brand: BRAND,
+    video_url: resolveVideoLink(product),
   }
 }

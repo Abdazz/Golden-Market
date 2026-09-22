@@ -2,6 +2,7 @@ import {
   computeAvailability,
   formatMetaPrice,
   resolveImageLink,
+  resolveVideoLink,
   buildCatalogItem,
   type CatalogProduct,
   type CatalogVariant,
@@ -81,6 +82,30 @@ describe("resolveImageLink", () => {
   })
 })
 
+describe("resolveVideoLink", () => {
+  it("returns null when the product has no metadata", () => {
+    expect(resolveVideoLink({ metadata: null })).toBeNull()
+  })
+
+  it("returns null when metadata has no video_url", () => {
+    expect(resolveVideoLink({ metadata: { foo: "bar" } })).toBeNull()
+  })
+
+  it("returns the video_url when it is a non-empty string", () => {
+    expect(
+      resolveVideoLink({ metadata: { video_url: "https://example.com/video.mp4" } })
+    ).toBe("https://example.com/video.mp4")
+  })
+
+  it("ignores a non-string video_url (defensive against manual metadata edits)", () => {
+    expect(resolveVideoLink({ metadata: { video_url: 42 } })).toBeNull()
+  })
+
+  it("treats an empty string video_url as absent", () => {
+    expect(resolveVideoLink({ metadata: { video_url: "" } })).toBeNull()
+  })
+})
+
 describe("buildCatalogItem", () => {
   const product: CatalogProduct = {
     id: "prod_1",
@@ -112,7 +137,26 @@ describe("buildCatalogItem", () => {
       link: "https://golden-market.co/bf/products/serpilliere-auto-essorante",
       image_link: "https://example.com/thumb.jpg",
       brand: "Golden Market",
+      video_url: null,
     })
+  })
+
+  it("includes the product's video_url from metadata when present", () => {
+    const variant: CatalogVariant = {
+      id: "variant_1",
+      title: "Default Title",
+      manage_inventory: true,
+      allow_backorder: false,
+      images: [],
+      calculated_price: { calculated_amount: 15000, currency_code: "xof" },
+    }
+
+    const item = buildCatalogItem(
+      { ...product, metadata: { video_url: "https://golden-market.co/static/video.mp4" } },
+      variant,
+      5
+    )
+    expect(item.video_url).toBe("https://golden-market.co/static/video.mp4")
   })
 
   it("appends the variant title for a real multi-variant option", () => {
