@@ -6,7 +6,6 @@ import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { Heading } from "@modules/common/components/ui"
 import { confirmPhoneVerification, resendPhoneVerification } from "@lib/data/customer"
-import { getPendingCustomer } from "@lib/data/cookies"
 
 type Props = {
   onVerified: () => void
@@ -21,10 +20,7 @@ const VerifyPhone = ({ onVerified }: Props) => {
 
   const handleResend = async () => {
     setResendState("sending")
-    const pending = await getPendingCustomer()
-    if (pending?.phone) {
-      await resendPhoneVerification(pending.phone)
-    }
+    await resendPhoneVerification()
     setResendState("sent")
     setTimeout(() => setResendState("idle"), 5000)
   }

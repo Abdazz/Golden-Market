@@ -88,21 +88,25 @@ async function getProvisionalPhoneToken(phone: string, password: string): Promis
 // (Task 11) - le customer n'existe pas encore à ce stade, donc pas de
 // session à réutiliser : on ré-enregistre (idempotent, voir emailpass côté
 // backend) pour récupérer un token non vérifié, puis on redemande le code.
-export async function resendPhoneVerification(phone: string): Promise<{ success: boolean }> {
+// Ne prend plus `phone` en paramètre : le lire depuis le cookie pending ici
+// (server action) plutôt que de le faire lire côté client par VerifyPhone,
+// qui importait directement getPendingCustomer/cookies.ts ("server-only",
+// next/headers) - invalide depuis un composant client, cassait le build.
+export async function resendPhoneVerification(): Promise<{ success: boolean }> {
   const pending = await getPendingCustomer()
 
-  if (!pending) {
+  if (!pending?.phone) {
     return { success: false }
   }
 
-  const token = await getProvisionalPhoneToken(phone, pending.password ?? "")
+  const token = await getProvisionalPhoneToken(pending.phone, pending.password ?? "")
 
   if (!token) {
     return { success: false }
   }
 
   try {
-    await requestPhoneVerification(phone, token)
+    await requestPhoneVerification(pending.phone, token)
     return { success: true }
   } catch {
     return { success: false }
