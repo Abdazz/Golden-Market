@@ -39,21 +39,25 @@ module.exports = defineConfig({
     // omettre "emailpass" ici désactiverait silencieusement toute connexion
     // email/mot de passe existante (clients ET admin).
     //
-    // "phone-pass" est le MÊME package (@medusajs/medusa/auth-emailpass),
-    // enregistré une seconde fois sous un id de routage différent - pas un
-    // provider distinct. Nécessaire car authVerificationsPerActor
-    // (voir projectConfig.http ci-dessus) ne peut cibler que par nom de
-    // provider, jamais par entity_type : sans ce second id, il serait
-    // impossible d'exiger la vérification pour le téléphone sans l'exiger
-    // aussi pour l'email existant. Voir
+    // "phone-pass" est nécessaire (pas juste une réutilisation d'"emailpass")
+    // car authVerificationsPerActor (voir projectConfig.http ci-dessus) ne
+    // peut cibler que par nom de provider, jamais par entity_type : sans ce
+    // second id, il serait impossible d'exiger la vérification pour le
+    // téléphone sans l'exiger aussi pour l'email existant. Voir
     // docs/superpowers/plans/2026-09-19-telephone-identifiant-principal.md
     // Task 3 pour le détail de cette investigation.
+    //
+    // NE PAS réenregistrer "@medusajs/medusa/auth-emailpass" une seconde
+    // fois sous l'id "phone-pass" (l'approche initiale) : ça compile et
+    // passe tous les tests unitaires (mockés) mais casse en conditions
+    // réelles - voir le commentaire de PhonePassAuthService
+    // (./src/modules/phone-pass-auth.ts) pour la cause exacte.
     auth: {
       resolve: '@medusajs/medusa/auth',
       options: {
         providers: [
           { resolve: '@medusajs/medusa/auth-emailpass', id: 'emailpass' },
-          { resolve: '@medusajs/medusa/auth-emailpass', id: 'phone-pass' },
+          { resolve: './src/modules/phone-pass-auth', id: 'phone-pass' },
         ],
         verification: {
           providers: [

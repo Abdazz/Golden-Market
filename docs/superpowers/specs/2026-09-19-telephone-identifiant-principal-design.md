@@ -62,24 +62,48 @@ d'identité. Rien ne l'empêche donc de recevoir un numéro de téléphone à la
 place d'un email. Écrire un second provider dédié au téléphone dupliquerait
 ~180 lignes de hashing scrypt pour zéro bénéfice fonctionnel.
 
-**Mais** un second enregistrement du même package sous un `id` différent
-est nécessaire, pas juste une réutilisation du même `id` "emailpass" — voir
-la décision suivante sur `authVerificationsPerActor`, qui ne peut cibler
-que par nom de provider, pas par `entity_type`. Deux entrées dans
-`modules.auth.options.providers`, toutes deux résolues vers
-`@medusajs/medusa/auth-emailpass` :
-- `{ resolve: "@medusajs/medusa/auth-emailpass", id: "emailpass" }` (déjà
-  existant, pour l'email).
-- `{ resolve: "@medusajs/medusa/auth-emailpass", id: "phone-pass" }`
-  (nouveau, même code, seul l'`id` de routage change — la route HTTP
-  devient `/auth/customer/phone-pass` au lieu de `/auth/customer/emailpass`).
+**Mais** un second `id` de provider est nécessaire, pas juste une
+réutilisation du même `id` "emailpass" — voir la décision suivante sur
+`authVerificationsPerActor`, qui ne peut cibler que par nom de provider,
+pas par `entity_type`.
 
-Conséquence : le champ « email » envoyé à `sdk.auth.register`/`sdk.auth.login`
-côté téléphone est en réalité le numéro de téléphone normalisé (voir
-normalisation ci-dessous), et le provider passé est `"phone-pass"` plutôt
-que `"emailpass"` — un détail d'implémentation invisible depuis le
-storefront et l'admin (le vrai champ `customer.phone` reste correct et
-distinct).
+**Correction (trouvée en direct sur staging le 2026-09-22, pas en revue de
+code) : ré-enregistrer le même package `@medusajs/medusa/auth-emailpass`
+une seconde fois sous l'id `"phone-pass"` NE FONCTIONNE PAS.**
+`AbstractAuthModuleProvider` (`@medusajs/utils`) expose `get provider() {
+return this.constructor.identifier }`, et `EmailPassAuthService.identifier
+= "emailpass"` est un champ **statique codé en dur** dans le package tiers
+— indépendant de l'`id` d'enregistrement du container. Résultat : la
+seconde registration, en interne, se croit toujours "emailpass" ; sa propre
+logique de recherche de `provider_identity` (`getProviderIdentity_`,
+utilisée par `register()`/`authenticate()`/`update()`) cherche donc
+toujours un enregistrement taggé "emailpass", ne le trouve jamais pour une
+identité créée via "phone-pass", et plante
+(`Cannot read properties of undefined (reading 'provider_metadata')`). Le
+téléphone comme identifiant n'a donc jamais réellement fonctionné avant ce
+correctif — masqué tout du long par des tests unitaires qui mockent
+entièrement le service auth et n'exercent jamais cette logique interne
+réelle ; seul un test live contre une vraie base de données l'a révélé.
+
+**Décision retenue (remplace l'approche ci-dessus)** : au lieu de
+ré-enregistrer le même package, une sous-classe dédiée
+(`apps/backend/src/modules/phone-pass-auth.ts`,
+`class PhonePassAuthService extends EmailPassAuthService { static
+identifier = "phone-pass" }`) — toujours zéro duplication de la logique de
+hashing scrypt (héritée intégralement), mais avec un `identifier` propre à
+cette classe, ce qui corrige `this.provider` pour elle sans toucher à
+`EmailPassAuthService` ni à l'enregistrement "emailpass" existant :
+- `{ resolve: "@medusajs/medusa/auth-emailpass", id: "emailpass" }`
+  (inchangé, pour l'email).
+- `{ resolve: "./src/modules/phone-pass-auth", id: "phone-pass" }`
+  (nouveau fichier, classe dédiée).
+
+Conséquence (inchangée) : le champ « email » envoyé à
+`sdk.auth.register`/`sdk.auth.login` côté téléphone est en réalité le
+numéro de téléphone normalisé (voir normalisation ci-dessous), et le
+provider passé est `"phone-pass"` plutôt que `"emailpass"` — un détail
+d'implémentation invisible depuis le storefront et l'admin (le vrai champ
+`customer.phone` reste correct et distinct).
 
 ## Décision : `authVerificationsPerActor` ne peut cibler que par provider
 
