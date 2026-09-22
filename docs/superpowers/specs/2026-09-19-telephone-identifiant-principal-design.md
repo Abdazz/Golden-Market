@@ -46,9 +46,12 @@ mécanisme email supposé déjà fonctionnel.
   fonctionner sans changement, aucune migration nécessaire.
 - Écrire un provider d'authentification dédié au téléphone (« phonepass ») —
   voir décision ci-dessous.
-- Toucher au flux de création de client invité (commandes passées sans
+- ~~Toucher au flux de création de client invité (commandes passées sans
   compte, WhatsApp ou storefront) — hors champ, ce flux ne passe pas par
-  l'auth module.
+  l'auth module.~~ **Devenu obsolète en cours d'implémentation** : un
+  besoin exprimé pendant l'écriture du plan (créer un compte à la fin d'une
+  commande invité) a fait entrer ce flux dans le scope — voir Tasks 13-14 du
+  plan et la décision "jeton de création de compte" ci-dessous.
 
 ## Décision : réutiliser `emailpass` pour le téléphone, sous un second `id`
 
@@ -141,13 +144,86 @@ vérification), normaliser en ne gardant que les chiffres puis en préfixant
 ailleurs dans ce projet (WhatsApp). Fonction pure, testée isolément
 (`normalize-phone.ts` ou ajout à un util existant).
 
+## Décision : jeton de création de compte à usage unique (post-commande)
+
+**Découvert après coup** (revue de sécurité automatisée pendant
+l'implémentation du Task 13, pas une exigence initiale de ce document).
+Le flux "créer un compte après une commande invité" (Tasks 13-14) prévoyait
+que `order_id` seul, envoyé par le storefront à `POST
+/store/register-from-order`, suffise comme preuve de possession du
+téléphone — l'idée étant qu'une confirmation de commande déjà reçue par
+WhatsApp sur ce numéro vaut vérification. Le problème : `order_id` **n'est
+pas un secret**. C'est un segment d'URL sur la page de confirmation de
+commande (`/order/[id]/confirmed`), qui charge par ailleurs le Pixel
+Meta / Matomo (voir le reste de ce projet) — un tiers analytique peut donc
+recevoir cette URL via l'en-tête `Referer`. Quiconque obtient un `order_id`
+pourrait créer un compte et choisir un mot de passe pour ce numéro de
+téléphone avant le vrai client — une prise de contrôle de compte, pas un
+risque théorique.
+
+**Décision retenue (partiellement remplacée ci-dessous, voir Addendum 2)** :
+conserver l'expérience "pas d'écran de code" déjà actée, mais exiger en plus
+un jeton à usage unique, TTL 30 minutes, généré côté serveur au moment
+exact de la création de la commande (dans `POST /store/carts/:id/complete`,
+uniquement pour une commande invité), dont seul le hash SHA-256 est stocké
+(`order.metadata`) et dont la valeur brute n'est **jamais** renvoyée
+ailleurs que dans le corps de cette réponse précise. Le storefront le fait
+transiter par un cookie `httpOnly` de courte durée (même mécanisme que
+`_medusa_pending_customer`) — jamais dans une URL, jamais dans le HTML
+visible de la page de confirmation. Ce jeton reste en place après
+l'addendum ci-dessous : il continue à empêcher un tiers sans accès à la
+session d'apprendre les informations de la commande ou de déclencher
+l'envoi WhatsApp pour un numéro arbitraire à partir d'un `order_id` fuité.
+Détails d'implémentation complets dans le plan, Task 13 (Addendum 1) et
+Task 14.
+
+Alternative écartée à ce stade : ne rien changer — rejeté, sévérité
+critique et vecteur d'exploitation réaliste dans ce projet précis (Pixel
+déjà en place sur cette page).
+
+## Décision : le jeton seul ne suffit pas — un vrai code WhatsApp reste exigé (Addendum 2)
+
+**Découvert après coup** (une seconde revue de sécurité automatisée,
+indépendante de celle ayant motivé la décision ci-dessus, pendant
+l'implémentation du Task 13). Le jeton ci-dessus prouve *"le porteur de ce
+jeton a terminé cette commande précise"* — il ne prouve **pas** *"le
+porteur de ce jeton contrôle le numéro de téléphone saisi dans l'adresse de
+livraison"*, car le champ téléphone du formulaire de commande est du texte
+libre, jamais vérifié au moment de la commande. N'importe qui peut donc
+passer une commande invité avec le numéro d'une victime dans l'adresse de
+livraison, puis utiliser son **propre** jeton (légitimement obtenu en
+terminant sa propre commande) pour créer un compte et choisir un mot de
+passe sur l'identité de ce numéro — un vrai détournement de compte, avec en
+prime un effet de squattage permanent puisque le téléphone est
+l'identifiant principal du store.
+
+**Décision retenue** : l'alternative "exiger un vrai aller-retour OTP",
+écartée ci-dessus lors de la première correction, est en fait nécessaire.
+`register-from-order` ne confirme plus jamais un code lui-même : il crée
+l'identité `phone-pass` et envoie un **vrai** code WhatsApp via
+`requestVerificationWorkflow` (qui émet l'évènement déclenchant le
+subscriber du Task 4, contrairement à l'appel direct au service de module
+utilisé par l'ancienne implémentation). Le client doit ensuite saisir ce
+code — le storefront réutilise tel quel l'écran et la logique de
+confirmation déjà construits pour l'inscription normale (Tasks 9/11)
+plutôt que d'en dupliquer une variante. Le jeton à usage unique (ci-dessus)
+n'est pas retiré : il reste la première barrière (empêche un tiers sans
+session d'apprendre quoi que ce soit ou de déclencher un envoi WhatsApp
+arbitraire) ; le code WhatsApp devient la seconde, celle qui prouve
+réellement la possession du téléphone. Détails d'implémentation complets
+dans le plan, Task 13 (Addendum 2).
+
 ## Architecture
 
 ### Inscription (`apps/storefront/src/lib/data/customer.ts`)
 
 `signup()` change de forme :
 1. Normalise le téléphone (obligatoire — le formulaire ne soumet plus sans).
-2. `sdk.auth.register("customer", "emailpass", { email: phoneNormalisé, password })`.
+2. `sdk.auth.register("customer", "phone-pass", { email: phoneNormalisé, password })`
+   — provider `"phone-pass"`, pas `"emailpass"` : voir la décision
+   "réutiliser `emailpass` pour le téléphone, sous un second `id`"
+   ci-dessus ; le champ `email` de l'appel SDK est un détail d'API du
+   package sous-jacent, pas le vrai email du client.
 3. Login immédiat (`sdk.auth.login`) avec le téléphone — la réponse indique
    `verification_required` (voir ci-dessous), jamais un customer créé
    directement.
@@ -157,9 +233,10 @@ ailleurs dans ce projet (WhatsApp). Fonction pure, testée isolément
 
 `completeLogin()` (déjà générique côté token) : au moment de créer le
 customer (`sdk.store.customer.create`), si `pending.email` est renseigné,
-enchaîne un second `sdk.auth.register("customer","emailpass",{email,password})`
-puis lie cette identité au même `customer.id`. Cette liaison n'existe pas
-côté SDK storefront (accès direct à `setAuthAppMetadataStep` needed) : elle
+appelle la nouvelle route backend ci-dessous pour enregistrer une identité
+`emailpass` séparée (voir "Décision : deux identités liées au même client")
+et la lier au même `customer.id`. Cette liaison n'existe pas côté SDK
+storefront (accès direct à `setAuthAppMetadataWorkflow` nécessaire) : elle
 passe par une **nouvelle route API backend** dédiée plutôt que par le SDK
 d'auth générique.
 

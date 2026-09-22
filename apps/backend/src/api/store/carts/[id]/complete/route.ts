@@ -5,6 +5,11 @@
 // unique - voir l'addendum "Jeton de création de compte" du Task 13. Le
 // reste de ce fichier reproduit le core route à l'identique (voir
 // node_modules/@medusajs/medusa/dist/api/store/carts/[id]/complete/route.js).
+//
+// Forké depuis @medusajs/medusa 2.18.0 (pinné sans caret dans package.json
+// exprès pour ce fichier). À CHAQUE montée de version de @medusajs/medusa :
+// rediffer ce fichier contre le nouveau core route AVANT de relâcher le pin
+// - voir AGENTS.md, section "Téléphone comme identifiant principal".
 import { completeCartWorkflowId } from "@medusajs/core-flows"
 import { prepareRetrieveQuery } from "@medusajs/framework"
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"

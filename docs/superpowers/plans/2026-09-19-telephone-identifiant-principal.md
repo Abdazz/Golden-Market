@@ -2517,6 +2517,623 @@ git add apps/backend/src/lib/register-customer-from-order.ts apps/backend/src/li
 git commit -m "feat(auth): ajoute la création de compte post-commande et le rattachement de commande"
 ```
 
+### Addendum (post-hoc security fix): single-use registration token
+
+**Discovered after Steps 1-9 above were implemented and committed** (an
+automated security review, not part of this plan's original text). See
+`docs/superpowers/specs/2026-09-19-telephone-identifiant-principal-design.md`,
+Décision "Jeton de création de compte" for the full writeup. Summary: as
+written above, `register-from-order` treats `order_id` alone as proof of
+phone ownership. `order_id` is **not secret** — it is a URL path segment on
+the order-confirmation page (`apps/storefront/.../order/[id]/confirmed`),
+and that exact page loads Meta Pixel/Matomo tracking, which can leak the
+URL (and therefore the `order_id`) to third parties via `Referer` headers.
+Anyone who obtains an `order_id` could mint a password-protected account
+for that phone number before the real customer does — an account-takeover
+vector, not a theoretical gap.
+
+**Fix:** a single-use, 30-minute-TTL, server-generated token is minted at
+the moment the order is actually created (inside cart completion, guest
+orders only), its SHA-256 hash stored in `order.metadata`, and the raw
+token returned **only in the `POST /store/carts/:id/complete` response
+body** — never in a URL, never in `order.metadata` on any client-facing GET
+(default order field lists already exclude `metadata`, confirmed by
+reading `@medusajs/medusa`'s `defaultStoreOrderFields` /
+`defaultStoreCartFields`). `register-from-order` now requires this token
+and rejects on mismatch/expiry/reuse. The storefront (Task 14, amended
+below) never puts the token in a URL or in visible HTML — it round-trips
+through a short-lived `httpOnly` cookie, the same pattern already used for
+`_medusa_pending_customer`.
+
+**New files:**
+- Create: `apps/backend/src/lib/order-registration-token.ts`
+- Create: `apps/backend/src/lib/__tests__/order-registration-token.unit.spec.ts`
+- Create: `apps/backend/src/api/store/carts/[id]/complete/route.ts` (**override** of the Medusa core route — see below)
+- Modify: `apps/backend/src/api/store/register-from-order/route.ts`
+
+**Interfaces:**
+- Produces: `generateOrderRegistrationToken()`, `hashOrderRegistrationToken(token)`, `buildOrderRegistrationTokenMetadata(token)`, `verifyOrderRegistrationToken(metadata, token)` from `order-registration-token.ts` — consumed by both the cart-complete override and `register-from-order`.
+- The `POST /store/carts/:id/complete` response gains one new optional top-level field, `registration_token: string`, present only when the completed order has no `customer_id` (guest checkout). This is additive — existing consumers reading `type`/`order`/`cart`/`error` are unaffected.
+- `POST /store/register-from-order` now requires a third body field, `registration_token: string`, in addition to `order_id`/`password`.
+
+- [ ] **Step 10: Write the token lib and its tests**
+
+```typescript
+// apps/backend/src/lib/order-registration-token.ts
+import crypto from "node:crypto"
+
+// Doit rester cohérent avec le cookie côté storefront
+// (apps/storefront/src/lib/data/cookies.ts, setOrderRegistrationProof) qui
+// utilise la même durée de vie.
+export const ORDER_REGISTRATION_TOKEN_TTL_MS = 30 * 60 * 1000
+
+export type OrderRegistrationTokenMetadata = {
+  registration_token_hash?: string
+  registration_token_expires_at?: string
+  registration_token_used_at?: string | null
+}
+
+export function generateOrderRegistrationToken(): string {
+  return crypto.randomBytes(32).toString("hex")
+}
+
+export function hashOrderRegistrationToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex")
+}
+
+export function buildOrderRegistrationTokenMetadata(
+  token: string
+): OrderRegistrationTokenMetadata {
+  return {
+    registration_token_hash: hashOrderRegistrationToken(token),
+    registration_token_expires_at: new Date(
+      Date.now() + ORDER_REGISTRATION_TOKEN_TTL_MS
+    ).toISOString(),
+    registration_token_used_at: null,
+  }
+}
+
+export function verifyOrderRegistrationToken(
+  metadata: OrderRegistrationTokenMetadata | null | undefined,
+  token: string
+): { valid: true } | { valid: false; reason: string } {
+  if (!metadata?.registration_token_hash) {
+    return {
+      valid: false,
+      reason: "Aucun jeton de création de compte pour cette commande.",
+    }
+  }
+
+  if (metadata.registration_token_used_at) {
+    return { valid: false, reason: "Ce jeton a déjà été utilisé." }
+  }
+
+  if (
+    !metadata.registration_token_expires_at ||
+    new Date(metadata.registration_token_expires_at).getTime() <= Date.now()
+  ) {
+    return {
+      valid: false,
+      reason: "Le jeton de création de compte a expiré.",
+    }
+  }
+
+  if (hashOrderRegistrationToken(token) !== metadata.registration_token_hash) {
+    return { valid: false, reason: "Jeton de création de compte invalide." }
+  }
+
+  return { valid: true }
+}
+```
+
+```typescript
+// apps/backend/src/lib/__tests__/order-registration-token.unit.spec.ts
+import {
+  buildOrderRegistrationTokenMetadata,
+  generateOrderRegistrationToken,
+  hashOrderRegistrationToken,
+  verifyOrderRegistrationToken,
+} from "../order-registration-token"
+
+describe("order-registration-token", () => {
+  it("génère un jeton de haute entropie et son hash de façon déterministe", () => {
+    const token = generateOrderRegistrationToken()
+    expect(token).toHaveLength(64)
+    expect(hashOrderRegistrationToken(token)).toBe(hashOrderRegistrationToken(token))
+    expect(hashOrderRegistrationToken(token)).not.toBe(token)
+  })
+
+  it("valide un jeton correct et non expiré", () => {
+    const token = generateOrderRegistrationToken()
+    const metadata = buildOrderRegistrationTokenMetadata(token)
+    expect(verifyOrderRegistrationToken(metadata, token)).toEqual({ valid: true })
+  })
+
+  it("rejette un jeton incorrect", () => {
+    const token = generateOrderRegistrationToken()
+    const metadata = buildOrderRegistrationTokenMetadata(token)
+    const result = verifyOrderRegistrationToken(metadata, "wrong-token")
+    expect(result.valid).toBe(false)
+  })
+
+  it("rejette un jeton expiré", () => {
+    const token = generateOrderRegistrationToken()
+    const metadata = buildOrderRegistrationTokenMetadata(token)
+    metadata.registration_token_expires_at = new Date(Date.now() - 1000).toISOString()
+    const result = verifyOrderRegistrationToken(metadata, token)
+    expect(result.valid).toBe(false)
+  })
+
+  it("rejette un jeton déjà utilisé", () => {
+    const token = generateOrderRegistrationToken()
+    const metadata = buildOrderRegistrationTokenMetadata(token)
+    metadata.registration_token_used_at = new Date().toISOString()
+    const result = verifyOrderRegistrationToken(metadata, token)
+    expect(result.valid).toBe(false)
+  })
+
+  it("rejette l'absence de métadonnées (commande jamais préparée pour la création de compte)", () => {
+    const result = verifyOrderRegistrationToken(undefined, "anything")
+    expect(result.valid).toBe(false)
+  })
+})
+```
+
+- [ ] **Step 11: Override `POST /store/carts/:id/complete` to mint the token**
+
+This overrides the Medusa core route at the same path
+(`node_modules/@medusajs/medusa/dist/api/store/carts/[id]/complete/route.js`).
+Medusa resolves the project's own `src/api/**/route.ts` file over the
+package's built-in one for an identical path, but **middleware
+registration is separate** and keeps running regardless (confirmed by
+reading `node_modules/@medusajs/medusa/dist/api/store/carts/middlewares.js`
+— the existing `validateAndTransformQuery(StoreGetOrderParams,
+OrderQueryConfig.retrieveTransformQueryConfig)` middleware for this exact
+path still populates `req.queryConfig.fields` for this override, exactly
+like it does for the untouched core route). Everything below except the
+token-minting block is a line-for-line reproduction of the core route,
+using its own public subpath exports (`@medusajs/medusa/api/store/carts/helpers`,
+`@medusajs/medusa/api/store/carts/query-config` — both resolve, confirmed
+against this repo's installed `@medusajs/medusa` package.json `exports`
+map, which publishes `"./api/*": "./dist/api/*.js"`).
+
+```typescript
+// apps/backend/src/api/store/carts/[id]/complete/route.ts
+//
+// Override du core route Medusa pour ajouter, uniquement pour une commande
+// invité (customer_id absent), un jeton de création de compte à usage
+// unique - voir l'addendum "Jeton de création de compte" du Task 13. Le
+// reste de ce fichier reproduit le core route à l'identique (voir
+// node_modules/@medusajs/medusa/dist/api/store/carts/[id]/complete/route.js).
+import { completeCartWorkflowId } from "@medusajs/core-flows"
+import { prepareRetrieveQuery } from "@medusajs/framework"
+import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
+import { refetchCart } from "@medusajs/medusa/api/store/carts/helpers"
+import { defaultStoreCartFields } from "@medusajs/medusa/api/store/carts/query-config"
+import {
+  buildOrderRegistrationTokenMetadata,
+  generateOrderRegistrationToken,
+} from "../../../../lib/order-registration-token"
+
+export async function POST(req: MedusaRequest, res: MedusaResponse) {
+  const cart_id = req.params.id
+  const we = req.scope.resolve(Modules.WORKFLOW_ENGINE)
+
+  const { errors, result, transaction } = await we.run(completeCartWorkflowId, {
+    input: { id: cart_id },
+    throwOnError: false,
+  })
+
+  if (!transaction.hasFinished()) {
+    throw new MedusaError(
+      MedusaError.Types.CONFLICT,
+      "Cart is already being completed by another request"
+    )
+  }
+
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+
+  // Identique au core route : une erreur récupérable (paiement) renvoie le
+  // panier + l'erreur avec un statut 200 pour laisser le client réagir.
+  if (errors?.[0]) {
+    const error = errors[0].error as { type?: string; message: string; name: string }
+    const statusOKErrors = [
+      MedusaError.Types.PAYMENT_AUTHORIZATION_ERROR,
+      MedusaError.Types.PAYMENT_REQUIRES_MORE_ERROR,
+    ]
+
+    const cartReq = await prepareRetrieveQuery({}, { defaults: defaultStoreCartFields }, req)
+    const cart = await refetchCart(cart_id, req.scope, cartReq.remoteQueryConfig.fields)
+
+    if (!statusOKErrors.includes(error?.type as typeof statusOKErrors[number])) {
+      throw error
+    }
+
+    res.status(200).json({
+      type: "cart",
+      cart,
+      error: {
+        message: error.message,
+        name: error.name,
+        type: error.type,
+      },
+    })
+    return
+  }
+
+  // Ajout par rapport au core route : commande invité uniquement.
+  let registrationToken: string | undefined
+
+  const orderModuleService = req.scope.resolve(Modules.ORDER)
+  const existingOrder = await orderModuleService.retrieveOrder(result.id, {
+    select: ["id", "customer_id", "metadata"],
+  })
+
+  if (!existingOrder.customer_id) {
+    registrationToken = generateOrderRegistrationToken()
+    await orderModuleService.updateOrders(result.id, {
+      metadata: {
+        ...existingOrder.metadata,
+        ...buildOrderRegistrationTokenMetadata(registrationToken),
+      },
+    })
+  }
+
+  const { data } = await query.graph({
+    entity: "order",
+    fields: (req as unknown as { queryConfig: { fields: string[] } }).queryConfig.fields,
+    filters: { id: result.id },
+  })
+
+  res.status(200).json({
+    type: "order",
+    order: data[0],
+    ...(registrationToken ? { registration_token: registrationToken } : {}),
+  })
+}
+```
+
+- [ ] **Step 12: Require and verify the token in `register-from-order`**
+
+Modify `apps/backend/src/api/store/register-from-order/route.ts`:
+
+```typescript
+import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { normalizePhone } from "../../../lib/normalize-phone"
+import { registerCustomerFromOrder } from "../../../lib/register-customer-from-order"
+import {
+  verifyOrderRegistrationToken,
+  type OrderRegistrationTokenMetadata,
+} from "../../../lib/order-registration-token"
+
+type OrderForRegistration = {
+  id: string
+  customer_id: string | null
+  email: string | null
+  metadata?: OrderRegistrationTokenMetadata | null
+  shipping_address?: { first_name?: string; last_name?: string; phone?: string }
+}
+
+export async function POST(req: MedusaRequest, res: MedusaResponse) {
+  const { order_id, password, registration_token } = (req.body as Record<string, unknown>) ?? {}
+
+  if (typeof order_id !== "string" || !order_id) {
+    res.status(400).json({ message: "order_id requis." })
+    return
+  }
+
+  if (typeof password !== "string" || password.length < 8) {
+    res.status(400).json({ message: "Mot de passe invalide (8 caractères minimum)." })
+    return
+  }
+
+  if (typeof registration_token !== "string" || !registration_token) {
+    res.status(400).json({ message: "registration_token requis." })
+    return
+  }
+
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
+
+  const {
+    data: [order],
+  } = await query.graph({
+    entity: "order",
+    fields: [
+      "id",
+      "customer_id",
+      "email",
+      "metadata",
+      "shipping_address.first_name",
+      "shipping_address.last_name",
+      "shipping_address.phone",
+    ],
+    filters: { id: order_id },
+  })
+
+  const typedOrder = order as unknown as OrderForRegistration | undefined
+
+  if (!typedOrder) {
+    res.status(404).json({ message: "Commande introuvable." })
+    return
+  }
+
+  if (typedOrder.customer_id) {
+    res.status(400).json({ message: "Cette commande est déjà associée à un compte." })
+    return
+  }
+
+  const tokenCheck = verifyOrderRegistrationToken(typedOrder.metadata, registration_token)
+
+  if (!tokenCheck.valid) {
+    res.status(403).json({ message: tokenCheck.reason })
+    return
+  }
+
+  const rawPhone = typedOrder.shipping_address?.phone
+
+  if (!rawPhone) {
+    res.status(400).json({ message: "Aucun numéro de téléphone sur cette commande." })
+    return
+  }
+
+  const phone = normalizePhone(rawPhone)
+  const authModuleService = req.scope.resolve(Modules.AUTH)
+  const orderModuleService = req.scope.resolve(Modules.ORDER)
+
+  try {
+    const result = await registerCustomerFromOrder(authModuleService, { phone, password })
+
+    if (!result.success) {
+      res.status(400).json({ message: result.error })
+      return
+    }
+
+    // Jeton à usage unique : marqué consommé seulement après la création
+    // réussie du compte, pour permettre un nouvel essai si l'étape
+    // précédente échoue pour une raison récupérable (ex: identité déjà
+    // existante avec un mot de passe différent).
+    await orderModuleService.updateOrders(order_id, {
+      metadata: {
+        ...typedOrder.metadata,
+        registration_token_used_at: new Date().toISOString(),
+      },
+    })
+
+    res.status(200).json({
+      phone,
+      email: typedOrder.email,
+      first_name: typedOrder.shipping_address?.first_name,
+      last_name: typedOrder.shipping_address?.last_name,
+    })
+  } catch (error) {
+    logger.error("Échec de la création de compte depuis une commande", error as Error)
+    res.status(500).json({ message: "Une erreur est survenue." })
+  }
+}
+```
+
+- [ ] **Step 13: Run the new unit tests**
+
+Run: `cd apps/backend && npm run test:unit -- order-registration-token`
+Expected: PASS (6 tests)
+
+- [ ] **Step 14: Verify the backend still builds**
+
+Run: `cd apps/backend && npx tsc --noEmit -p tsconfig.json`
+Expected: no new errors.
+
+- [ ] **Step 15: Commit**
+
+```bash
+git add apps/backend/src/lib/order-registration-token.ts apps/backend/src/lib/__tests__/order-registration-token.unit.spec.ts "apps/backend/src/api/store/carts/[id]/complete/route.ts" apps/backend/src/api/store/register-from-order/route.ts
+git commit -m "fix(auth): exige un jeton de création de compte à usage unique pour register-from-order"
+```
+
+### Addendum 2 (post-hoc security fix): require a real WhatsApp OTP, not a silent auto-confirm
+
+**Discovered after Addendum 1 above was implemented and committed** (a
+second automated security review). See the spec's Décision "jeton de
+création de compte à usage unique (post-commande)" for the token part —
+this addendum documents a **separate, more fundamental** problem the token
+does not solve.
+
+**The problem:** `registerCustomerFromOrder` (as originally written in this
+Task's Step 3, unchanged by Addendum 1) calls
+`authModuleService.requestAuthVerification(...)` then **immediately**
+`confirmAuthVerification(...)` itself, server-side, without ever sending
+the code anywhere a human could read it. The registration_token (Addendum
+1) proves "whoever holds this token completed this exact checkout" — it
+does **not** prove "whoever completed this checkout controls the phone
+number typed into the shipping address," because guest checkout in this
+store never verifies that field; it is free text. Concretely: anyone can
+place a small guest order, put an **arbitrary phone number** (someone
+else's real number) in the shipping address, then use their own
+legitimately-earned registration_token to set a password on that phone
+number's `phone-pass` identity — a takeover, and since phone is this
+store's primary identifier, it also permanently squats that number,
+blocking its real owner from ever signing up with it.
+
+**Fix:** require the same real WhatsApp OTP confirmation this whole
+feature already built for normal signup (Tasks 2/3/4/9/11) — no shortcut.
+`register-from-order` now creates the identity and **sends** a real code
+(via `requestVerificationWorkflow`, which — unlike the plain module method
+— emits `auth.verification_requested` and triggers the Task 4 WhatsApp
+subscriber); it does not confirm anything itself. The customer must then
+enter the code, exactly like normal signup, before the account becomes
+usable. The registration_token is **kept** (not removed) — it still closes
+the Addendum-1 leak (a third party without the token can't see the order's
+name/email or trigger a WhatsApp send to an arbitrary number using a leaked
+`order_id`); it just no longer stands in for OTP confirmation.
+
+**Files:**
+- Modify: `apps/backend/src/lib/register-customer-from-order.ts`
+- Modify: `apps/backend/src/lib/__tests__/register-customer-from-order.unit.spec.ts`
+- Modify: `apps/backend/src/api/store/register-from-order/route.ts`
+
+**Interfaces:**
+- `registerCustomerFromOrder`'s signature gains a `container` parameter (needed to resolve `requestVerificationWorkflow`) and no longer returns anything different on success — still `{success: true, authIdentityId}` — but that now means "identity created, code sent," not "account ready to use."
+- `POST /store/register-from-order`'s response shape is **unchanged** (`{phone, email, first_name, last_name}`), but its meaning changes: success now means "code sent to this phone," not "account ready." Task 14 (below) is written against this corrected meaning from the start — it was not yet implemented when this was found, so it has no separate addendum of its own.
+
+- [ ] **Step 16: Rewrite `registerCustomerFromOrder` to send a real code**
+
+```typescript
+// apps/backend/src/lib/register-customer-from-order.ts
+import { requestVerificationWorkflow } from "@medusajs/core-flows"
+
+export type RegisterCustomerFromOrderInput = {
+  phone: string
+  password: string
+}
+
+export type RegisterCustomerFromOrderResult =
+  | { success: true; authIdentityId: string }
+  | { success: false; error: string }
+
+/**
+ * Enregistre une identité phone-pass et envoie un vrai code WhatsApp pour la
+ * vérifier - voir l'addendum 2 du Task 13 : une commande passée avec un
+ * numéro donné ne prouve pas, à elle seule, la possession de ce numéro
+ * (rien ne le vérifie au moment de la commande), donc une vérification
+ * réelle reste nécessaire ici, exactement comme pour une inscription
+ * normale (Tasks 2-11). `requestVerificationWorkflow` (contrairement à
+ * `authModuleService.requestAuthVerification` utilisé par le reste de ce
+ * fichier avant cet addendum) émet `auth.verification_requested`, qui
+ * déclenche le subscriber WhatsApp du Task 4.
+ */
+export async function registerCustomerFromOrder(
+  authModuleService: any,
+  container: any,
+  input: RegisterCustomerFromOrderInput
+): Promise<RegisterCustomerFromOrderResult> {
+  const registerResult = await authModuleService.register("phone-pass", {
+    body: { email: input.phone, password: input.password },
+  })
+
+  if (!registerResult.success || !registerResult.authIdentity) {
+    return { success: false, error: registerResult.error ?? "Échec de la création du compte." }
+  }
+
+  await requestVerificationWorkflow(container).run({
+    input: {
+      auth_identity_id: registerResult.authIdentity.id,
+      entity_id: input.phone,
+      entity_type: "phone",
+      code_provider: "whatsapp-otp",
+    },
+  })
+
+  return { success: true, authIdentityId: registerResult.authIdentity.id }
+}
+```
+
+- [ ] **Step 17: Update the unit test to mock the workflow instead of the module methods**
+
+Replace the fake auth-module-service test file's mocking of
+`requestAuthVerification`/`confirmAuthVerification` with a mock of
+`requestVerificationWorkflow` from `@medusajs/core-flows`:
+
+```typescript
+// apps/backend/src/lib/__tests__/register-customer-from-order.unit.spec.ts
+jest.mock("@medusajs/core-flows", () => ({
+  requestVerificationWorkflow: jest.fn(),
+}))
+
+import { requestVerificationWorkflow } from "@medusajs/core-flows"
+import { registerCustomerFromOrder } from "../register-customer-from-order"
+
+function createFakeAuthModuleService() {
+  return {
+    register: jest.fn(async () => ({
+      success: true,
+      authIdentity: { id: "authid_phone_1" },
+    })),
+  }
+}
+
+describe("registerCustomerFromOrder", () => {
+  beforeEach(() => {
+    ;(requestVerificationWorkflow as jest.Mock).mockReturnValue({
+      run: jest.fn(async () => ({ result: { code_provider: "whatsapp-otp" } })),
+    })
+  })
+
+  it("enregistre l'identité phone-pass puis envoie un vrai code WhatsApp (sans jamais le confirmer elle-même)", async () => {
+    const authModuleService = createFakeAuthModuleService()
+    const container = {}
+
+    const result = await registerCustomerFromOrder(authModuleService as any, container, {
+      phone: "+22670000000",
+      password: "motdepasse123",
+    })
+
+    expect(result).toEqual({ success: true, authIdentityId: "authid_phone_1" })
+    expect(authModuleService.register).toHaveBeenCalledWith("phone-pass", {
+      body: { email: "+22670000000", password: "motdepasse123" },
+    })
+    expect(requestVerificationWorkflow).toHaveBeenCalledWith(container)
+    const runMock = (requestVerificationWorkflow as jest.Mock).mock.results[0].value.run
+    expect(runMock).toHaveBeenCalledWith({
+      input: {
+        auth_identity_id: "authid_phone_1",
+        entity_id: "+22670000000",
+        entity_type: "phone",
+        code_provider: "whatsapp-otp",
+      },
+    })
+  })
+
+  it("retourne une erreur si l'enregistrement de l'identité échoue, sans jamais envoyer de code", async () => {
+    const authModuleService = createFakeAuthModuleService()
+    authModuleService.register = jest.fn(async () => ({
+      success: false,
+      error: "Identity with email already exists",
+    }))
+
+    const result = await registerCustomerFromOrder(authModuleService as any, {}, {
+      phone: "+22670000000",
+      password: "motdepasse123",
+    })
+
+    expect(result).toEqual({
+      success: false,
+      error: "Identity with email already exists",
+    })
+    expect(requestVerificationWorkflow).not.toHaveBeenCalled()
+  })
+})
+```
+
+- [ ] **Step 18: Pass `req.scope` through in the route**
+
+In `apps/backend/src/api/store/register-from-order/route.ts`, the only
+change is the call site (everything else — token validation, order
+lookup, token consumption after success, response shape — is unchanged
+from Addendum 1):
+
+```typescript
+    const result = await registerCustomerFromOrder(authModuleService, req.scope, { phone, password })
+```
+
+- [ ] **Step 19: Run the updated unit tests**
+
+Run: `cd apps/backend && npm run test:unit -- register-customer-from-order`
+Expected: PASS (2 tests)
+
+- [ ] **Step 20: Verify the backend still builds**
+
+Run: `cd apps/backend && npx tsc --noEmit -p tsconfig.json`
+Expected: no new errors.
+
+- [ ] **Step 21: Commit**
+
+```bash
+git add apps/backend/src/lib/register-customer-from-order.ts apps/backend/src/lib/__tests__/register-customer-from-order.unit.spec.ts apps/backend/src/api/store/register-from-order/route.ts
+git commit -m "fix(auth): exige une vraie confirmation WhatsApp pour register-from-order (plus d'auto-confirmation silencieuse)"
+```
+
 ---
 
 ## Task 14: Storefront — account creation prompt on order confirmation
@@ -2524,12 +3141,114 @@ git commit -m "feat(auth): ajoute la création de compte post-commande et le rat
 **Files:**
 - Modify: `apps/storefront/src/lib/data/orders.ts`
 - Modify: `apps/storefront/src/lib/data/customer.ts`
+- Modify: `apps/storefront/src/lib/data/cart.ts` (added by the registration-token addendum below)
+- Modify: `apps/storefront/src/lib/data/cookies.ts` (added by the registration-token addendum below, extended again below)
+- Modify: `apps/storefront/src/modules/account/components/verify-phone/index.tsx` (generalized to be reusable outside the login template — see below)
+- Modify: `apps/storefront/src/modules/account/templates/login-template.tsx` (one call-site update to match)
 - Create: `apps/storefront/src/modules/order/components/create-account-prompt/index.tsx`
 - Modify: `apps/storefront/src/modules/order/templates/order-completed-template.tsx`
 
 **Interfaces:**
-- Consumes: the `register-from-order` and `claim-order` routes from Task 13, and the local (unexported) `completeLogin` function already defined in `customer.ts` by Task 8.
-- Produces: `createAccountFromOrder(_currentState: unknown, formData: FormData): Promise<CustomerAuthState>`, a new `useActionState`-compatible action.
+- Consumes: the `register-from-order` and `claim-order` routes from Task 13 (including both addenda), the local (unexported) `completeLogin` function already defined in `customer.ts` by Task 8, and the existing `confirmPhoneVerification`/`VerifyPhone` OTP-confirmation pipeline from Tasks 9/11 — reused as-is rather than duplicated, since Task 13's Addendum 2 makes this flow require the exact same real WhatsApp confirmation as normal signup.
+- Produces: `createAccountFromOrder(_currentState: unknown, formData: FormData): Promise<CustomerAuthState>`, a new `useActionState`-compatible action returning the existing `"phone_verification_required"` state (not a new one) on success.
+
+**Context — registration token plumbing (see Task 13's addendum):**
+`register-from-order` now requires a `registration_token` that only exists
+in the `POST /store/carts/:id/complete` response body, returned at the
+moment the order is placed — well before this task's code ever runs. The
+storefront's checkout-complete action (`placeOrder` in `cart.ts`, not
+otherwise touched by this task) already runs at that exact moment, so it is
+the only place that can capture the token. It hands it forward via a
+short-lived `httpOnly` cookie (same pattern as `_medusa_pending_customer`
+in `cookies.ts`) — never a URL, never a hidden form field, never anything
+that reaches the page's visible HTML or the browser's address bar. This
+keeps `CreateAccountPrompt` itself unchanged: it never sees or handles the
+token at all.
+
+- [ ] **Step 0: Add the registration-token cookie helpers**
+
+Add to `apps/storefront/src/lib/data/cookies.ts` (same file, same pattern
+as `setPendingCustomer`/`getPendingCustomer`/`removePendingCustomer`):
+
+```typescript
+export type OrderRegistrationProof = {
+  orderId: string
+  token: string
+}
+
+// Doit rester cohérent avec ORDER_REGISTRATION_TOKEN_TTL_MS côté backend
+// (apps/backend/src/lib/order-registration-token.ts).
+const ORDER_REGISTRATION_PROOF_MAX_AGE = 60 * 30
+
+export const setOrderRegistrationProof = async (proof: OrderRegistrationProof) => {
+  const cookies = await nextCookies()
+  cookies.set("_medusa_order_registration_token", JSON.stringify(proof), {
+    maxAge: ORDER_REGISTRATION_PROOF_MAX_AGE,
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+  })
+}
+
+export const getOrderRegistrationProof = async (): Promise<OrderRegistrationProof | null> => {
+  const cookies = await nextCookies()
+  const value = cookies.get("_medusa_order_registration_token")?.value
+
+  if (!value) {
+    return null
+  }
+
+  try {
+    return JSON.parse(value) as OrderRegistrationProof
+  } catch {
+    return null
+  }
+}
+
+export const removeOrderRegistrationProof = async () => {
+  const cookies = await nextCookies()
+  cookies.set("_medusa_order_registration_token", "", {
+    maxAge: -1,
+  })
+}
+```
+
+- [ ] **Step 0b: Capture the token in `placeOrder`**
+
+In `apps/storefront/src/lib/data/cart.ts`, find `placeOrder` and the
+`if (cartRes?.type === "order")` block. Add the token capture before the
+existing `removeCartId()`/`redirect(...)` lines, keeping everything else in
+that block exactly as-is:
+
+```typescript
+  if (cartRes?.type === "order") {
+    const countryCode =
+      cartRes.order.shipping_address?.country_code?.toLowerCase()
+
+    const orderCacheTag = await getCacheTag("orders")
+    revalidateTag(orderCacheTag)
+
+    // Ajouté par l'addendum "jeton de création de compte" du Task 13 :
+    // présent uniquement pour une commande invité, jamais placé dans l'URL.
+    const registrationToken = (
+      cartRes as unknown as { registration_token?: string }
+    ).registration_token
+
+    if (registrationToken) {
+      await setOrderRegistrationProof({
+        orderId: cartRes.order.id,
+        token: registrationToken,
+      })
+    }
+
+    removeCartId()
+    redirect(`/${countryCode}/order/${cartRes?.order.id}/confirmed`)
+  }
+```
+
+Add `setOrderRegistrationProof` to `cart.ts`'s existing import from
+`./cookies` (it already imports `getCacheTag`/`getAuthHeaders`/`removeCartId`
+from that file — add the new name to that same import line).
 
 - [ ] **Step 1: Ensure `retrieveOrder` fetches the fields this prompt needs**
 
@@ -2543,11 +3262,75 @@ and add the missing fields:
           "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+customer_id,+email,+shipping_address.first_name,+shipping_address.last_name,+shipping_address.phone",
 ```
 
-- [ ] **Step 2: Add `createAccountFromOrder` to `customer.ts`**
+**Context — why this flow needs a real OTP step (see Task 13's Addendum
+2):** `register-from-order` no longer completes the account synchronously.
+It creates the identity and sends a real WhatsApp code; the customer must
+enter it before the account is usable — exactly like normal signup (Tasks
+2/3/4/9/11). This task reuses that existing pipeline (`confirmPhoneVerification`,
+`VerifyPhone`) instead of building a parallel one. The only genuinely new
+piece is remembering, across that OTP round-trip, that a specific order
+should be claimed once login finally succeeds — done via one new field on
+the existing `PendingCustomer` cookie.
 
-Add this new export to `apps/storefront/src/lib/data/customer.ts` (it calls
-the existing, unexported `completeLogin` directly — no export needed for
-that function, since this new code lives in the same file):
+- [ ] **Step 2: Add `orderIdToClaim` to `PendingCustomer`**
+
+In `apps/storefront/src/lib/data/cookies.ts`, add one field to the existing
+`PendingCustomer` type (do not change anything else about it):
+
+```typescript
+export type PendingCustomer = {
+  email: string
+  first_name?: string
+  last_name?: string
+  phone?: string
+  password?: string
+  orderIdToClaim?: string
+}
+```
+
+- [ ] **Step 3: Generalize `VerifyPhone`'s success callback**
+
+`VerifyPhone` (Task 11) currently takes `setCurrentView: (view: LOGIN_VIEW)
+=> void` and calls `setCurrentView(LOGIN_VIEW.SIGN_IN)` on success — that's
+specific to the login page's internal view-switching and doesn't make
+sense on the order-confirmation page (there is no `LOGIN_VIEW` there). Both
+callers need is "do something when verification succeeds," so generalize
+the prop to a plain callback. This is the only change to this file.
+
+In `apps/storefront/src/modules/account/components/verify-phone/index.tsx`:
+
+```typescript
+type Props = {
+  onVerified: () => void
+}
+
+const VerifyPhone = ({ onVerified }: Props) => {
+```
+
+And its `useEffect`:
+
+```typescript
+  useEffect(() => {
+    if (message?.state === "success") {
+      onVerified()
+    }
+  }, [message, onVerified])
+```
+
+Remove the now-unused `import { LOGIN_VIEW } from "@modules/account/templates/login-template"`.
+
+Update the one existing call site,
+`apps/storefront/src/modules/account/templates/login-template.tsx`:
+
+```typescript
+        <VerifyPhone onVerified={() => setCurrentView(LOGIN_VIEW.SIGN_IN)} />
+```
+
+- [ ] **Step 4: Add `createAccountFromOrder` and extend `confirmPhoneVerification` in `customer.ts`**
+
+Add `getOrderRegistrationProof` and `removeOrderRegistrationProof` to this
+file's existing import from `./cookies` (alongside `getPendingCustomer`/
+`setPendingCustomer`).
 
 ```typescript
 type RegisterFromOrderResponse = {
@@ -2557,6 +3340,13 @@ type RegisterFromOrderResponse = {
   last_name?: string
 }
 
+// register-from-order (Task 13, Addendum 2) crée l'identité et envoie un
+// vrai code WhatsApp - elle ne connecte plus le client elle-même. On dépose
+// tout ce dont confirmPhoneVerification aura besoin (y compris le mot de
+// passe et la commande à rattacher) dans le cookie pending, exactement
+// comme signup() le fait déjà, puis on retourne le même état
+// "phone_verification_required" que l'inscription normale : la page de
+// confirmation de commande peut donc réutiliser VerifyPhone tel quel.
 export async function createAccountFromOrder(
   _currentState: unknown,
   formData: FormData
@@ -2573,6 +3363,9 @@ export async function createAccountFromOrder(
     return { state: "error", error: "Le mot de passe doit contenir au moins 8 caractères." }
   }
 
+  const proof = await getOrderRegistrationProof()
+  const registrationToken = proof?.orderId === orderId ? proof.token : ""
+
   let registration: RegisterFromOrderResponse
 
   try {
@@ -2580,57 +3373,92 @@ export async function createAccountFromOrder(
       "/store/register-from-order",
       {
         method: "POST",
-        body: { order_id: orderId, password },
+        body: { order_id: orderId, password, registration_token: registrationToken },
       }
     )
   } catch (error) {
     return { state: "error", error: String(error) }
   }
 
-  // completeLogin (Task 8) lit first_name/last_name/phone/email depuis
-  // getPendingCustomer() au moment de créer le client - on les y dépose
-  // avant de l'appeler, exactement comme signup() le fait déjà.
+  // Le jeton est à usage unique côté backend (marqué consommé après cet
+  // appel réussi) - on nettoie le cookie ici pour éviter toute tentative de
+  // réutilisation, même si elle échouerait déjà côté serveur.
+  await removeOrderRegistrationProof()
+
   await setPendingCustomer({
     email: registration.email ?? undefined,
     first_name: registration.first_name,
     last_name: registration.last_name,
     phone: registration.phone,
+    password,
+    orderIdToClaim: orderId,
   } as unknown as PendingCustomer)
 
-  const loginResult = await completeLogin(registration.phone, password)
-
-  if (loginResult?.state !== "success") {
-    return loginResult
-  }
-
-  try {
-    await sdk.client.fetch("/store/customers/me/claim-order", {
-      method: "POST",
-      headers: { ...(await getAuthHeaders()) },
-      body: { order_id: orderId },
-    })
-  } catch {
-    // Le compte est créé et utilisable même si le rattachement de cette
-    // commande précise échoue - ne jamais faire échouer toute l'opération
-    // pour ça.
-  }
-
-  return { state: "success" }
+  return { state: "phone_verification_required", phone: registration.phone }
 }
 ```
 
-- [ ] **Step 3: Write the `CreateAccountPrompt` component**
+Modify the existing `confirmPhoneVerification` (shared by normal signup
+and this flow) to claim the pending order, if any, once login actually
+succeeds:
+
+```typescript
+export async function confirmPhoneVerification(code: string): Promise<CustomerAuthState> {
+  try {
+    await sdk.auth.verification.confirm({ code, code_provider: "whatsapp-otp" })
+  } catch (error) {
+    return { state: "error", error: String(error) }
+  }
+
+  const pending = await getPendingCustomer()
+
+  if (!pending?.phone) {
+    return { state: "error", error: "Session d'inscription expirée, recommencez." }
+  }
+
+  const loginResult = await completeLogin(pending.phone, pending.password ?? "")
+
+  if (loginResult?.state === "success" && pending.orderIdToClaim) {
+    try {
+      await sdk.client.fetch("/store/customers/me/claim-order", {
+        method: "POST",
+        headers: { ...(await getAuthHeaders()) },
+        body: { order_id: pending.orderIdToClaim },
+      })
+    } catch {
+      // Le compte est créé et utilisable même si le rattachement de cette
+      // commande précise échoue - ne jamais faire échouer toute l'opération
+      // pour ça.
+    }
+  }
+
+  return loginResult
+}
+```
+
+(`pending.orderIdToClaim` is read into a local before `completeLogin` runs,
+so it doesn't matter whether `completeLogin` clears the pending-customer
+cookie internally on success — check its existing behavior, but there is
+nothing to change there regardless.)
+
+- [ ] **Step 5: Write the `CreateAccountPrompt` component**
+
+Two states now instead of one: the password form, then (reusing
+`VerifyPhone` as-is) the code screen, then a final local "done" message —
+`VerifyPhone`'s own success state isn't visible from here, so a small local
+`verified` flag tracks it.
 
 ```typescript
 // apps/storefront/src/modules/order/components/create-account-prompt/index.tsx
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 import Input from "@modules/common/components/input"
 import { Heading } from "@modules/common/components/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { createAccountFromOrder } from "@lib/data/customer"
+import VerifyPhone from "@modules/account/components/verify-phone"
 
 type Props = {
   orderId: string
@@ -2639,8 +3467,9 @@ type Props = {
 
 const CreateAccountPrompt = ({ orderId, phone }: Props) => {
   const [message, formAction] = useActionState(createAccountFromOrder, null)
+  const [verified, setVerified] = useState(false)
 
-  if (message?.state === "success") {
+  if (verified) {
     return (
       <div
         className="w-full rounded-2xl border border-gm-border bg-white p-6 text-center text-sm text-gm-ink"
@@ -2650,6 +3479,10 @@ const CreateAccountPrompt = ({ orderId, phone }: Props) => {
         votre espace client.
       </div>
     )
+  }
+
+  if (message?.state === "phone_verification_required") {
+    return <VerifyPhone onVerified={() => setVerified(true)} />
   }
 
   return (
@@ -2698,7 +3531,7 @@ const CreateAccountPrompt = ({ orderId, phone }: Props) => {
 export default CreateAccountPrompt
 ```
 
-- [ ] **Step 4: Render it on the order confirmation page for guest orders**
+- [ ] **Step 6: Render it on the order confirmation page for guest orders**
 
 In `apps/storefront/src/modules/order/templates/order-completed-template.tsx`,
 add the import:
@@ -2728,15 +3561,15 @@ elsewhere in this same file (check either of those two components' props
 for the exact existing pattern and match it instead of introducing a new
 one, if they already narrow this field cleanly).
 
-- [ ] **Step 5: Verify the storefront still builds**
+- [ ] **Step 7: Verify the storefront still builds**
 
 Run: `cd apps/storefront && npx tsc --noEmit -p tsconfig.json`
 Expected: no new errors.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add apps/storefront/src/lib/data/orders.ts apps/storefront/src/lib/data/customer.ts apps/storefront/src/modules/order/components/create-account-prompt/index.tsx apps/storefront/src/modules/order/templates/order-completed-template.tsx
+git add apps/storefront/src/lib/data/orders.ts apps/storefront/src/lib/data/customer.ts apps/storefront/src/lib/data/cart.ts apps/storefront/src/lib/data/cookies.ts apps/storefront/src/modules/account/components/verify-phone/index.tsx apps/storefront/src/modules/account/templates/login-template.tsx apps/storefront/src/modules/order/components/create-account-prompt/index.tsx apps/storefront/src/modules/order/templates/order-completed-template.tsx
 git commit -m "feat(auth): propose la création de compte à la fin d'une commande invité"
 ```
 

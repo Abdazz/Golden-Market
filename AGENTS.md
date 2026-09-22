@@ -143,6 +143,23 @@ passe pour un compte inscrit uniquement par téléphone (le subscriber
 `auth-password-reset.ts` traite l'identifiant comme un email et échoue
 silencieusement sinon).
 
+**Override du core route Medusa `POST /store/carts/:id/complete`**
+(`apps/backend/src/api/store/carts/[id]/complete/route.ts`) — le fichier le
+plus sensible de cette fonctionnalité : c'est le point d'entrée de **toute**
+commande passée sur le store, invité ou non. Reproduit le core route à
+l'identique (voir le fichier lui-même dans
+`node_modules/@medusajs/medusa/dist/api/store/carts/[id]/complete/route.js`,
+version `@medusajs/medusa` `2.18.0` au moment où cet override a été écrit,
+pinnée dans `package.json` sans caret exprès pour limiter le risque de
+divergence silencieuse à la mise à jour) à l'exception d'un bloc additif :
+pour une commande invité uniquement, génère et attache un jeton de création
+de compte à usage unique (`apps/backend/src/lib/order-registration-token.ts`)
+consommé par `/store/register-from-order`. **À chaque montée de version de
+`@medusajs/medusa`, rediffer ce fichier contre le nouveau core route avant
+de mettre à jour le pin** — un changement de comportement du core (gestion
+d'erreur de paiement, format de réponse) ne sera jamais reçu automatiquement
+puisque ce fichier prend le dessus sur celui du package.
+
 ## Medusa Skills & MCP Server
 
 These are optional but strongly recommended — they give documentation-backed answers instead of guesses about Medusa APIs. **Use them when available; if they are not, mention to the user that installing them meaningfully improves development on this project.**
