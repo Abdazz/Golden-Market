@@ -1,6 +1,6 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys, ProductVariantWorkflowEvents } from "@medusajs/framework/utils"
-import { syncVariantToMetaCatalog } from "../lib/meta-catalog-sync"
+import { getConfiguredMetaCatalogConfigs, syncVariantToMetaCatalog } from "../lib/meta-catalog-sync"
 
 /**
  * product-variant.updated est émis pour TOUT changement de variante, pas
@@ -15,12 +15,11 @@ export default async function productVariantPriceUpdatedMetaCatalogHandler({
   container,
 }: SubscriberArgs<{ id: string }>) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
-  const catalogId = process.env.META_CATALOG_ID
-  const accessToken = process.env.META_CATALOG_ACCESS_TOKEN
+  const configs = getConfiguredMetaCatalogConfigs()
 
-  if (!catalogId || !accessToken) {
+  if (configs.length === 0) {
     logger.info(
-      `Variante ${event.data.id} mise à jour — META_CATALOG_ID/META_CATALOG_ACCESS_TOKEN non configurés, synchro Meta ignorée`
+      `Variante ${event.data.id} mise à jour — aucun catalogue Meta configuré, synchro ignorée`
     )
     return
   }
@@ -28,7 +27,7 @@ export default async function productVariantPriceUpdatedMetaCatalogHandler({
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
 
   try {
-    await syncVariantToMetaCatalog(query, event.data.id, { catalogId, accessToken })
+    await syncVariantToMetaCatalog(query, event.data.id, configs)
     logger.info(`Variante ${event.data.id} — prix/stock synchronisés avec le catalogue Meta`)
   } catch (error) {
     logger.error(

@@ -4,7 +4,11 @@ import productVariantStockUpdatedMetaCatalogHandler, {
 import * as metaCatalogSync from "../../lib/meta-catalog-sync"
 import { InventoryLevelWorkflowEvents, ReservationItemWorkflowEvents } from "@medusajs/framework/utils"
 
-jest.mock("../../lib/meta-catalog-sync")
+jest.mock("../../lib/meta-catalog-sync", () => ({
+  ...jest.requireActual("../../lib/meta-catalog-sync"),
+  syncVariantToMetaCatalog: jest.fn(),
+  resolveVariantIdsForInventoryItem: jest.fn(),
+}))
 
 describe("productVariantStockUpdatedMetaCatalogHandler", () => {
   const logger = { info: jest.fn(), error: jest.fn() }
@@ -51,14 +55,30 @@ describe("productVariantStockUpdatedMetaCatalogHandler", () => {
     expect(retrieveInventoryLevel).toHaveBeenCalledWith("ilev_1")
     expect(retrieveReservationItem).not.toHaveBeenCalled()
     expect(metaCatalogSync.syncVariantToMetaCatalog).toHaveBeenCalledTimes(2)
-    expect(metaCatalogSync.syncVariantToMetaCatalog).toHaveBeenCalledWith({ graph }, "variant_1", {
-      catalogId: "catalog_123",
-      accessToken: "token_abc",
+    expect(metaCatalogSync.syncVariantToMetaCatalog).toHaveBeenCalledWith({ graph }, "variant_1", [
+      { catalogId: "catalog_123", accessToken: "token_abc" },
+    ])
+    expect(metaCatalogSync.syncVariantToMetaCatalog).toHaveBeenCalledWith({ graph }, "variant_2", [
+      { catalogId: "catalog_123", accessToken: "token_abc" },
+    ])
+  })
+
+  it("pushes to every configured catalog", async () => {
+    process.env.META_CATALOG_APP_ID = "catalog_app"
+    process.env.META_CATALOG_APP_ACCESS_TOKEN = "token_app"
+    retrieveInventoryLevel.mockResolvedValue({ id: "ilev_1", inventory_item_id: "iitem_1" })
+    ;(metaCatalogSync.resolveVariantIdsForInventoryItem as jest.Mock).mockResolvedValue(["variant_1"])
+    ;(metaCatalogSync.syncVariantToMetaCatalog as jest.Mock).mockResolvedValue(undefined)
+
+    await productVariantStockUpdatedMetaCatalogHandler({
+      event: { name: "inventory-level.updated", data: { id: "ilev_1" } } as any,
+      container: container as any,
     })
-    expect(metaCatalogSync.syncVariantToMetaCatalog).toHaveBeenCalledWith({ graph }, "variant_2", {
-      catalogId: "catalog_123",
-      accessToken: "token_abc",
-    })
+
+    expect(metaCatalogSync.syncVariantToMetaCatalog).toHaveBeenCalledWith({ graph }, "variant_1", [
+      { catalogId: "catalog_123", accessToken: "token_abc" },
+      { catalogId: "catalog_app", accessToken: "token_app" },
+    ])
   })
 
   it("resolves the inventory item from an inventory-level.created event", async () => {

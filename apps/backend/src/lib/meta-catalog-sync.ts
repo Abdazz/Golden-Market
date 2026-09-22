@@ -94,11 +94,18 @@ export async function resolveVariantIdsForInventoryItem(
  * Lève en cas d'échec (variante introuvable, appel Meta en échec) - les
  * subscribers appelants sont responsables du try/catch/log, exactement comme
  * order-placed-customer-whatsapp.ts.
+ *
+ * Un catalogue Meta désormais peut alimenter plusieurs catalogues (celui de
+ * production, lié au compte WhatsApp Cloud API, et celui de l'app mobile
+ * WhatsApp Business - voir [[golden-market-whatsapp-agent-audit]]) : l'item
+ * est construit une seule fois puis poussé vers chaque config en parallèle.
+ * Un échec sur un catalogue ne doit pas empêcher la tentative sur les
+ * autres - les échecs sont collectés puis remontés ensemble à l'appelant.
  */
 export async function syncVariantToMetaCatalog(
   query: any,
   variantId: string,
-  config: MetaCatalogConfig,
+  configs: MetaCatalogConfig[],
   fetchImpl: typeof fetch = fetch
 ): Promise<void> {
   const data = await loadVariantCatalogData(query, variantId)
@@ -115,5 +122,49 @@ export async function syncVariantToMetaCatalog(
   const availableQuantity = availability[variantId]?.availability ?? null
 
   const item = buildCatalogItem(product, variant, availableQuantity)
-  await upsertCatalogItem(item, config, fetchImpl)
+
+  const results = await Promise.allSettled(
+    configs.map((config) => upsertCatalogItem(item, config, fetchImpl))
+  )
+
+  const failures = results.filter(
+    (result): result is PromiseRejectedResult => result.status === "rejected"
+  )
+
+  if (failures.length > 0) {
+    throw new Error(
+      `Échec de la synchro Meta pour ${failures.length}/${configs.length} catalogue(s) : ` +
+        failures.map((failure) => (failure.reason as Error).message).join(" | ")
+    )
+  }
+}
+
+/**
+ * META_CATALOG_ID/META_CATALOG_ACCESS_TOKEN : catalogue de production, lié
+ * au compte WhatsApp Cloud API (+226 61 85 37 37). META_CATALOG_APP_ID/
+ * META_CATALOG_APP_ACCESS_TOKEN : second catalogue, dédié au compte WhatsApp
+ * Business app mobile (+226 64 94 73 73) - un catalogue Meta ne peut être
+ * connecté qu'à un seul compte WhatsApp à la fois (voir
+ * [[golden-market-whatsapp-agent-audit]]), d'où deux catalogues distincts
+ * alimentés par le même flux Medusa. Chaque paire est indépendante : une
+ * seule des deux peut être configurée sans bloquer l'autre.
+ */
+export function getConfiguredMetaCatalogConfigs(): MetaCatalogConfig[] {
+  const configs: MetaCatalogConfig[] = []
+
+  if (process.env.META_CATALOG_ID && process.env.META_CATALOG_ACCESS_TOKEN) {
+    configs.push({
+      catalogId: process.env.META_CATALOG_ID,
+      accessToken: process.env.META_CATALOG_ACCESS_TOKEN,
+    })
+  }
+
+  if (process.env.META_CATALOG_APP_ID && process.env.META_CATALOG_APP_ACCESS_TOKEN) {
+    configs.push({
+      catalogId: process.env.META_CATALOG_APP_ID,
+      accessToken: process.env.META_CATALOG_APP_ACCESS_TOKEN,
+    })
+  }
+
+  return configs
 }

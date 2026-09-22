@@ -1,7 +1,10 @@
 import productVariantPriceUpdatedMetaCatalogHandler from "../product-variant-price-updated-meta-catalog"
 import * as metaCatalogSync from "../../lib/meta-catalog-sync"
 
-jest.mock("../../lib/meta-catalog-sync")
+jest.mock("../../lib/meta-catalog-sync", () => ({
+  ...jest.requireActual("../../lib/meta-catalog-sync"),
+  syncVariantToMetaCatalog: jest.fn(),
+}))
 
 describe("productVariantPriceUpdatedMetaCatalogHandler", () => {
   const logger = { info: jest.fn(), error: jest.fn() }
@@ -28,6 +31,8 @@ describe("productVariantPriceUpdatedMetaCatalogHandler", () => {
   it("pushes the variant to Meta when configured", async () => {
     process.env.META_CATALOG_ID = "catalog_123"
     process.env.META_CATALOG_ACCESS_TOKEN = "token_abc"
+    delete process.env.META_CATALOG_APP_ID
+    delete process.env.META_CATALOG_APP_ACCESS_TOKEN
     ;(metaCatalogSync.syncVariantToMetaCatalog as jest.Mock).mockResolvedValue(undefined)
 
     await productVariantPriceUpdatedMetaCatalogHandler({
@@ -38,13 +43,37 @@ describe("productVariantPriceUpdatedMetaCatalogHandler", () => {
     expect(metaCatalogSync.syncVariantToMetaCatalog).toHaveBeenCalledWith(
       { graph },
       "variant_1",
-      { catalogId: "catalog_123", accessToken: "token_abc" }
+      [{ catalogId: "catalog_123", accessToken: "token_abc" }]
     )
   })
 
-  it("skips silently when Meta catalog env vars are not configured", async () => {
+  it("pushes the variant to every configured catalog", async () => {
+    process.env.META_CATALOG_ID = "catalog_123"
+    process.env.META_CATALOG_ACCESS_TOKEN = "token_abc"
+    process.env.META_CATALOG_APP_ID = "catalog_app"
+    process.env.META_CATALOG_APP_ACCESS_TOKEN = "token_app"
+    ;(metaCatalogSync.syncVariantToMetaCatalog as jest.Mock).mockResolvedValue(undefined)
+
+    await productVariantPriceUpdatedMetaCatalogHandler({
+      event: { name: "product-variant.updated", data: { id: "variant_1" } } as any,
+      container: container as any,
+    })
+
+    expect(metaCatalogSync.syncVariantToMetaCatalog).toHaveBeenCalledWith(
+      { graph },
+      "variant_1",
+      [
+        { catalogId: "catalog_123", accessToken: "token_abc" },
+        { catalogId: "catalog_app", accessToken: "token_app" },
+      ]
+    )
+  })
+
+  it("skips silently when no Meta catalog env vars are configured", async () => {
     delete process.env.META_CATALOG_ID
     delete process.env.META_CATALOG_ACCESS_TOKEN
+    delete process.env.META_CATALOG_APP_ID
+    delete process.env.META_CATALOG_APP_ACCESS_TOKEN
     ;(metaCatalogSync.syncVariantToMetaCatalog as jest.Mock).mockResolvedValue(undefined)
 
     await productVariantPriceUpdatedMetaCatalogHandler({
@@ -58,6 +87,8 @@ describe("productVariantPriceUpdatedMetaCatalogHandler", () => {
   it("logs and does not throw when the sync fails", async () => {
     process.env.META_CATALOG_ID = "catalog_123"
     process.env.META_CATALOG_ACCESS_TOKEN = "token_abc"
+    delete process.env.META_CATALOG_APP_ID
+    delete process.env.META_CATALOG_APP_ACCESS_TOKEN
     ;(metaCatalogSync.syncVariantToMetaCatalog as jest.Mock).mockRejectedValue(new Error("boom"))
 
     await expect(

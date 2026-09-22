@@ -5,19 +5,22 @@ import {
   Modules,
   ReservationItemWorkflowEvents,
 } from "@medusajs/framework/utils"
-import { resolveVariantIdsForInventoryItem, syncVariantToMetaCatalog } from "../lib/meta-catalog-sync"
+import {
+  getConfiguredMetaCatalogConfigs,
+  resolveVariantIdsForInventoryItem,
+  syncVariantToMetaCatalog,
+} from "../lib/meta-catalog-sync"
 
 export default async function productVariantStockUpdatedMetaCatalogHandler({
   event,
   container,
 }: SubscriberArgs<{ id: string }>) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
-  const catalogId = process.env.META_CATALOG_ID
-  const accessToken = process.env.META_CATALOG_ACCESS_TOKEN
+  const configs = getConfiguredMetaCatalogConfigs()
 
-  if (!catalogId || !accessToken) {
+  if (configs.length === 0) {
     logger.info(
-      `Stock modifié (${event.name} ${event.data.id}) — META_CATALOG_ID/META_CATALOG_ACCESS_TOKEN non configurés, synchro Meta ignorée`
+      `Stock modifié (${event.name} ${event.data.id}) — aucun catalogue Meta configuré, synchro ignorée`
     )
     return
   }
@@ -47,7 +50,7 @@ export default async function productVariantStockUpdatedMetaCatalogHandler({
     const variantIds = await resolveVariantIdsForInventoryItem(query, inventoryItemId)
 
     for (const variantId of variantIds) {
-      await syncVariantToMetaCatalog(query, variantId, { catalogId, accessToken })
+      await syncVariantToMetaCatalog(query, variantId, configs)
     }
 
     logger.info(
