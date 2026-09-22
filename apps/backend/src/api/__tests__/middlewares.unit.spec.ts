@@ -1,5 +1,9 @@
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import { semanticSearchRateLimitMiddleware, whatsappOtpVerificationRateLimitMiddleware } from "../middlewares"
+import {
+  semanticSearchRateLimitMiddleware,
+  whatsappOtpConfirmRateLimitMiddleware,
+  whatsappOtpVerificationRateLimitMiddleware,
+} from "../middlewares"
 
 function createFakeCache() {
   const store = new Map<string, unknown>()
@@ -237,6 +241,83 @@ describe("whatsappOtpVerificationRateLimitMiddleware", () => {
     req.body = { code_provider: "whatsapp-otp", entity_id: "+22670000002" }
     const res = createFakeRes()
     await whatsappOtpVerificationRateLimitMiddleware(req, res, next)
+
+    expect(res.status).not.toHaveBeenCalled()
+    expect(next).toHaveBeenCalled()
+  })
+})
+
+describe("whatsappOtpConfirmRateLimitMiddleware", () => {
+  it("laisse passer les requêtes tant que la limite (20/15min) n'est pas atteinte", async () => {
+    const cache = createFakeCache()
+    const scope = createFakeScope({ cache })
+    const next = jest.fn()
+
+    for (let i = 0; i < 20; i++) {
+      const req = createFakeReq({ scope })
+      req.body = { code_provider: "whatsapp-otp", code: "000000" }
+      const res = createFakeRes()
+      await whatsappOtpConfirmRateLimitMiddleware(req, res, next)
+      expect(res.status).not.toHaveBeenCalled()
+    }
+
+    expect(next).toHaveBeenCalledTimes(20)
+  })
+
+  it("bloque au-delà de la limite et répond 429", async () => {
+    const cache = createFakeCache()
+    const scope = createFakeScope({ cache })
+    const next = jest.fn()
+
+    for (let i = 0; i < 20; i++) {
+      const req = createFakeReq({ scope })
+      req.body = { code_provider: "whatsapp-otp", code: "000000" }
+      const res = createFakeRes()
+      await whatsappOtpConfirmRateLimitMiddleware(req, res, next)
+    }
+
+    const req = createFakeReq({ scope })
+    req.body = { code_provider: "whatsapp-otp", code: "000000" }
+    const res = createFakeRes()
+    await whatsappOtpConfirmRateLimitMiddleware(req, res, next)
+
+    expect(res.status).toHaveBeenCalledWith(429)
+    expect(res.headers["Retry-After"]).toBeDefined()
+    expect(next).toHaveBeenCalledTimes(20)
+  })
+
+  it("ne limite jamais une confirmation pour un autre code_provider (ex: token)", async () => {
+    const cache = createFakeCache()
+    const scope = createFakeScope({ cache })
+    const next = jest.fn()
+
+    for (let i = 0; i < 25; i++) {
+      const req = createFakeReq({ scope })
+      req.body = { code_provider: "token", code: "abc123" }
+      const res = createFakeRes()
+      await whatsappOtpConfirmRateLimitMiddleware(req, res, next)
+      expect(res.status).not.toHaveBeenCalled()
+    }
+
+    expect(next).toHaveBeenCalledTimes(25)
+  })
+
+  it("applique un bucket indépendant par IP", async () => {
+    const cache = createFakeCache()
+    const scope = createFakeScope({ cache })
+    const next = jest.fn()
+
+    for (let i = 0; i < 20; i++) {
+      const req = createFakeReq({ scope, ip: "203.0.113.30" })
+      req.body = { code_provider: "whatsapp-otp", code: "000000" }
+      const res = createFakeRes()
+      await whatsappOtpConfirmRateLimitMiddleware(req, res, next)
+    }
+
+    const req = createFakeReq({ scope, ip: "203.0.113.40" })
+    req.body = { code_provider: "whatsapp-otp", code: "000000" }
+    const res = createFakeRes()
+    await whatsappOtpConfirmRateLimitMiddleware(req, res, next)
 
     expect(res.status).not.toHaveBeenCalled()
     expect(next).toHaveBeenCalled()

@@ -64,7 +64,21 @@ async function getProvisionalPhoneToken(phone: string, password: string): Promis
       email: phone,
       password,
     })
-    return typeof loginResult === "string" ? loginResult : null
+
+    if (typeof loginResult === "string") {
+      return loginResult
+    }
+
+    // Tant que le téléphone n'est pas vérifié, sdk.auth.login ne renvoie
+    // jamais une simple chaîne mais { verification_required: true, token }
+    // (voir authVerificationsPerActor, Task 3) - c'est le cas normal ici,
+    // pas un échec : c'est précisément ce jeton non vérifié qu'il faut
+    // renvoyer pour pouvoir demander/confirmer le code.
+    if (loginResult && typeof loginResult === "object" && "token" in loginResult) {
+      return loginResult.token
+    }
+
+    return null
   } catch {
     return null
   }

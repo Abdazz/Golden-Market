@@ -221,4 +221,20 @@ describe("WhatsappOtpVerificationProvider", () => {
     const confirmed = await provider.confirm({ code, auth_identity_id: "authid_1" })
     expect(confirmed.verified_at).not.toBeNull()
   })
+
+  it("rejette un code correct s'il est présenté avec l'auth_identity_id d'une autre identité", async () => {
+    const service = createFakeAuthVerificationService()
+    const provider = new WhatsappOtpVerificationProvider({ authVerificationService: service }, {})
+
+    const { code } = await provider.request(baseRequestData)
+
+    // "authid_2" est une identité distincte, sans vérification en attente
+    // pour elle-même - la recherche par identité (pas par hash global) doit
+    // donc ne rien trouver, même si le code est le bon pour authid_1. C'est
+    // exactement la propriété que le passage d'une recherche par hash à une
+    // recherche par auth_identity_id est censé garantir (voir revue finale).
+    await expect(
+      provider.confirm({ code, code_provider: "whatsapp-otp", auth_identity_id: "authid_2" })
+    ).rejects.toThrow("Verification code is invalid or already used")
+  })
 })

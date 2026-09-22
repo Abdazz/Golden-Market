@@ -21,6 +21,9 @@ const WHATSAPP_OTP_WINDOW_SECONDS = 15 * 60
 const WHATSAPP_OTP_IP_MAX_REQUESTS = 30
 const WHATSAPP_OTP_IP_WINDOW_SECONDS = 15 * 60
 
+const WHATSAPP_OTP_CONFIRM_IP_MAX_REQUESTS = 20
+const WHATSAPP_OTP_CONFIRM_IP_WINDOW_SECONDS = 15 * 60
+
 // Exporté séparément (plutôt que défini en ligne dans `defineMiddlewares`) pour pouvoir
 // être testé directement avec un req/res/next factice, sans démarrer l'application Medusa.
 export async function resetPasswordRateLimitMiddleware(
@@ -174,6 +177,49 @@ export async function whatsappOtpVerificationRateLimitMiddleware(
   next()
 }
 
+// Défense en profondeur en plus du compteur de tentatives déjà appliqué par
+// WhatsappOtpVerificationProvider.confirm() (5 essais max avant de devoir
+// redemander un code) : cette route reste accessible sans authentification
+// côté core Medusa (authenticate(..., {allowUnauthenticated: true})), donc
+// un plancher par IP limite aussi le débit brut de tentatives, pas
+// seulement leur nombre par code déjà généré.
+export async function whatsappOtpConfirmRateLimitMiddleware(
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) {
+  const codeProvider = (req.body as Record<string, unknown> | undefined)?.code_provider
+
+  if (codeProvider !== "whatsapp-otp") {
+    return next()
+  }
+
+  try {
+    const cache = req.scope.resolve(Modules.CACHE)
+    const ip = req.ip ?? req.socket.remoteAddress ?? "unknown"
+
+    const ipResult = await checkRateLimit(cache, `rate-limit:auth-whatsapp-otp-confirm:ip:${ip}`, {
+      maxRequests: WHATSAPP_OTP_CONFIRM_IP_MAX_REQUESTS,
+      windowSeconds: WHATSAPP_OTP_CONFIRM_IP_WINDOW_SECONDS,
+    })
+
+    if (!ipResult.allowed) {
+      res.setHeader("Retry-After", String(ipResult.retryAfterSeconds))
+      res.status(429).json({
+        type: "rate_limit_exceeded",
+        message: "Trop de tentatives de vérification. Réessayez plus tard.",
+      })
+      return
+    }
+  } catch (error) {
+    const logger = req.scope.resolve(ContainerRegistrationKeys.LOGGER)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error(`Limiteur de débit indisponible pour la confirmation WhatsApp, requête laissée passer : ${errorMessage}`)
+  }
+
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
     {
@@ -190,6 +236,11 @@ export default defineMiddlewares({
       matcher: "/auth/verification/request",
       methods: ["POST"],
       middlewares: [whatsappOtpVerificationRateLimitMiddleware],
+    },
+    {
+      matcher: "/auth/verification/confirm",
+      methods: ["POST"],
+      middlewares: [whatsappOtpConfirmRateLimitMiddleware],
     },
     {
       matcher: "/store/customers/me/link-email-identity",
