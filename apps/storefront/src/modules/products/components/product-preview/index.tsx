@@ -69,7 +69,12 @@ export default async function ProductPreview({
           className={inStock ? "rounded-none" : "rounded-none opacity-60"}
         />
         {singleVariant && inStock && (
-          <QuickAddButton variantId={singleVariant.id} />
+          <QuickAddButton
+            variantId={singleVariant.id}
+            name={product.title}
+            category={product.categories?.[0]?.name}
+            price={cheapestPrice?.calculated_price_number ?? 0}
+          />
         )}
       </div>
       <div className="flex flex-col gap-2 p-3">
