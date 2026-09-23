@@ -8,7 +8,10 @@ import { getStoredConsent } from "./consent"
 
 declare global {
   interface Window {
-    fbq?: ((...args: unknown[]) => void) & { queue?: unknown[] }
+    fbq?: ((...args: unknown[]) => void) & {
+      queue?: unknown[]
+      callMethod?: (...args: unknown[]) => void
+    }
   }
 }
 
@@ -27,11 +30,21 @@ export const isMetaPixelConfigured = (): boolean => !!META_PIXEL_ID
 // window.fbq encore absent à ce moment précis et abandonnait l'appel au
 // lieu de le mettre en attente - ViewContent silencieusement jamais
 // envoyé pour ce type de visite.
+//
+// Le stub doit déléguer à `callMethod` une fois fbevents.js chargé, comme
+// le snippet officiel : fbevents.js ne vide la file qu'une seule fois, au
+// chargement. Sans ça, tout évènement émis après le chargement (AddToCart
+// au clic, InitiateCheckout...) restait coincé pour toujours dans `queue` -
+// "Aucun évènement AjoutAuPanier reçu" côté Meta constaté le 2026-09-23.
 const ensureFbqStub = (): NonNullable<Window["fbq"]> => {
   if (window.fbq) {
     return window.fbq
   }
   const stub: NonNullable<Window["fbq"]> = ((...args: unknown[]) => {
+    if (stub.callMethod) {
+      stub.callMethod(...args)
+      return
+    }
     stub.queue = stub.queue || []
     stub.queue.push(args)
   }) as NonNullable<Window["fbq"]>
