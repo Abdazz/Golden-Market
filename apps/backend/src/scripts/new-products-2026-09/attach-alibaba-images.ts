@@ -9,6 +9,7 @@ import {
 // l'image - l'import est donc inliné dans le .js compilé et disponible en
 // production.
 import manifest from "./alibaba-images.json"
+import { ensureJpegOrPng } from "../../lib/image-format"
 
 // Troisième passe pour le lot 2026-09 : ajoute aux 11 nouveaux produits les
 // photos de galerie principale de la fiche fournisseur Alibaba (URLs figées
@@ -30,13 +31,11 @@ function fixImageUrl(url: string): string {
   )
 }
 
-const EXT_BY_MIME: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-}
-
+// Le CDN Alibaba renvoie souvent du webp même sur une URL .jpg : le format
+// est détecté sur le contenu réel et tout ce qui n'est pas jpeg/png est
+// converti en jpeg (ensureJpegOrPng) - WhatsApp Cloud API refuse le webp pour
+// un message image, voir convert-webp-images-to-jpeg.ts pour le rattrapage
+// des images déjà importées en webp avant ce correctif.
 async function fetchImage(
   url: string
 ): Promise<{ base64: string; mimeType: string; ext: string }> {
@@ -44,14 +43,10 @@ async function fetchImage(
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} sur ${url}`)
   }
-  // Le CDN Alibaba renvoie souvent du webp même sur une URL .jpg : on se fie
-  // au Content-Type réel, pas à l'extension de l'URL.
-  const mimeType = (res.headers.get("content-type") || "image/jpeg")
-    .split(";")[0]
-    .trim()
-  const ext = EXT_BY_MIME[mimeType] ?? "jpg"
-  const buf = Buffer.from(await res.arrayBuffer())
-  return { base64: buf.toString("base64"), mimeType, ext }
+  const { buffer, mimeType, ext } = await ensureJpegOrPng(
+    Buffer.from(await res.arrayBuffer())
+  )
+  return { base64: buffer.toString("base64"), mimeType, ext }
 }
 
 export default async function attachAlibabaImages({ container }: ExecArgs) {
