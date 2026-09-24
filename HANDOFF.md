@@ -16,6 +16,38 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-24 - **Agent WhatsApp : envoi des photos produit au client + conversion webp -> jpeg
+du catalogue.** Demande du propriétaire : l'agent doit pouvoir envoyer les images d'un
+produit quand le client les demande.
+
+- **Contrainte WhatsApp** : un message `image` Cloud API n'accepte que jpeg/png. 59 des 103
+  images du catalogue étaient en webp, toutes les photos fournisseur ajoutées par
+  `new-products-2026-09/attach-alibaba-images.ts` (le CDN Alibaba sert du webp même sur une
+  URL `.jpg`, et le script conservait le format reçu).
+- **Medusa (commit `76e0f39`, déployé staging + prod)** : `src/lib/image-format.ts`
+  (`ensureJpegOrPng`, détection sur le contenu réel, jpeg/png intacts, reste -> jpeg q85 fond
+  blanc ; tests unitaires) ; script ponctuel idempotent
+  `src/scripts/convert-webp-images-to-jpeg.ts` (`CONVERT_DRY_RUN=1` pour simuler ; lancé via
+  `docker exec <env>-golden-market-backend npx medusa exec ./src/scripts/convert-webp-images-to-jpeg.js`) :
+  staging 65 images / 11 produits, prod 59 images / 10 produits, 0 échec, ordre des images
+  vérifié identique avant/après, relance = 0 image. Anciens fichiers webp laissés sur le disque,
+  correspondance dans `product.metadata.webp_converted_images`. `attach-alibaba-images.ts`
+  convertit désormais à l'import. `sharp` ajouté explicitement au backend (chargement vérifié
+  dans l'image Alpine).
+- **Cache storefront** : la mise à jour produit n'invalide PAS le cache Next.js (le subscriber
+  `price-updated-storefront-revalidate.ts` ne couvre que les changements de prix) ->
+  revalidation déclenchée une fois à la main (`POST /api/revalidate` depuis les conteneurs
+  backend). **Limite existante, non corrigée** : une modification d'images/titre/description
+  dans l'admin n'apparaît pas sur le storefront tant qu'aucun changement de prix ou
+  redéploiement n'invalide le cache.
+- **n8n** : nouveau sous-workflow `Tool - send_product_images` (id `SndPrdImgs7kQ2xa`) branché
+  sur l'AI Agent + 2 règles au prompt système (usage du tool ; interdiction d'écrire son
+  raisonnement dans la réponse, fuite observée pendant les tests avec Claude). Détail et
+  pièges (pas de `URL` dans les nodes Code) dans `n8n_automation/guide-golden-market-agent.md`
+  § 2.6. Vérifié par webhook signé (numéro fictif) : 5 photos acceptées par Meta (5 `wamid`),
+  réponse courte. **Pas encore vérifié sur un vrai téléphone** (fenêtre 24h WhatsApp : il faut
+  qu'un vrai numéro écrive d'abord à l'agent).
+
 2026-09-15 - **Audit de fond de l'agent WhatsApp (demande du propriétaire, conversation
 client perdue faute de compréhension d'un lien produit) + ménage n8n + mise à jour
 documentaire.** Pas de code applicatif touché ; diagnostic + nettoyage seulement.
