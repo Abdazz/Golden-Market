@@ -123,3 +123,13 @@ export const parseCourierInput = (body: {
     return { ok: false, message: "Numéro WhatsApp invalide (8 chiffres, avec ou sans +226)." }
   }
 }
+
+// Report automatique : une livraison confiée et pas faite le jour prévu passe
+// au jour courant (même livreur) - ni échec ni nouvelle tentative, pas de frais.
+export const postponeUpdates = (
+  deliveries: { id: string; status: string; tour_date: string; postponed_count: number }[],
+  today: string
+): { id: string; tour_date: string; postponed_count: number }[] =>
+  deliveries
+    .filter((d) => d.status === "assigned" && d.tour_date < today)
+    .map((d) => ({ id: d.id, tour_date: today, postponed_count: d.postponed_count + 1 }))

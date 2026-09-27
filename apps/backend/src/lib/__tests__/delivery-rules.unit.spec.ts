@@ -4,6 +4,7 @@ import {
   computeSettlement,
   dayOf,
   parseCourierInput,
+  postponeUpdates,
   defaultTypeForCity,
   todayInOuaga,
   validateCompletion,
@@ -123,5 +124,24 @@ describe("parseCourierInput", () => {
     })
     expect(parseCourierInput({ name: "", phone: "70000000" }).ok).toBe(false)
     expect(parseCourierInput({ name: "Zakaria", phone: "12" }).ok).toBe(false)
+  })
+})
+
+describe("postponeUpdates", () => {
+  it("reporte à aujourd'hui les livraisons encore confiées d'un jour passé", () => {
+    expect(
+      postponeUpdates(
+        [
+          { id: "a", status: "assigned", tour_date: "2026-09-27", postponed_count: 0 },
+          { id: "b", status: "assigned", tour_date: "2026-09-28", postponed_count: 0 },
+          { id: "c", status: "delivered", tour_date: "2026-09-27", postponed_count: 0 },
+          { id: "d", status: "assigned", tour_date: "2026-09-25", postponed_count: 2 },
+        ],
+        "2026-09-28"
+      )
+    ).toEqual([
+      { id: "a", tour_date: "2026-09-28", postponed_count: 1 },
+      { id: "d", tour_date: "2026-09-28", postponed_count: 3 },
+    ])
   })
 })
