@@ -1,14 +1,26 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { getConversationMessages } from "../../../../lib/whatsapp-chat-db"
+import { getConversation } from "../../../../lib/whatsapp-chat-db"
+import { computeReplyWindow } from "../../../../lib/whatsapp-reply-window"
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
-  const phoneNumber = req.params.phone
-  const messages = await getConversationMessages(phoneNumber)
+  const conversation = await getConversation(req.params.phone)
 
-  if (messages === null) {
+  if (conversation === null) {
     res.json({ available: false })
     return
   }
+  if (conversation === "not_found") {
+    res.status(404).json({ available: true, found: false })
+    return
+  }
 
-  res.json({ available: true, messages })
+  const replyWindow = computeReplyWindow(conversation.lastUserMessageAt)
+  res.json({
+    available: true,
+    found: true,
+    conversation: {
+      ...conversation,
+      replyWindow: { open: replyWindow.open, expiresAt: replyWindow.expiresAt?.toISOString() ?? null },
+    },
+  })
 }
