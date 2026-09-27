@@ -150,6 +150,38 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     expect(body.params[2]).toBe(formatAmount(12000, "xof"))
   })
 
+  it("collecte de paiement encore à 0 au moment de order.placed : montant calculé depuis les articles", async () => {
+    // Constaté le 2026-09-27 (commande 20260927004 sur staging) : la collecte
+    // créée juste après la conversion du brouillon valait 0 quand le message
+    // est parti, et "??" gardait ce 0 -> "Montant : 0 F CFA".
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_17",
+          display_id: 17,
+          currency_code: "xof",
+          total: 0,
+          metadata: { source: "telephone", payment_method: "cash-on-delivery" },
+          shipping_address: { first_name: "Test", phone: "+22677406101" },
+          items: [{ product_title: "Seau à roulettes pliable pour serpillière", unit_price: 2500, quantity: 1 }],
+          shipping_methods: [{ amount: 0 }],
+          payment_collections: [{ amount: 0, payments: [] }],
+        },
+      ],
+    })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_17" } } as any,
+      container: container as any,
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.params[2]).toBe(formatAmount(2500, "xof"))
+  })
+
   it("affiche le numéro de commande Golden Market (custom_display_id) plutôt que le numéro natif", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
     graph.mockResolvedValue({

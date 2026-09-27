@@ -135,10 +135,13 @@ export default async function orderPlacedCustomerWhatsappHandler({
         0
       ) +
       (typedOrder.shipping_methods ?? []).reduce((sum, method) => sum + Number(method.amount ?? 0), 0)
+    // Premier montant strictement positif : juste après la conversion d'un
+    // brouillon, la collecte de paiement peut exister avec un montant encore à
+    // 0 (commande 20260927004 sur staging, 2026-09-27) - "??" gardait ce 0.
     const amount =
-      payment?.amount ??
-      collection?.amount ??
-      (Number(typedOrder.total) > 0 ? typedOrder.total : computedTotal)
+      [payment?.amount, collection?.amount, typedOrder.total, computedTotal]
+        .map((value) => Number(value ?? 0))
+        .find((value) => value > 0) ?? 0
     const total = formatAmount(amount, typedOrder.currency_code)
     // Numéro Golden Market (AAAAMMJJ + compteur du jour), voir lib/order-number.ts.
     const displayId = orderNumberOf(typedOrder)
