@@ -11,6 +11,7 @@ type OrderConfirmationData = {
   shipping_address?: { first_name?: string; phone?: string }
   items?: Array<{ product_title?: string }>
   payment_collections?: Array<{
+    amount?: number
     payments?: Array<{ provider_id?: string; amount?: number }>
   }>
 }
@@ -28,7 +29,11 @@ function paymentMethodLabel(providerId: string | undefined) {
   const match = PAYMENT_METHOD_LABELS.find(([prefix]) =>
     providerId?.startsWith(prefix)
   )
-  return match?.[1] ?? "Carte bancaire"
+  // Aucun paiement par carte n'est proposé (Orange Money, Moov Money, cash) :
+  // sans moyen de paiement connu - commande créée depuis l'admin (Orders >
+  // Drafts) pour un client qui a commandé par téléphone -, il a été convenu
+  // de vive voix. L'ancien repli "Carte bancaire" était toujours faux.
+  return match?.[1] ?? "À convenir avec notre équipe"
 }
 
 /**
@@ -82,6 +87,7 @@ export default async function orderPlacedCustomerWhatsappHandler({
         "shipping_address.first_name",
         "shipping_address.phone",
         "items.product_title",
+        "payment_collections.amount",
         "payment_collections.payments.provider_id",
         "payment_collections.payments.amount",
       ],
@@ -104,9 +110,13 @@ export default async function orderPlacedCustomerWhatsappHandler({
         ? typedOrder.items[0].product_title
         : `${typedOrder.items?.length ?? 0} articles`
 
-    const payment = typedOrder.payment_collections?.[0]?.payments?.[0]
+    const collection = typedOrder.payment_collections?.[0]
+    const payment = collection?.payments?.[0]
     const providerId = payment?.provider_id
-    const amount = payment?.amount ?? typedOrder.total
+    // Commande issue d'un brouillon : aucun paiement encore enregistré, mais la
+    // collecte de paiement porte déjà le montant à encaisser (order.total peut
+    // valoir 0 juste après order.placed, voir plus haut).
+    const amount = payment?.amount ?? collection?.amount ?? typedOrder.total
     const total = formatAmount(amount, typedOrder.currency_code)
     const displayId = String(typedOrder.display_id)
     const paymentMethod = paymentMethodLabel(providerId)

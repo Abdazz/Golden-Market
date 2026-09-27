@@ -77,6 +77,44 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     )
   })
 
+  it("commande issue d'un brouillon (téléphone), sans paiement enregistré : montant du paiement en attente et moyen de paiement à convenir", async () => {
+    // Constaté le 2026-09-27 sur une commande test créée depuis l'admin
+    // (Orders > Drafts) : "Montant : 0 F CFA" et "Paiement : Carte bancaire".
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_14",
+          display_id: 14,
+          currency_code: "xof",
+          total: 0,
+          shipping_address: { first_name: "Test", phone: "+22677406101" },
+          items: [{ product_title: "Balai-éponge à essorage automatique" }],
+          payment_collections: [{ amount: 8500, payments: [] }],
+        },
+      ],
+    })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_14" } } as any,
+      container: container as any,
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.params).toEqual([
+      "Test",
+      "Balai-éponge à essorage automatique",
+      formatAmount(8500, "xof"),
+      "14",
+      "À convenir avec notre équipe",
+    ])
+    expect(graph).toHaveBeenCalledWith(
+      expect.objectContaining({ fields: expect.arrayContaining(["payment_collections.amount"]) })
+    )
+  })
+
   it("uses payment.amount rather than order.total, which can stay stale right after order.placed", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 
@@ -131,7 +169,7 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(body.params[2]).toBe(formatAmount(15000, "xof"))
-    expect(body.params[4]).toBe("Carte bancaire")
+    expect(body.params[4]).toBe("À convenir avec notre équipe")
   })
 
   it("summarizes as N articles when the order has more than one item", async () => {
@@ -159,7 +197,7 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(body.params[1]).toBe("2 articles")
-    expect(body.params[4]).toBe("Carte bancaire")
+    expect(body.params[4]).toBe("À convenir avec notre équipe")
   })
 
   it("skips sending when the webhook URL is not configured", async () => {
@@ -204,7 +242,7 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
       "Produit A",
       formatAmount(8500, "xof"),
       "42",
-      "Carte bancaire",
+      "À convenir avec notre équipe",
     ])
   })
 
