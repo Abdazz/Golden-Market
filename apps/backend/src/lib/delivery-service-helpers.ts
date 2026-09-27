@@ -78,7 +78,7 @@ export const itemsOf = (o: any): { title: string; quantity: number }[] =>
   (o?.items ?? []).map((i: any) => ({
     title:
       i.variant_title && i.variant_title !== "Default Title" && i.variant_title !== i.product_title
-        ? `${i.product_title} (${i.variant_title})`
+        ? `${i.product_title} - ${i.variant_title}`
         : i.product_title,
     quantity: Number(i.quantity),
   }))

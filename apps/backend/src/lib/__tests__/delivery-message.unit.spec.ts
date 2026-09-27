@@ -35,11 +35,11 @@ describe("buildCourierMessageParams", () => {
 })
 
 describe("sendCourierMessage", () => {
-  it("appelle le webhook n8n générique avec le modèle nouvelle_livraison", async () => {
+  it("appelle le webhook n8n générique avec le modèle livraison_livreur", async () => {
     const fetchImpl = jest.fn().mockResolvedValue({ ok: true, status: 200 })
     const result = await sendCourierMessage({ phone: "+22670000000", params: ["a", "b", "c", "d", "e"] }, { url: "https://n8n/x", secret: "s", fetchImpl })
     expect(result).toEqual({ ok: true })
-    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ phone: "+22670000000", template_name: "nouvelle_livraison", params: ["a", "b", "c", "d", "e"] })
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ phone: "+22670000000", template_name: "livraison_livreur", params: ["a", "b", "c", "d", "e"] })
     expect(fetchImpl.mock.calls[0][1].headers["x-webhook-secret"]).toBe("s")
   })
 

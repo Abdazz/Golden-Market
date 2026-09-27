@@ -1,9 +1,10 @@
 import type { DeliveryType } from "./delivery-rules"
 
 // Message WhatsApp au livreur quand une commande lui est confiée : modèle Meta
-// "nouvelle_livraison" (5 variables) envoyé par le webhook n8n générique
-// order-confirmation (template_name + params), déjà utilisé pour les
-// confirmations de commande. Les paramètres de modèle Meta refusent les
+// "livraison_livreur" (5 variables, une information par ligne ; remplace
+// "nouvelle_livraison", tout sur une ligne, jugé illisible le 2026-09-27)
+// envoyé par le webhook n8n générique order-confirmation (template_name +
+// params), déjà utilisé pour les confirmations de commande. Les paramètres de modèle Meta refusent les
 // retours à la ligne et les tabulations : espaces simples uniquement.
 const clean = (text: string) => text.replace(/\s+/g, " ").trim()
 const formatXof = (amount: number) => `${new Intl.NumberFormat("fr-FR").format(amount).replace(/ | /g, " ")} F`
@@ -42,7 +43,7 @@ export async function sendCourierMessage(
     const response = await fetchImpl(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(secret ? { "x-webhook-secret": secret } : {}) },
-      body: JSON.stringify({ phone: input.phone, template_name: "nouvelle_livraison", params: input.params }),
+      body: JSON.stringify({ phone: input.phone, template_name: "livraison_livreur", params: input.params }),
     })
     return response.ok ? { ok: true } : { ok: false, error: `Webhook n8n a répondu ${response.status}` }
   } catch (error) {
