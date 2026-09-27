@@ -10,6 +10,8 @@ export const FUZZY_SEARCH_FIELDS = [
   "description",
   "handle",
   "variants.id",
+  // Nom de la variante ("Avec seau"...) : l'agent présente toutes les options.
+  "variants.title",
   "variants.calculated_price.calculated_amount",
   "variants.calculated_price.currency_code",
   "variants.manage_inventory",

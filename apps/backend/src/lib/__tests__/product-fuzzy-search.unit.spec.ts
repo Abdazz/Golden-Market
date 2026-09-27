@@ -220,4 +220,9 @@ describe("FUZZY_SEARCH_FIELDS", () => {
     // (conversation réelle du 2026-09-26) alors que la fiche contenait la réponse.
     expect(FUZZY_SEARCH_FIELDS).toContain("description")
   })
+
+  it("inclut le nom de chaque variante : l'agent doit pouvoir présenter toutes les options d'un produit", () => {
+    // Ex. balai-éponge "Simple (sans seau)" / "Avec seau" (2026-09-27).
+    expect(FUZZY_SEARCH_FIELDS).toContain("variants.title")
+  })
 })

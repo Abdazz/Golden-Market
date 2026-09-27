@@ -164,7 +164,7 @@ describe("GET /store/products-semantic-search", () => {
 
     await GET(req, res)
 
-    expect(graph).toHaveBeenCalledWith(expect.objectContaining({ fields: expect.arrayContaining(["description"]) }))
+    expect(graph).toHaveBeenCalledWith(expect.objectContaining({ fields: expect.arrayContaining(["description", "variants.title"]) }))
     expect(res.jsonBody.products[0].description).toBe("Panneau intégré")
   })
 })
