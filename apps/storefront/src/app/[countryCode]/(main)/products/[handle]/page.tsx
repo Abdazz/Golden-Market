@@ -127,11 +127,15 @@ export default async function ProductPage(props: Props) {
     },
   }).then(({ response }) => response.products[0])
 
-  const images = getImagesForVariant(pricedProduct, selectedVariantId)
-
+  // Vérifier l'existence AVANT de lire les images : une adresse de produit
+  // inconnue (ex. lien mal recopié) provoquait une erreur 500
+  // ("Cannot read properties of undefined (reading 'images')") au lieu
+  // d'une page 404.
   if (!pricedProduct) {
     notFound()
   }
+
+  const images = getImagesForVariant(pricedProduct, selectedVariantId)
 
   return (
     <ProductTemplate
