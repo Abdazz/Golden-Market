@@ -58,8 +58,8 @@ export const listProducts = async ({
 
   // Tag stable "products" en plus du tag scopé à la session
   // (getCacheOptions) : c'est lui que revalidateTag("products") cible dans
-  // /api/revalidate quand un prix change côté Medusa (voir
-  // price-updated-storefront-revalidate.ts) - le tag scopé à la session ne
+  // /api/revalidate quand le catalogue change côté Medusa (voir
+  // catalog-updated-storefront-revalidate.ts) - le tag scopé à la session ne
   // peut jamais être connu à l'avance par le backend.
   const sessionCacheOptions = await getCacheOptions("products")
   const next = {

@@ -2,10 +2,11 @@ import { revalidateTag } from "next/cache"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
- * Appelé par le subscriber Medusa price-updated-storefront-revalidate.ts à
- * chaque changement de prix (défaut ou override de price list) - sans ça, le
- * cache "products" (force-cache, sans expiration) reste figé jusqu'au
- * prochain redéploiement du storefront.
+ * Appelé par le subscriber Medusa catalog-updated-storefront-revalidate.ts à
+ * chaque changement de catalogue (fiche produit créée/modifiée/supprimée, prix
+ * par défaut ou override de price list) - sans ça, le cache "products"
+ * (force-cache, sans expiration) reste figé jusqu'au prochain redéploiement
+ * du storefront.
  */
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-revalidate-secret")
