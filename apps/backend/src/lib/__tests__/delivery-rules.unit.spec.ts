@@ -3,6 +3,7 @@ import {
   computeAmountToCollect,
   computeSettlement,
   dayOf,
+  parseCourierInput,
   defaultTypeForCity,
   todayInOuaga,
   validateCompletion,
@@ -111,5 +112,16 @@ describe("validateCompletion", () => {
   it("déposée : réservé aux expéditions", () => {
     expect(validateCompletion({ status: "shipped", type: "express" }).ok).toBe(false)
     expect(validateCompletion({ status: "shipped", type: "expedition", courier_fee: 1000, transport_fee: 1500 })).toMatchObject({ ok: true })
+  })
+})
+
+describe("parseCourierInput", () => {
+  it("normalise le numéro et exige un nom", () => {
+    expect(parseCourierInput({ name: " Zakaria ", phone: "70 00 00 00" })).toEqual({
+      ok: true,
+      values: { name: "Zakaria", phone: "+22670000000", notes: null },
+    })
+    expect(parseCourierInput({ name: "", phone: "70000000" }).ok).toBe(false)
+    expect(parseCourierInput({ name: "Zakaria", phone: "12" }).ok).toBe(false)
   })
 })

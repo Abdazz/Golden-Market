@@ -1,5 +1,8 @@
 // Règles métier des livraisons (spec 2026-09-28 livreurs-livraisons) :
-// fonctions pures, testées, utilisées par les routes admin et le job de report.
+// fonctions pures, testées, utilisées par les workflows, les routes admin et le
+// job de report.
+
+import { normalizePhone } from "./normalize-phone"
 
 export type DeliveryType = "express" | "expedition"
 export type DeliveryStatus = "assigned" | "delivered" | "failed" | "shipped" | "canceled"
@@ -97,5 +100,26 @@ export const validateCompletion = (input: {
       transport_fee: input.type === "expedition" ? transportFee : null,
       failure_reason: input.status === "failed" ? reason : null,
     },
+  }
+}
+
+// Saisie d'un livreur : nom obligatoire, numéro WhatsApp burkinabè normalisé
+// (+226XXXXXXXX) pour que le message de livraison parte au bon numéro.
+export const parseCourierInput = (body: {
+  name?: unknown
+  phone?: unknown
+  notes?: unknown
+}):
+  | { ok: true; values: { name: string; phone: string; notes: string | null } }
+  | { ok: false; message: string } => {
+  const name = typeof body?.name === "string" ? body.name.trim() : ""
+  if (!name) return { ok: false, message: "Le nom du livreur est obligatoire." }
+  try {
+    return {
+      ok: true,
+      values: { name, phone: normalizePhone(String(body?.phone ?? "")), notes: body?.notes ? String(body.notes) : null },
+    }
+  } catch {
+    return { ok: false, message: "Numéro WhatsApp invalide (8 chiffres, avec ou sans +226)." }
   }
 }
