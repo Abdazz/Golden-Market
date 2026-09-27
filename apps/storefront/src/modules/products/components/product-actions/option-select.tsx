@@ -2,6 +2,25 @@ import { HttpTypes } from "@medusajs/types"
 import { clx } from "@modules/common/components/ui"
 import React from "react"
 
+// Le nom de l'option saisi dans l'admin ("Formule", "Couleur"...) est posé
+// comme une question pour inviter le client à choisir (retour du
+// propriétaire, 2026-09-27 : "Formule" seul ne suffisait pas).
+const QUESTIONS: Record<string, string> = {
+  formule: "Quelle formule souhaitez-vous ?",
+  option: "Quelle option souhaitez-vous ?",
+  couleur: "Quelle couleur souhaitez-vous ?",
+  taille: "Quelle taille souhaitez-vous ?",
+  "modèle": "Quel modèle souhaitez-vous ?",
+  pointure: "Quelle pointure souhaitez-vous ?",
+  "capacité": "Quelle capacité souhaitez-vous ?",
+  contenance: "Quelle contenance souhaitez-vous ?",
+  parfum: "Quel parfum souhaitez-vous ?",
+  lot: "Quel lot souhaitez-vous ?",
+}
+
+export const optionQuestion = (title: string): string =>
+  QUESTIONS[title.trim().toLowerCase()] ?? `${title.trim()} : que choisissez-vous ?`
+
 type OptionSelectProps = {
   option: HttpTypes.StoreProductOption
   current: string | undefined
@@ -28,15 +47,7 @@ const OptionSelect: React.FC<OptionSelectProps> = ({
     <div className="flex flex-col gap-y-2">
       {/* Charte Golden Market : pilules arrondies comme le sélecteur de
           quantité, option choisie en violet (comme les boutons secondaires). */}
-      <span className="text-sm text-gm-ink-muted">
-        {title}
-        {current && (
-          <>
-            {" : "}
-            <span className="font-semibold text-gm-ink">{current}</span>
-          </>
-        )}
-      </span>
+      <span className="text-base font-semibold text-gm-ink">{optionQuestion(title)}</span>
       <div className="flex flex-wrap gap-2" data-testid={dataTestId}>
         {filteredOptions.map((v) => {
           const selected = v === current
