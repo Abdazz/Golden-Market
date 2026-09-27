@@ -29,9 +29,9 @@ Spec `docs/superpowers/specs/2026-09-28-livreurs-livraisons-design.md`, plan
   numéro du propriétaire en staging (livreur de test « Test (propriétaire) » créé en staging).
 - **À faire par le propriétaire** : créer les vrais livreurs (Abdourazack, Zakaria…) avec leurs
   numéros WhatsApp dans l'onglet « Livreurs » en production.
-- Limites connues : « À confier » liste aussi les anciennes commandes jamais marquées
-  livrées dans Medusa ; deux « Livrée » strictement simultanés (deux appareils) non verrouillés ;
-  vue téléphone non vérifiée visuellement.
+- Limites connues : deux « Livrée » strictement simultanés (deux appareils) non verrouillés ;
+  vue téléphone non vérifiée visuellement. Les 8 commandes de production antérieures étaient
+  toutes des tests : toutes annulées (les 3 dernières le 2026-09-27 à la demande du propriétaire).
 - Aussi ce jour : numérotation `AAAAMMJJ` + compteur déployée en production (rattrapage
   exécuté, 8 commandes numérotées) ; confirmation WhatsApp « Montant : 0 F » des commandes
   téléphone corrigée (collecte de paiement encore à 0 au moment de l'envoi, commit `6620e2d`).
