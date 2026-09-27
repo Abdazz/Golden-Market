@@ -17,10 +17,10 @@ Deux manques constatés le 2026-09-27 :
    Business). La coexistence appli + API a été étudiée et écartée le
    2026-09-27 (numéro à réinscrire via l'appli, statut Tech Provider exigé,
    portefeuille Business Meta non vérifié).
-2. **Une escalade n'arrête pas l'IA.** Le statut `escalated` est posé par
-   `escalate_to_human` et par le garde-fou `find_products`, mais le workflow
-   principal ne le lit jamais avant d'appeler l'AI Agent : l'IA continue de
-   répondre au message suivant.
+2. **Une escalade n'arrête pas l'IA.** Le statut `escalated` est posé par le
+   garde-fou `find_products` (pas par `escalate_to_human`, qui notifie
+   seulement), mais le workflow principal ne le lit jamais avant d'appeler
+   l'AI Agent : l'IA continue de répondre au message suivant.
 
 ## Objectif
 
@@ -154,9 +154,13 @@ décision :
   contredire ce que l'équipe a dit. »
 - **Sinon** : comportement actuel inchangé.
 
-**Escalades** : `Mark Escalated` (garde-fou de `find_products`) et
-`escalate_to_human` renseignent aussi `human_last_action_at = now()`, pour que
-le délai de 2 h parte de l'escalade si le propriétaire n'agit pas.
+**Escalades** : `Mark Escalated` (garde-fou de `find_products`) renseigne
+aussi `human_last_action_at = now()`, pour que le délai de 2 h parte de
+l'escalade si le propriétaire n'agit pas. `escalate_to_human` ne pose
+aujourd'hui **aucun** statut (il notifie seulement — constaté en préparant le
+plan) : on lui ajoute la même écriture (`status = 'escalated'`,
+`human_last_action_at = now()`), sans bloquer le message au client si elle
+échoue.
 
 **Historique transmis à l'IA** (`SQL_query_2`) : les lignes `human` sont
 présentées comme messages de l'assistant préfixés par
