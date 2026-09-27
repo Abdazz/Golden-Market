@@ -20,6 +20,7 @@
 - Template de relance : nom `reprise_conversation`, langue `fr`, sans variable, corps exact : `Bonjour, ici l'équipe Golden Market. Nous revenons vers vous suite à votre message. Répondez à ce message pour poursuivre la conversation.`
 - `conversations.phone_number` est stocké **tel que fourni par Meta** (chiffres sans `+`, ex. `22677382424`) : ne jamais le normaliser dans ce chantier.
 - Base `golden_market` : Medusa n'y écrit **jamais** (rôle `medusa_whatsapp_reader`, `SELECT` au niveau table sur `conversations`/`messages`, vérifié le 2026-09-27).
+- Workflow principal (état au 2026-09-27 après correctifs) : le texte final du message client se lit dans le nœud `Final Message` (jamais `Edit Fields`, qui garde le texte brut avant description photo/vocal/vidéo) ; l'entrée de l'AI Agent commence par `{{ $json.gapNote || '' }}` (note de reprise de contact après 12 h sans échange).
 - n8n : `onError: "continueErrorOutput"` au niveau **racine** du nœud (sœur de `id`/`name`), jamais dans `parameters` ; pas de constructeur `URL` dans les nœuds Code ; publication par `n8n publish:workflow --id=...` puis `docker restart golden_market_n8n`.
 - Variables Medusa (production uniquement) : `N8N_ADMIN_ACTIONS_WEBHOOK_URL`, `N8N_ADMIN_ACTIONS_WEBHOOK_SECRET`. Variable n8n : `N8N_ADMIN_ACTIONS_WEBHOOK_SECRET` (même valeur).
 - Accès VPS : `ssh admin@144.91.110.105`. Credential Postgres n8n : `{"postgres": {"id": "6KTv30JcX465t9lg", "name": "Postgres account"}}`. Workflow d'erreur n8n : `Lmc05RkUp20Pw4ra`.
@@ -1705,7 +1706,7 @@ ALERT_BODY = r"""={{ JSON.stringify({
     language: { code: 'fr' },
     components: [{ type: 'body', parameters: [
       { type: 'text', text: $('Edit Fields').item.json.from },
-      { type: 'text', text: ('Nouveau message pendant que vous avez la main : « ' + String($('Edit Fields').item.json.message_text || '').replace(/\s+/g, ' ').slice(0, 200) + ' » - Répondre : https://golden-market.co/app/whatsapp-conversations?phone=' + $('Edit Fields').item.json.from) }
+      { type: 'text', text: ('Nouveau message pendant que vous avez la main : « ' + String($('Final Message').item.json.message_text || '').replace(/\s+/g, ' ').slice(0, 200) + ' » - Répondre : https://golden-market.co/app/whatsapp-conversations?phone=' + $('Edit Fields').item.json.from) }
     ] }]
   }
 }) }}"""
@@ -1728,7 +1729,7 @@ new_nodes = [
      "position": [x + 550, y + 400], "credentials": PG, "alwaysOutputData": True, "onError": "continueRegularOutput",
      "parameters": {"operation": "executeQuery",
                     "query": "INSERT INTO messages (conversation_id, role, content, whatsapp_msg_id)\nVALUES ($1::uuid, 'user', $2, $3)\nON CONFLICT (whatsapp_msg_id) WHERE whatsapp_msg_id IS NOT NULL DO NOTHING;",
-                    "options": {"queryReplacement": "={{ [ $('SQL_query_1').item.json.id, $('Edit Fields').item.json.message_text, $('Edit Fields').item.json.whatsapp_msg_id ] }}"}}},
+                    "options": {"queryReplacement": "={{ [ $('SQL_query_1').item.json.id, $('Final Message').item.json.message_text, $('Edit Fields').item.json.whatsapp_msg_id ] }}"}}},
     {"id": U(), "name": "Should Alert Owner", "type": "n8n-nodes-base.if", "typeVersion": 2.2,
      "position": [x + 770, y + 400], "parameters": {"conditions": {
          "options": {"caseSensitive": True, "leftValue": "", "typeValidation": "loose", "version": 2},
@@ -1770,7 +1771,7 @@ hist["parameters"]["jsCode"] = hist["parameters"]["jsCode"].replace(old_map,
     "      : item.json.content\n")
 
 agent = by_name(w, "AI Agent")
-assert agent["parameters"]["text"].startswith("={{ $json.history.length")
+assert agent["parameters"]["text"].startswith("={{ $json.gapNote")
 NOTE = ("{{ (() => { try { return $('Decide Handler').first().json.mode === 'resume' ? "
         "'Note interne : un membre de l\\'équipe avait pris la main mais n\\'a pas répondu depuis plus de 2 h. "
         "Reprends la conversation avec tact, sans contredire ce que l\\'équipe a dit.\\n\\n' : '' } "

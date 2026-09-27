@@ -16,6 +16,25 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-27 - **Fiabilité de l'agent WhatsApp : audit de deux conversations réelles ratées +
+correctifs déployés et testés en conditions réelles.** Détail des causes et correctifs dans
+`n8n_automation/guide-golden-market-agent.md` § 3 (entrée 2026-09-27). Résumé :
+- Photos/vidéos du client **jamais comprises depuis leur mise en place** (binaire n8n stocké sur
+  disque + texte enrichi jamais transmis à l'IA) -> corrigé ; vérifié avec un vrai média WhatsApp.
+- L'agent ne voyait pas les descriptions produit -> `description` ajoutée à
+  `FUZZY_SEARCH_FIELDS` (fuzzy-search + products-catalog) et à `products-semantic-search`
+  (commit `c96774a`, tests ajoutés) + nœuds `Format Result` n8n.
+- Fiche "Ventilateur solaire rechargeable" complétée en production (2 ampoules, port USB)
+  à la demande du propriétaire.
+- Note de reprise de contact après 12 h sans échange ; prompt enrichi (pas de boutique physique,
+  paiement à la livraison = voir avant de payer à Ouaga, délais jour même Ouaga / ~24 h ailleurs,
+  jamais de frais chiffrés, ne rien inventer, ne pas redemander une info déjà donnée).
+- Tests faits sur le **numéro personnel du propriétaire (22677406101)** avec son accord : les
+  messages de test (wamid `wamid.TESTREAL…`) restent dans sa conversation.
+- Plan de reprise manuelle (`docs/superpowers/plans/2026-09-27-whatsapp-reprise-manuelle.md`)
+  validé par le propriétaire, adapté à ces correctifs (nœud `Final Message`, `gapNote`) ; exécution
+  en cours.
+
 2026-09-24 - **Agent WhatsApp : envoi des photos produit au client + conversion webp -> jpeg
 du catalogue.** Demande du propriétaire : l'agent doit pouvoir envoyer les images d'un
 produit quand le client les demande.
