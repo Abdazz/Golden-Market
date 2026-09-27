@@ -115,6 +115,41 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     )
   })
 
+  it("commande convertie d'un brouillon sans aucune collecte de paiement : montant calculé depuis les articles et la livraison", async () => {
+    // Constaté le 2026-09-27 (commande test 15 sur staging) : "Montant : 0 F CFA",
+    // la conversion d'un brouillon ne crée pas de collecte de paiement et
+    // order.total vaut encore 0 au moment de order.placed.
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_16",
+          display_id: 16,
+          currency_code: "xof",
+          total: 0,
+          metadata: { source: "telephone", payment_method: "cash-on-delivery" },
+          shipping_address: { first_name: "Test", phone: "+22677406101" },
+          items: [
+            { product_title: "Balai-éponge à essorage automatique", unit_price: 6500, quantity: 1 },
+            { product_title: "Seau à roulettes", unit_price: 2500, quantity: 2 },
+          ],
+          shipping_methods: [{ amount: 500 }],
+          payment_collections: [],
+        },
+      ],
+    })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_16" } } as any,
+      container: container as any,
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.params[2]).toBe(formatAmount(12000, "xof"))
+  })
+
   it("commande par téléphone : affiche le moyen de paiement convenu (metadata.payment_method)", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 

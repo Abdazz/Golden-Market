@@ -10,7 +10,8 @@ type OrderConfirmationData = {
   total: number
   metadata?: Record<string, unknown> | null
   shipping_address?: { first_name?: string; phone?: string }
-  items?: Array<{ product_title?: string }>
+  items?: Array<{ product_title?: string; unit_price?: number; quantity?: number }>
+  shipping_methods?: Array<{ amount?: number }>
   payment_collections?: Array<{
     amount?: number
     payments?: Array<{ provider_id?: string; amount?: number }>
@@ -88,6 +89,9 @@ export default async function orderPlacedCustomerWhatsappHandler({
         "shipping_address.first_name",
         "shipping_address.phone",
         "items.product_title",
+        "items.unit_price",
+        "items.quantity",
+        "shipping_methods.amount",
         "payment_collections.amount",
         "payment_collections.payments.provider_id",
         "payment_collections.payments.amount",
@@ -117,7 +121,21 @@ export default async function orderPlacedCustomerWhatsappHandler({
     // Commande issue d'un brouillon : aucun paiement encore enregistré, mais la
     // collecte de paiement porte déjà le montant à encaisser (order.total peut
     // valoir 0 juste après order.placed, voir plus haut).
-    const amount = payment?.amount ?? collection?.amount ?? typedOrder.total
+    // Dernier recours - commande convertie d'un brouillon (bouton "Nouvelle
+    // commande" de l'admin) : aucune collecte de paiement au moment de
+    // order.placed et order.total encore à 0 (constaté le 2026-09-27) ; le
+    // montant est recalculé depuis les articles et la livraison (les prix des
+    // articles incluent déjà les promotions de liste de prix).
+    const computedTotal =
+      (typedOrder.items ?? []).reduce(
+        (sum, item) => sum + Number(item.unit_price ?? 0) * Number(item.quantity ?? 0),
+        0
+      ) +
+      (typedOrder.shipping_methods ?? []).reduce((sum, method) => sum + Number(method.amount ?? 0), 0)
+    const amount =
+      payment?.amount ??
+      collection?.amount ??
+      (Number(typedOrder.total) > 0 ? typedOrder.total : computedTotal)
     const total = formatAmount(amount, typedOrder.currency_code)
     const displayId = String(typedOrder.display_id)
     // Commande prise par téléphone (bouton "Nouvelle commande" de l'admin) :

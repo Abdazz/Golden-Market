@@ -3,6 +3,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import {
   convertDraftOrderWorkflow,
   createCustomersWorkflow,
+  createOrUpdateOrderPaymentCollectionWorkflow,
   createOrderWorkflow,
 } from "@medusajs/medusa/core-flows"
 import { buildDraftOrderInput, parsePhoneOrderInput } from "../../../lib/phone-order"
@@ -68,6 +69,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }) as any,
   })
   await convertDraftOrderWorkflow(req.scope).run({ input: { id: draft.id } })
+  // La conversion d'un brouillon ne crée aucune collecte de paiement : sans
+  // elle, l'admin ne propose pas "Mark as paid" (constaté le 2026-09-27).
+  // Montant = reste dû de la commande (valeur par défaut du workflow).
+  await createOrUpdateOrderPaymentCollectionWorkflow(req.scope).run({ input: { order_id: draft.id } })
 
   const {
     data: [order],
