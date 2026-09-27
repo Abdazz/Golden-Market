@@ -16,6 +16,17 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-27 (fin) - **Photos affichées dans les conversations de l'admin** (commit `2cb6eac` +
+n8n, détail `n8n_automation/guide-golden-market-agent.md` § 2.10) : photos envoyées par l'agent
+(rattachées à sa réponse) et photos du client (copiées dans le stockage Medusa sous un nom
+aléatoire). Vérifié par l'API en production ; **vérification visuelle à faire par le
+propriétaire** (session admin perdue au redéploiement : les sessions Medusa sont en mémoire,
+chaque redémarrage du backend déconnecte l'admin). Relecture finale de la reprise manuelle :
+5 défauts importants corrigés (mauvais destinataire possible après changement de conversation,
+brouillon perdu sur échec de rafraîchissement, escalade coupant l'IA sans alerte si la raison
+contient un guillemet, échecs d'alerte silencieux -> e-mail Resend, main rendue sans réponse ->
+confirmation) ; 9 mineurs listés en différé dans le récapitulatif de session.
+
 2026-09-27 (suite) - **Reprise manuelle des conversations WhatsApp depuis l'admin Medusa :
 livrée et vérifiée en production.** Spec `docs/superpowers/specs/2026-09-27-whatsapp-reprise-manuelle-design.md`,
 plan `docs/superpowers/plans/2026-09-27-whatsapp-reprise-manuelle.md`, détail n8n dans
