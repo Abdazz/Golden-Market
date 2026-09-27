@@ -23,7 +23,9 @@ export type ConversationSummary = {
   awaitingReply: boolean
 }
 
-export type ChatAttachment = { type: "image"; url: string }
+// url null + expired : photo client supprimée du disque après 90 jours
+// (workflow n8n "Maintenance - purge des photos clients").
+export type ChatAttachment = { type: "image"; url: string | null; expired?: boolean }
 
 export type ChatMessage = {
   // "human" = message écrit par le propriétaire depuis l'admin (via n8n).

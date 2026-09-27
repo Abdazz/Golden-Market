@@ -32,7 +32,8 @@ type ChatMessage = {
   createdAt: string
   // Photos envoyées par l'agent ou par le client (absent sur les messages
   // antérieurs au 2026-09-27).
-  attachments?: { type: "image"; url: string }[]
+  // url null : photo client supprimée après 90 jours (conservation limitée).
+  attachments?: { type: "image"; url: string | null; expired?: boolean }[]
 }
 
 type ConversationDetail = {
@@ -280,16 +281,25 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
         )}
         {message.attachments && message.attachments.length > 0 && (
           <div className="mb-1 grid grid-cols-3 gap-1">
-            {message.attachments.map((attachment) => (
-              <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer">
-                <img
-                  src={attachment.url}
-                  alt=""
-                  loading="lazy"
-                  className="h-20 w-20 rounded-md object-cover"
-                />
-              </a>
-            ))}
+            {message.attachments.map((attachment, index) =>
+              attachment.url ? (
+                <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer">
+                  <img
+                    src={attachment.url}
+                    alt=""
+                    loading="lazy"
+                    className="h-20 w-20 rounded-md object-cover"
+                  />
+                </a>
+              ) : (
+                <span
+                  key={index}
+                  className="txt-compact-xsmall flex h-20 w-20 items-center justify-center rounded-md bg-ui-bg-subtle p-1 text-center text-ui-fg-muted"
+                >
+                  Photo supprimée (90 jours)
+                </span>
+              )
+            )}
           </div>
         )}
         <p className="txt-compact-small whitespace-pre-wrap break-words">{message.content}</p>
