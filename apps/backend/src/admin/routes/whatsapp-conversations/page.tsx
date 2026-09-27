@@ -1,14 +1,16 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { ChatBubbleLeftRight } from "@medusajs/icons"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
-// Page admin de visualisation en lecture seule des conversations WhatsApp
-// (base golden_market, propriété de n8n_automation) - voir
-// docs/superpowers/specs/2026-09-07-whatsapp-conversations-viewer-design.md.
+// Conversations WhatsApp de l'agent IA (base golden_market, propriété de
+// n8n_automation) : lecture + reprise manuelle (prendre la main, répondre,
+// relancer, rendre la main à l'IA). Toute écriture passe par les routes
+// admin -> webhook n8n. Voir docs/superpowers/specs/
+// 2026-09-07-whatsapp-conversations-viewer-design.md et
+// 2026-09-27-whatsapp-reprise-manuelle-design.md.
 //
-// Mise en page à deux panneaux (liste à gauche, fil façon WhatsApp à
-// droite) toujours visibles ensemble - pas de bascule liste/détail plein
-// écran comme dans la première version.
+// Deux colonnes >= 1024 px (liste | conversation), une seule à la fois en
+// dessous (téléphone), avec bouton retour.
 //
 // N'importe aucun composant de @medusajs/ui - conflit de types React 18/19
 // déjà documenté dans widgets/analytics-summary.tsx. Éléments HTML natifs
@@ -21,16 +23,34 @@ type ConversationSummary = {
   lastMessageAt: string
   lastMessagePreview: string | null
   messageCount: number
+  awaitingReply: boolean
 }
 
 type ChatMessage = {
-  role: "user" | "assistant" | "system"
+  role: "user" | "assistant" | "system" | "human"
   content: string
   createdAt: string
 }
 
+type ConversationDetail = {
+  phoneNumber: string
+  customerName: string | null
+  status: string
+  humanLastActionAt: string | null
+  lastUserMessageAt: string | null
+  messages: ChatMessage[]
+  replyWindow: { open: boolean; expiresAt: string | null }
+}
+
 type ListResponse = { available: false } | { available: true; conversations: ConversationSummary[] }
-type DetailResponse = { available: false } | { available: true; messages: ChatMessage[] }
+type DetailResponse =
+  | { available: false }
+  | { available: true; found: false }
+  | { available: true; found: true; conversation: ConversationDetail }
+type ActionResponse = { ok: true; warning: string | null } | { ok: false; error_code: string; message: string }
+
+const LIST_REFRESH_MS = 30_000
+const DETAIL_REFRESH_MS = 10_000
 
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
@@ -66,6 +86,45 @@ const GenericAvatarIcon = () => (
   </svg>
 )
 
+// "encore 5 h 12" - temps restant pour répondre librement (fenêtre WhatsApp 24 h).
+const formatRemaining = (expiresAt: string) => {
+  const minutes = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 60_000))
+  const hours = Math.floor(minutes / 60)
+  return hours > 0 ? `${hours} h ${String(minutes % 60).padStart(2, "0")}` : `${minutes} min`
+}
+
+// Rafraîchissement périodique suspendu quand l'onglet n'est pas visible.
+const usePolling = (callback: () => void, intervalMs: number, enabled: boolean) => {
+  const saved = useRef(callback)
+  saved.current = callback
+
+  useEffect(() => {
+    if (!enabled) {
+      return
+    }
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        saved.current()
+      }
+    }, intervalMs)
+    return () => window.clearInterval(id)
+  }, [intervalMs, enabled])
+}
+
+const postAction = async (phoneNumber: string, path: string, body?: unknown): Promise<ActionResponse> => {
+  try {
+    const res = await fetch(`/admin/whatsapp-conversations/${encodeURIComponent(phoneNumber)}/${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+    return (await res.json()) as ActionResponse
+  } catch {
+    return { ok: false, error_code: "unavailable", message: "Service injoignable, réessayez." }
+  }
+}
+
 const ConversationRow = ({
   conversation,
   active,
@@ -82,7 +141,7 @@ const ConversationRow = ({
       active ? "bg-ui-bg-subtle" : ""
     }`}
   >
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ui-tag-neutral-bg text-ui-fg-base txt-compact-small-plus">
+    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ui-tag-neutral-bg text-ui-fg-base txt-compact-small-plus">
       {conversation.customerName ? (
         conversation.customerName.slice(0, 1).toUpperCase()
       ) : (
@@ -90,6 +149,12 @@ const ConversationRow = ({
         // n'a aucun sens (tous les numéros BF commencent par le même
         // indicatif) - icône générique plutôt qu'une lettre trompeuse.
         <GenericAvatarIcon />
+      )}
+      {conversation.awaitingReply && (
+        <span
+          title="En attente de votre réponse"
+          className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-ui-bg-base bg-ui-tag-red-icon"
+        />
       )}
     </span>
     <span className="flex min-w-0 flex-1 flex-col gap-y-0.5">
@@ -104,8 +169,11 @@ const ConversationRow = ({
       <span className="truncate text-ui-fg-subtle txt-compact-small">
         {conversation.lastMessagePreview ?? "—"}
       </span>
-      <span className="text-ui-fg-muted txt-compact-xsmall">
-        {conversation.messageCount} message{conversation.messageCount > 1 ? "s" : ""} · {conversation.status}
+      <span className="flex items-center gap-x-2 text-ui-fg-muted txt-compact-xsmall">
+        {conversation.messageCount} message{conversation.messageCount > 1 ? "s" : ""}
+        {conversation.status === "escalated" && (
+          <span className="rounded-full bg-ui-tag-orange-bg px-2 text-ui-tag-orange-text">Vous avez la main</span>
+        )}
       </span>
     </span>
   </button>
@@ -114,14 +182,16 @@ const ConversationRow = ({
 const ConversationListPanel = ({
   selectedPhone,
   onSelect,
+  refreshKey,
 }: {
   selectedPhone: string | null
   onSelect: (phoneNumber: string) => void
+  refreshKey: number
 }) => {
   const [search, setSearch] = useState("")
   const [list, setList] = useState<ListResponse | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
     const query = search ? `?q=${encodeURIComponent(search)}` : ""
     fetch(`/admin/whatsapp-conversations${query}`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { available: false }))
@@ -129,11 +199,13 @@ const ConversationListPanel = ({
       .catch(() => setList({ available: false }))
   }, [search])
 
-  // Sélectionne automatiquement la conversation la plus récente (première
-  // de la liste, déjà triée par last_message_at DESC côté backend) dès
-  // qu'elle est connue et qu'aucune sélection n'existe encore.
+  useEffect(load, [load, refreshKey])
+  usePolling(load, LIST_REFRESH_MS, true)
+
+  // Sur grand écran uniquement : sélectionne la conversation la plus récente
+  // quand rien n'est sélectionné. Sur téléphone, la liste reste affichée.
   useEffect(() => {
-    if (selectedPhone !== null) {
+    if (selectedPhone !== null || !window.matchMedia("(min-width: 1024px)").matches) {
       return
     }
     if (list?.available && list.conversations.length > 0) {
@@ -142,7 +214,9 @@ const ConversationListPanel = ({
   }, [list, selectedPhone, onSelect])
 
   return (
-    <div className="flex h-full w-[340px] shrink-0 flex-col border-r border-ui-border-base">
+    <div
+      className={`${selectedPhone ? "hidden lg:flex" : "flex"} h-full w-full shrink-0 flex-col border-r border-ui-border-base lg:w-[340px]`}
+    >
       <div className="border-b border-ui-border-base p-4">
         <h1 className="text-ui-fg-base txt-large-plus mb-3">Conversations WhatsApp</h1>
         <input
@@ -177,10 +251,7 @@ const ConversationListPanel = ({
 }
 
 const MessageBubble = ({ message }: { message: ChatMessage }) => {
-  const fromClient = message.role === "user"
-  const isSystem = message.role === "system"
-
-  if (isSystem) {
+  if (message.role === "system") {
     return (
       <div className="flex justify-center">
         <span className="text-ui-fg-muted txt-compact-xsmall bg-ui-bg-subtle rounded-full px-3 py-1">
@@ -190,81 +261,265 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
     )
   }
 
+  const fromClient = message.role === "user"
+  const fromHuman = message.role === "human"
+  const bubbleClass = fromClient
+    ? "bg-ui-bg-component text-ui-fg-base"
+    : fromHuman
+      ? "bg-ui-tag-blue-bg text-ui-tag-blue-text"
+      : "bg-ui-tag-green-bg text-ui-tag-green-text"
+
   return (
     <div className={`flex ${fromClient ? "justify-start" : "justify-end"}`}>
-      <div
-        className={`max-w-[70%] rounded-lg px-3 py-2 ${
-          fromClient ? "bg-ui-bg-component text-ui-fg-base" : "bg-ui-tag-green-bg text-ui-tag-green-text"
-        }`}
-      >
-        <p className="txt-compact-small whitespace-pre-wrap">{message.content}</p>
-        <p
-          className={`txt-compact-xsmall mt-1 text-right ${
-            fromClient ? "text-ui-fg-muted" : "text-ui-tag-green-icon"
-          }`}
-        >
-          {formatTime(message.createdAt)}
-        </p>
+      <div className={`max-w-[85%] rounded-lg px-3 py-2 lg:max-w-[70%] ${bubbleClass}`}>
+        {!fromClient && (
+          <p className="txt-compact-xsmall-plus mb-0.5 opacity-70">{fromHuman ? "Vous" : "IA"}</p>
+        )}
+        <p className="txt-compact-small whitespace-pre-wrap break-words">{message.content}</p>
+        <p className="txt-compact-xsmall mt-1 text-right opacity-70">{formatTime(message.createdAt)}</p>
       </div>
     </div>
   )
 }
 
-const ConversationThreadPanel = ({ phoneNumber }: { phoneNumber: string | null }) => {
-  const [detail, setDetail] = useState<DetailResponse | null>(null)
+const Composer = ({
+  phoneNumber,
+  replyWindow,
+  onSent,
+}: {
+  phoneNumber: string
+  replyWindow: ConversationDetail["replyWindow"]
+  onSent: (warning: string | null) => void
+}) => {
+  const [text, setText] = useState("")
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // Si n8n signale la fenêtre expirée (409) alors que l'affichage la croyait
+  // ouverte, on bascule sur la relance sans attendre le prochain rafraîchissement.
+  const [windowClosed, setWindowClosed] = useState(false)
 
+  // Réinitialise la zone de saisie uniquement au changement de conversation,
+  // jamais sur un rafraîchissement périodique.
   useEffect(() => {
+    setText("")
+    setError(null)
+    setWindowClosed(false)
+  }, [phoneNumber])
+
+  const run = async (path: string, body?: unknown) => {
+    setSending(true)
+    setError(null)
+    const result = await postAction(phoneNumber, path, body)
+    setSending(false)
+    if (result.ok) {
+      if (path === "messages") {
+        setText("")
+      }
+      onSent(result.warning)
+      return
+    }
+    if (result.error_code === "window_expired") {
+      setWindowClosed(true)
+    }
+    setError(result.message)
+  }
+
+  const open = replyWindow.open && !windowClosed
+
+  return (
+    <div className="border-t border-ui-border-base p-3">
+      {error && <p className="txt-compact-small mb-2 text-ui-fg-error">{error}</p>}
+      {open ? (
+        <div className="flex items-end gap-x-2">
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            rows={2}
+            maxLength={4096}
+            placeholder="Votre réponse au client…"
+            className="txt-compact-small flex-1 resize-none rounded-md border border-ui-border-base px-3 py-2"
+          />
+          <button
+            type="button"
+            disabled={sending || text.trim().length === 0}
+            onClick={() => run("messages", { text })}
+            className="txt-compact-small-plus rounded-md bg-ui-button-inverted px-4 py-2 text-ui-fg-on-inverted disabled:opacity-50"
+          >
+            {sending ? "Envoi…" : "Envoyer"}
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-y-2">
+          <p className="txt-compact-small text-ui-fg-subtle">
+            Le client n'a pas écrit depuis plus de 24 h : WhatsApp n'autorise plus de réponse libre.
+            Envoyez le message de relance ; dès que le client répond, vous pourrez de nouveau lui écrire.
+          </p>
+          <button
+            type="button"
+            disabled={sending}
+            onClick={() => run("reengagement")}
+            className="txt-compact-small-plus self-start rounded-md bg-ui-button-inverted px-4 py-2 text-ui-fg-on-inverted disabled:opacity-50"
+          >
+            {sending ? "Envoi…" : "Envoyer le message de relance"}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ConversationThreadPanel = ({
+  phoneNumber,
+  onBack,
+  onChanged,
+}: {
+  phoneNumber: string | null
+  onBack: () => void
+  onChanged: () => void
+}) => {
+  const [detail, setDetail] = useState<DetailResponse | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const endRef = useRef<HTMLDivElement>(null)
+
+  const load = useCallback(() => {
     if (!phoneNumber) {
       return
     }
-    setDetail(null)
     fetch(`/admin/whatsapp-conversations/${encodeURIComponent(phoneNumber)}`, { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : { available: false }))
+      .then((res) => res.json())
       .then(setDetail)
       .catch(() => setDetail({ available: false }))
   }, [phoneNumber])
 
+  useEffect(() => {
+    setDetail(null)
+    setNotice(null)
+    load()
+  }, [load])
+  usePolling(load, DETAIL_REFRESH_MS, phoneNumber !== null)
+
+  const messageCount = detail && "conversation" in detail ? detail.conversation.messages.length : 0
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" })
+  }, [messageCount])
+
   if (!phoneNumber) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="hidden flex-1 items-center justify-center lg:flex">
         <p className="text-ui-fg-subtle">Sélectionnez une conversation à gauche.</p>
       </div>
     )
   }
 
+  const conversation = detail && "conversation" in detail ? detail.conversation : null
+  const humanHasHand = conversation?.status === "escalated"
+
+  const toggleHand = async () => {
+    setBusy(true)
+    setNotice(null)
+    const result = await postAction(phoneNumber, humanHasHand ? "hand-back" : "take-over")
+    setBusy(false)
+    if (!result.ok) {
+      setNotice(result.message)
+    }
+    load()
+    onChanged()
+  }
+
+  const afterSend = (warning: string | null) => {
+    setNotice(warning === "not_saved" ? "Message envoyé, mais absent de l'historique (erreur d'enregistrement)." : null)
+    load()
+    onChanged()
+  }
+
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="border-b border-ui-border-base px-6 py-4">
-        <h2 className="text-ui-fg-base txt-large-plus">{phoneNumber}</h2>
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-ui-border-base px-4 py-3">
+        <button type="button" onClick={onBack} className="txt-compact-small text-ui-fg-interactive lg:hidden">
+          ← Retour
+        </button>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h2 className="truncate text-ui-fg-base txt-large-plus">
+            {conversation?.customerName ?? phoneNumber}
+          </h2>
+          {conversation && (
+            <p className="txt-compact-xsmall text-ui-fg-subtle">
+              {humanHasHand ? "Vous avez la main — l'IA ne répond pas" : "L'IA répond automatiquement"}
+              {conversation.replyWindow.open && conversation.replyWindow.expiresAt
+                ? ` · encore ${formatRemaining(conversation.replyWindow.expiresAt)} pour répondre librement`
+                : " · fenêtre de réponse libre expirée"}
+            </p>
+          )}
+        </div>
+        {conversation && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={toggleHand}
+            className="txt-compact-small-plus rounded-md border border-ui-border-base px-3 py-1.5 disabled:opacity-50"
+          >
+            {humanHasHand ? "Rendre la main à l'IA" : "Prendre la main"}
+          </button>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      {notice && <p className="txt-compact-small border-b border-ui-border-base px-4 py-2 text-ui-fg-error">{notice}</p>}
+
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         {detail === null && <p className="text-ui-fg-subtle">Chargement…</p>}
         {detail && !detail.available && (
           <p className="text-ui-fg-subtle">Conversation indisponible pour le moment.</p>
         )}
-        {detail?.available && detail.messages.length === 0 && (
+        {detail && detail.available && !detail.found && (
+          <p className="text-ui-fg-subtle">Conversation introuvable.</p>
+        )}
+        {conversation && conversation.messages.length === 0 && (
           <p className="text-ui-fg-subtle">Aucun message dans cette conversation.</p>
         )}
-        {detail?.available && detail.messages.length > 0 && (
+        {conversation && conversation.messages.length > 0 && (
           <div className="flex flex-col gap-y-3">
-            {detail.messages.map((message, index) => (
+            {conversation.messages.map((message, index) => (
               <MessageBubble key={index} message={message} />
             ))}
+            <div ref={endRef} />
           </div>
         )}
       </div>
+
+      {conversation && (
+        <Composer phoneNumber={phoneNumber} replyWindow={conversation.replyWindow} onSent={afterSend} />
+      )}
     </div>
   )
 }
 
+// Lien direct depuis l'alerte WhatsApp : /app/whatsapp-conversations?phone=<numéro>
+const readPhoneFromUrl = () => new URLSearchParams(window.location.search).get("phone")
+
 const WhatsappConversationsPage = () => {
-  const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(readPhoneFromUrl)
+  const [listRefreshKey, setListRefreshKey] = useState(0)
+
+  const select = useCallback((phoneNumber: string | null) => {
+    setSelectedPhone(phoneNumber)
+    const url = new URL(window.location.href)
+    if (phoneNumber) {
+      url.searchParams.set("phone", phoneNumber)
+    } else {
+      url.searchParams.delete("phone")
+    }
+    window.history.replaceState(null, "", url.toString())
+  }, [])
 
   return (
     <div className="bg-ui-bg-base shadow-elevation-card-rest flex h-[calc(100vh-120px)] overflow-hidden rounded-lg">
-      <ConversationListPanel selectedPhone={selectedPhone} onSelect={setSelectedPhone} />
-      <ConversationThreadPanel phoneNumber={selectedPhone} />
+      <ConversationListPanel selectedPhone={selectedPhone} onSelect={select} refreshKey={listRefreshKey} />
+      <ConversationThreadPanel
+        phoneNumber={selectedPhone}
+        onBack={() => select(null)}
+        onChanged={() => setListRefreshKey((key) => key + 1)}
+      />
     </div>
   )
 }
