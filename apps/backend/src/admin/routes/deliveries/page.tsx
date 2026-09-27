@@ -758,14 +758,20 @@ const DeliveriesPage = () => {
           Confiez les commandes aux livreurs, suivez leur tournée et vérifiez le versement du soir.
         </p>
       </div>
-      <div className="flex gap-x-1 overflow-x-auto">
+      {/* Onglet courant en fond foncé : un fond blanc + ombre ne se distinguait
+          pas assez (retour du propriétaire, 2026-09-27). */}
+      <div className="flex gap-x-2 overflow-x-auto" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
+            role="tab"
+            aria-selected={tab === t.id}
             onClick={() => selectTab(t.id)}
-            className={`txt-compact-small-plus whitespace-nowrap rounded-md px-3 py-1.5 ${
-              tab === t.id ? "bg-ui-bg-base text-ui-fg-base shadow-elevation-card-rest" : "text-ui-fg-subtle hover:bg-ui-bg-subtle-hover"
+            className={`txt-compact-small-plus whitespace-nowrap rounded-full border px-4 py-2 ${
+              tab === t.id
+                ? "border-transparent bg-ui-button-inverted text-ui-fg-on-inverted"
+                : "border-ui-border-base bg-ui-bg-base text-ui-fg-subtle hover:bg-ui-bg-base-hover hover:text-ui-fg-base"
             }`}
           >
             {t.label}
