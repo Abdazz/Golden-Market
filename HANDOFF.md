@@ -37,9 +37,11 @@ produit quand le client les demande.
 - **Cache storefront** : la mise à jour produit n'invalide PAS le cache Next.js (le subscriber
   `price-updated-storefront-revalidate.ts` ne couvre que les changements de prix) ->
   revalidation déclenchée une fois à la main (`POST /api/revalidate` depuis les conteneurs
-  backend). **Limite existante, non corrigée** : une modification d'images/titre/description
-  dans l'admin n'apparaît pas sur le storefront tant qu'aucun changement de prix ou
-  redéploiement n'invalide le cache.
+  backend). **Corrigé le 2026-09-27 (commit `6ebfaba`)** : le subscriber, renommé
+  `catalog-updated-storefront-revalidate.ts`, écoute aussi `product.created/updated/deleted`.
+  Vérifié sur staging par l'API Admin (titre modifié puis rétabli : la page produit suit en
+  quelques secondes). Piège de test : une mise à jour faite via `medusa exec` ne déclenche
+  PAS les subscribers du serveur (aucune revalidation observée) - tester via l'API Admin.
 - **n8n** : nouveau sous-workflow `Tool - send_product_images` (id `SndPrdImgs7kQ2xa`) branché
   sur l'AI Agent + 2 règles au prompt système (usage du tool ; interdiction d'écrire son
   raisonnement dans la réponse, fuite observée pendant les tests avec Claude). Détail et
