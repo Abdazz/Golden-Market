@@ -91,10 +91,11 @@ export default async function orderPlacedCustomerWhatsappHandler({
         "metadata",
         "shipping_address.first_name",
         "shipping_address.phone",
-        "items.product_title",
-        "items.unit_price",
-        "items.quantity",
-        "shipping_methods.amount",
+        // Articles et livraison chargés en entier : avec items.quantity demandé
+        // seul, query.graph ne renvoie pas la quantité et le montant recalculé
+        // valait 0 (commande 20260927005 sur staging, 2026-09-27).
+        "items.*",
+        "shipping_methods.*",
         "payment_collections.amount",
         "payment_collections.payments.provider_id",
         "payment_collections.payments.amount",

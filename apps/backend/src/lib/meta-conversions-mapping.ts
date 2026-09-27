@@ -24,7 +24,18 @@ export type OrderForMetaConversion = {
   currency_code: string
   total: number
   shipping_address?: { phone?: string | null }
-  items?: Array<{ variant_id?: string | null; quantity: number }>
+  items?: Array<{ variant_id?: string | null; quantity: number; unit_price?: number | null }>
+  shipping_methods?: Array<{ amount?: number | null }>
+}
+
+// order.total peut valoir 0 juste après order.placed (commandes prises par
+// téléphone, 2026-09-27) : valeur recalculée depuis les articles et la
+// livraison dans ce cas, pour ne pas envoyer un achat à 0 F à Meta.
+const purchaseValue = (order: OrderForMetaConversion): number => {
+  if (Number(order.total) > 0) return Number(order.total)
+  const items = (order.items ?? []).reduce((sum, i) => sum + Number(i.unit_price ?? 0) * Number(i.quantity ?? 0), 0)
+  const shipping = (order.shipping_methods ?? []).reduce((sum, m) => sum + Number(m.amount ?? 0), 0)
+  return items + shipping
 }
 
 const BURKINA_FASO_COUNTRY_CODE = "226"
@@ -71,7 +82,7 @@ export function buildPurchaseEvent(
     user_data: phone ? { ph: [hashForMeta(phone)] } : {},
     custom_data: {
       currency: order.currency_code.toUpperCase(),
-      value: order.total,
+      value: purchaseValue(order),
       content_type: "product",
       // id = variant.id, pas product_id : le flux /meta-catalog-feed publie
       // une ligne par variante avec id = variant.id (meta-catalog-mapping.ts)

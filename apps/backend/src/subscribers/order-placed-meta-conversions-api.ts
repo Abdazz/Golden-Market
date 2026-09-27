@@ -41,8 +41,10 @@ export default async function orderPlacedMetaConversionsApiHandler({
         "currency_code",
         "total",
         "shipping_address.phone",
-        "items.variant_id",
-        "items.quantity",
+        // Articles et livraison chargés en entier : avec items.quantity demandé
+        // seul, query.graph ne renvoie pas la quantité (constaté le 2026-09-27).
+        "items.*",
+        "shipping_methods.*",
       ],
       filters: { id: event.data.id },
     })

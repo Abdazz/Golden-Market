@@ -55,6 +55,24 @@ describe("orderPlacedMetaConversionsApiHandler", () => {
     expect(config).toEqual({ pixelId: "pixel_123", accessToken: "token_abc" })
   })
 
+  it("demande les articles et la livraison en entier pour la valeur et les quantités", async () => {
+    // Avec items.quantity demandé seul, query.graph ne renvoie pas la
+    // quantité (constaté le 2026-09-27).
+    process.env.META_PIXEL_ID = "pixel_123"
+    process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"
+    graph.mockResolvedValue({ data: [{ id: "order_2", currency_code: "xof", total: 0, items: [] }] })
+    jest.spyOn(metaConversionsClient, "sendConversionEvent").mockResolvedValue(undefined)
+
+    await orderPlacedMetaConversionsApiHandler({
+      event: { name: "order.placed", data: { id: "order_2" } } as any,
+      container: container as any,
+    })
+
+    expect(graph).toHaveBeenCalledWith(
+      expect.objectContaining({ fields: expect.arrayContaining(["items.*", "shipping_methods.*"]) })
+    )
+  })
+
   it("skips silently when Meta env vars are not configured", async () => {
     delete process.env.META_PIXEL_ID
     delete process.env.META_CONVERSIONS_API_ACCESS_TOKEN

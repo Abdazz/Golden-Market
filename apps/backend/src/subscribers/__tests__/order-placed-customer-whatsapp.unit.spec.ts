@@ -182,6 +182,24 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     expect(body.params[2]).toBe(formatAmount(2500, "xof"))
   })
 
+  it("demande les articles et la livraison en entier (items.*, shipping_methods.*) pour recalculer le montant", async () => {
+    // Constaté le 2026-09-27 (commande 20260927005 sur staging, "Montant : 0 F CFA") :
+    // avec items.quantity demandé seul, query.graph ne renvoie pas la quantité,
+    // le montant recalculé valait prix x 0.
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+    graph.mockResolvedValue({ data: [{ id: "order_18", display_id: 18, currency_code: "xof", total: 0, shipping_address: { phone: "+22677406101" }, items: [], payment_collections: [] }] })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_18" } } as any,
+      container: container as any,
+    })
+
+    expect(graph).toHaveBeenCalledWith(
+      expect.objectContaining({ fields: expect.arrayContaining(["items.*", "shipping_methods.*"]) })
+    )
+  })
+
   it("affiche le numéro de commande Golden Market (custom_display_id) plutôt que le numéro natif", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
     graph.mockResolvedValue({

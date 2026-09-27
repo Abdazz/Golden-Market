@@ -57,6 +57,22 @@ describe("buildPurchaseEvent", () => {
     })
   })
 
+  it("recalcule la valeur depuis les articles et la livraison quand order.total vaut encore 0", () => {
+    // Juste après order.placed, order.total peut valoir 0 (constaté sur les
+    // commandes prises par téléphone le 2026-09-27) : Meta recevait un achat à 0 F.
+    const event = buildPurchaseEvent(
+      {
+        ...order,
+        total: 0,
+        items: [{ variant_id: "variant_1", quantity: 2, unit_price: 6500 }],
+        shipping_methods: [{ amount: 500 }],
+      },
+      1700000000
+    )
+
+    expect(event.custom_data.value).toBe(13500)
+  })
+
   it("uses the variant id (not the product id) so contents match the catalog's retailer_id", () => {
     // Le flux /meta-catalog-feed publie une ligne par variante avec
     // id = variant.id (voir meta-catalog-mapping.ts) - envoyer product_id
