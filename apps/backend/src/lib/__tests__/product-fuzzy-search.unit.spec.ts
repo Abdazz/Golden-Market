@@ -1,4 +1,10 @@
-import { findSimilarProductIds, listAllProductIds, listAllProducts, searchProductsFuzzy } from "../product-fuzzy-search"
+import {
+  FUZZY_SEARCH_FIELDS,
+  findSimilarProductIds,
+  listAllProductIds,
+  listAllProducts,
+  searchProductsFuzzy,
+} from "../product-fuzzy-search"
 
 function fakeKnex(rows: Array<{ id: string }>) {
   return { raw: jest.fn().mockResolvedValue({ rows }) }
@@ -205,5 +211,13 @@ describe("listAllProducts", () => {
 
     expect(result).toEqual([])
     expect(query.graph).not.toHaveBeenCalled()
+  })
+})
+
+describe("FUZZY_SEARCH_FIELDS", () => {
+  it("inclut la description produit : l'agent WhatsApp doit pouvoir répondre aux questions sur le produit", () => {
+    // Sans elle, l'agent répondait "je n'ai pas cette précision" puis devinait
+    // (conversation réelle du 2026-09-26) alors que la fiche contenait la réponse.
+    expect(FUZZY_SEARCH_FIELDS).toContain("description")
   })
 })

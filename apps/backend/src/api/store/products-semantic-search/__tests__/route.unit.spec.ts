@@ -148,4 +148,23 @@ describe("GET /store/products-semantic-search", () => {
 
     expect(res.jsonBody).toEqual({ products: [], count: 0 })
   })
+
+  it("demande la description produit, pour que l'agent WhatsApp puisse répondre aux questions sur le produit", async () => {
+    process.env.OPENAI_API_KEY = "sk-test"
+    jest.spyOn(embeddingClient, "embedText").mockResolvedValue([0.1])
+    jest.spyOn(embeddingStore, "findNearestProductIds").mockResolvedValue(["prod_1"])
+    const graph = jest.fn().mockResolvedValue({
+      data: [{ id: "prod_1", title: "Ventilateur", handle: "ventilateur", description: "Panneau intégré", variants: [] }],
+    })
+    const req: any = {
+      query: { q: "ventilateur" },
+      scope: { resolve: (key: string) => (key === "query" ? { graph } : {}) },
+    }
+    const res = createFakeRes()
+
+    await GET(req, res)
+
+    expect(graph).toHaveBeenCalledWith(expect.objectContaining({ fields: expect.arrayContaining(["description"]) }))
+    expect(res.jsonBody.products[0].description).toBe("Panneau intégré")
+  })
 })

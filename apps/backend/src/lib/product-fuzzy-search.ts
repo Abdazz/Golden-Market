@@ -4,6 +4,10 @@ import { computeAvailability } from "./meta-catalog-mapping"
 export const FUZZY_SEARCH_FIELDS = [
   "id",
   "title",
+  // Description : seule source fiable pour répondre aux questions du client
+  // sur le produit (composition, alimentation, usage) - sans elle l'agent
+  // WhatsApp devinait (conversation réelle du 2026-09-26).
+  "description",
   "handle",
   "variants.id",
   "variants.calculated_price.calculated_amount",

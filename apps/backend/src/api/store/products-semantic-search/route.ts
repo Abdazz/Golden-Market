@@ -14,6 +14,10 @@ const MAX_LIMIT = 15
 const SEARCH_FIELDS = [
   "id",
   "title",
+  // Description : seule source fiable pour répondre aux questions du client
+  // sur le produit (composition, alimentation, usage) - sans elle l'agent
+  // WhatsApp devinait (conversation réelle du 2026-09-26).
+  "description",
   "handle",
   "variants.id",
   "variants.calculated_price.calculated_amount",
@@ -26,6 +30,7 @@ type SearchProduct = {
   id: string
   title: string
   handle: string
+  description: string | null
   variants: Array<{
     id: string
     manage_inventory: boolean
