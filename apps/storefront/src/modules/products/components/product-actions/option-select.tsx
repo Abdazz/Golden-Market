@@ -19,11 +19,14 @@ const OptionSelect: React.FC<OptionSelectProps> = ({
   "data-testid": dataTestId,
   disabled,
 }) => {
-  const filteredOptions = (option.values ?? []).map((v) => v.value)
+  // Ordre défini dans l'admin (rang de la valeur), pas l'ordre de création.
+  const filteredOptions = [...(option.values ?? [])]
+    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+    .map((v) => v.value)
 
   return (
     <div className="flex flex-col gap-y-3">
-      <span className="text-sm">Select {title}</span>
+      <span className="text-sm">{title}</span>
       <div
         className="flex flex-wrap justify-between gap-2"
         data-testid={dataTestId}

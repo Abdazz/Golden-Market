@@ -257,8 +257,11 @@ export default function ProductActions({
               isLoading={isAdding}
               data-testid="add-product-button"
             >
-              {!selectedVariant && !options
-                ? "Sélectionnez une variante"
+              {/* Aucune option choisie sur un produit à options (ex. balai-éponge
+                  "Simple" / "Avec seau") : `options` vaut {} (objet toujours vrai),
+                  l'ancien test `!options` affichait donc "Rupture de stock". */}
+              {!selectedVariant
+                ? "Choisissez une option"
                 : !inStock || !isValidVariant
                 ? "Rupture de stock"
                 : priceLabel
