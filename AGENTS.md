@@ -160,6 +160,10 @@ de mettre à jour le pin** — un changement de comportement du core (gestion
 d'erreur de paiement, format de réponse) ne sera jamais reçu automatiquement
 puisque ce fichier prend le dessus sur celui du package.
 
+### Conversations WhatsApp dans l'admin (lecture + reprise manuelle, production uniquement)
+
+La page `/app/whatsapp-conversations` lit directement la base `golden_market` (propriété du dépôt `n8n_automation`) via `WHATSAPP_CHAT_DATABASE_URL` (rôle Postgres `medusa_whatsapp_reader`, **lecture seule** : Medusa n'écrit jamais dans cette base). Toute action (prendre/rendre la main, répondre, relancer) passe par le webhook n8n `Admin - actions conversation` (`N8N_ADMIN_ACTIONS_WEBHOOK_URL` + `N8N_ADMIN_ACTIONS_WEBHOOK_SECRET`, même secret côté n8n) : n8n reste le seul écrivain de la base et le seul détenteur du jeton WhatsApp. Ces variables n'existent qu'en production ; sans elles, la page affiche « indisponible ». Voir `docs/superpowers/specs/2026-09-27-whatsapp-reprise-manuelle-design.md`.
+
 ## Medusa Skills & MCP Server
 
 These are optional but strongly recommended — they give documentation-backed answers instead of guesses about Medusa APIs. **Use them when available; if they are not, mention to the user that installing them meaningfully improves development on this project.**
