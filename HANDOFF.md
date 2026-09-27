@@ -16,6 +16,27 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-27 (nuit) - **Livreurs et livraisons (sous-projet 1 du mini-SaaS de gestion) : livré.**
+Spec `docs/superpowers/specs/2026-09-28-livreurs-livraisons-design.md`, plan
+`docs/superpowers/plans/2026-09-28-livreurs-livraisons.md`, détail technique dans `AGENTS.md`
+(« Livreurs et livraisons »).
+- Page `/app/deliveries` (À confier, Tournée du jour, Expéditions à faire payer, Livreurs) +
+  encadré « Livraison » sur la fiche commande. Montant à reverser = encaissé - frais livreur -
+  frais compagnie (peut être négatif), versement validé = journée verrouillée (« Rouvrir la
+  journée »). Report automatique nocturne (00 h 05) des livraisons non faites.
+- Livrée -> paiement marqué payé + « Fulfillment » livré ; Déposée à la gare -> « shipped ».
+- Modèle Meta `nouvelle_livraison` **approuvé** (id 1914471039533315) ; message réel reçu sur le
+  numéro du propriétaire en staging (livreur de test « Test (propriétaire) » créé en staging).
+- **À faire par le propriétaire** : créer les vrais livreurs (Abdourazack, Zakaria…) avec leurs
+  numéros WhatsApp dans l'onglet « Livreurs » en production.
+- Limites connues : « À confier » liste aussi les anciennes commandes jamais marquées
+  livrées dans Medusa ; deux « Livrée » strictement simultanés (deux appareils) non verrouillés ;
+  vue téléphone non vérifiée visuellement.
+- Aussi ce jour : numérotation `AAAAMMJJ` + compteur déployée en production (rattrapage
+  exécuté, 8 commandes numérotées) ; confirmation WhatsApp « Montant : 0 F » des commandes
+  téléphone corrigée (collecte de paiement encore à 0 au moment de l'envoi, commit `6620e2d`).
+  Staging : le « Balai-éponge Simple » y est encore à 8 500 F (6 500 F en production).
+
 2026-09-27 (fin) - **Photos affichées dans les conversations de l'admin** (commit `2cb6eac` +
 n8n, détail `n8n_automation/guide-golden-market-agent.md` § 2.10) : photos envoyées par l'agent
 (rattachées à sa réponse) et photos du client (copiées dans le stockage Medusa sous un nom
