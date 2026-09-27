@@ -64,7 +64,8 @@ const OrderCard = ({ order }: OrderCardProps) => {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="font-display font-bold text-gm-ink" data-testid="order-display-id">
-            #{order.display_id}
+            {/* Numéro Golden Market (AAAAMMJJ + compteur du jour), numéro natif en repli. */}
+            N° {order.custom_display_id || order.display_id}
           </span>
           <Badge color={status.color}>{status.label}</Badge>
         </div>

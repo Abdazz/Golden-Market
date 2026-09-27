@@ -61,7 +61,8 @@ const OrderDetails = ({ order, showStatus }: OrderDetailsProps) => {
       </Text>
       <Text className="mt-2 text-ui-fg-interactive">
         Numéro de commande :{" "}
-        <span data-testid="order-id">{order.display_id}</span>
+        {/* Numéro Golden Market (AAAAMMJJ + compteur du jour), numéro natif en repli. */}
+        <span data-testid="order-id">{order.custom_display_id || order.display_id}</span>
       </Text>
 
       <div className="flex items-center text-compact-small gap-x-4 mt-4">

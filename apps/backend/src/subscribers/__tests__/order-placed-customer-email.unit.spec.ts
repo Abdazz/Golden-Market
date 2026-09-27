@@ -48,13 +48,38 @@ describe("orderPlacedCustomerEmailHandler", () => {
       channel: "email",
       template: "order-placed",
       data: {
-        display_id: 42,
+        display_id: "42",
         total: 15000,
         currency_code: "xof",
         orange_money_number: "07 00 00 00 00",
         orange_money_account_name: "Golden Market",
       },
     })
+  })
+
+  it("utilise le numéro de commande Golden Market (custom_display_id) s'il existe", async () => {
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_20",
+          display_id: 20,
+          custom_display_id: "20260927004",
+          email: "client@example.com",
+          currency_code: "xof",
+          total: 6500,
+          payment_collections: [{ payments: [{ amount: 6500 }] }],
+        },
+      ],
+    })
+
+    await orderPlacedCustomerEmailHandler({
+      event: { data: { id: "order_20" } } as any,
+      container: container as any,
+    })
+
+    expect(createNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ display_id: "20260927004" }) })
+    )
   })
 
   it("falls back to order.total when no payment record is present", async () => {

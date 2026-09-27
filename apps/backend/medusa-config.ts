@@ -1,4 +1,5 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
+import { nextOrderNumber } from './src/lib/order-number'
 import { assertProductionConfig } from './src/lib/assert-production-config'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
@@ -63,6 +64,21 @@ module.exports = defineConfig({
           providers: [
             { resolve: './src/modules/whatsapp-otp-verification', id: 'whatsapp-otp' },
           ],
+        },
+      },
+    },
+    // Numéro de commande Golden Market (AAAAMMJJ + compteur du jour), stocké
+    // dans order.custom_display_id : voir src/lib/order-number.ts. Appelé dans
+    // la transaction de création de chaque commande (site, agent WhatsApp,
+    // brouillons, bouton "Nouvelle commande").
+    order: {
+      resolve: '@medusajs/medusa/order',
+      options: {
+        generateCustomDisplayId: async (_data: unknown, sharedContext: any) => {
+          const manager = sharedContext?.transactionManager ?? sharedContext?.manager
+          return nextOrderNumber({
+            execute: (sql, params) => manager.execute(sql, params),
+          })
         },
       },
     },

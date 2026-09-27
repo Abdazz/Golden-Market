@@ -76,6 +76,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   const {
     data: [order],
-  } = await query.graph({ entity: "order", fields: ["id", "display_id"], filters: { id: draft.id } })
-  res.status(200).json({ order_id: order.id, display_id: order.display_id })
+  } = await query.graph({ entity: "order", fields: ["id", "display_id", "custom_display_id"], filters: { id: draft.id } })
+  res.status(200).json({ order_id: order.id, display_id: order.display_id, order_number: order.custom_display_id })
 }

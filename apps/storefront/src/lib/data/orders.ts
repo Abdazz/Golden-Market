@@ -19,7 +19,7 @@ export const retrieveOrder = async (id: string) => {
       method: "GET",
       query: {
         fields:
-          "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+customer_id,+email,+shipping_address.first_name,+shipping_address.last_name,+shipping_address.phone",
+          "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+customer_id,+email,+shipping_address.first_name,+shipping_address.last_name,+shipping_address.phone,+custom_display_id",
       },
       headers,
       next,
@@ -49,7 +49,7 @@ export const listOrders = async (
         limit,
         offset,
         order: "-created_at",
-        fields: "*items,+items.metadata,*items.variant,*items.product",
+        fields: "*items,+items.metadata,*items.variant,*items.product,+custom_display_id",
         ...filters,
       },
       headers,

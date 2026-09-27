@@ -1,11 +1,13 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { formatAmount } from "../modules/resend/templates"
+import { orderNumberOf } from "../lib/order-number"
 import { PHONE_ORDER_PAYMENT_METHODS, PhoneOrderPaymentMethod } from "../lib/phone-order"
 
 type OrderConfirmationData = {
   id: string
   display_id: number
+  custom_display_id?: string | null
   currency_code: string
   total: number
   metadata?: Record<string, unknown> | null
@@ -83,6 +85,7 @@ export default async function orderPlacedCustomerWhatsappHandler({
       fields: [
         "id",
         "display_id",
+        "custom_display_id",
         "currency_code",
         "total",
         "metadata",
@@ -137,7 +140,8 @@ export default async function orderPlacedCustomerWhatsappHandler({
       collection?.amount ??
       (Number(typedOrder.total) > 0 ? typedOrder.total : computedTotal)
     const total = formatAmount(amount, typedOrder.currency_code)
-    const displayId = String(typedOrder.display_id)
+    // Numéro Golden Market (AAAAMMJJ + compteur du jour), voir lib/order-number.ts.
+    const displayId = orderNumberOf(typedOrder)
     // Commande prise par téléphone (bouton "Nouvelle commande" de l'admin) :
     // aucun paiement enregistré, le moyen convenu est dans les métadonnées.
     const agreedMethod = typedOrder.metadata?.payment_method as PhoneOrderPaymentMethod | undefined

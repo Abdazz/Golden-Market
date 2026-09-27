@@ -1,9 +1,11 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { orderNumberOf } from "../lib/order-number"
 
 type OrderEmailData = {
   id: string
   display_id: number
+  custom_display_id?: string | null
   email?: string | null
   currency_code: string
   total: number
@@ -39,6 +41,7 @@ export default async function orderPlacedCustomerEmailHandler({
       fields: [
         "id",
         "display_id",
+        "custom_display_id",
         "email",
         "currency_code",
         "total",
@@ -65,7 +68,8 @@ export default async function orderPlacedCustomerEmailHandler({
       channel: "email",
       template: "order-placed",
       data: {
-        display_id: typedOrder.display_id,
+        // Numéro Golden Market (AAAAMMJJ + compteur du jour), voir lib/order-number.ts.
+        display_id: orderNumberOf(typedOrder),
         total: amount,
         currency_code: typedOrder.currency_code,
         orange_money_number: process.env.ORANGE_MONEY_NUMBER,

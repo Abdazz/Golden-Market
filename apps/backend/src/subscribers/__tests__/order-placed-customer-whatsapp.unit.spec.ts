@@ -150,6 +150,34 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     expect(body.params[2]).toBe(formatAmount(12000, "xof"))
   })
 
+  it("affiche le numéro de commande Golden Market (custom_display_id) plutôt que le numéro natif", async () => {
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_20",
+          display_id: 20,
+          custom_display_id: "20260927004",
+          currency_code: "xof",
+          total: 6500,
+          shipping_address: { first_name: "Awa", phone: "+22670000000" },
+          items: [{ product_title: "Balai-éponge à essorage automatique" }],
+          payment_collections: [{ amount: 6500, payments: [] }],
+        },
+      ],
+    })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_20" } } as any,
+      container: container as any,
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.params[3]).toBe("20260927004")
+    expect(graph).toHaveBeenCalledWith(expect.objectContaining({ fields: expect.arrayContaining(["custom_display_id"]) }))
+  })
+
   it("commande par téléphone : affiche le moyen de paiement convenu (metadata.payment_method)", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 
