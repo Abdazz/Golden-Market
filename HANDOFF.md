@@ -16,6 +16,25 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-27 (suite) - **Reprise manuelle des conversations WhatsApp depuis l'admin Medusa :
+livrée et vérifiée en production.** Spec `docs/superpowers/specs/2026-09-27-whatsapp-reprise-manuelle-design.md`,
+plan `docs/superpowers/plans/2026-09-27-whatsapp-reprise-manuelle.md`, détail n8n dans
+`n8n_automation/guide-golden-market-agent.md` § 2.9.
+- Page `/app/whatsapp-conversations` : prendre/rendre la main, répondre, relance hors 24 h,
+  badge « Vous avez la main », point « en attente de votre réponse », rafraîchissement auto,
+  lien direct `?phone=`. Routes `POST /admin/whatsapp-conversations/:phone/{take-over,hand-back,messages,reengagement}`
+  -> webhook n8n `Admin - actions conversation` (variables `N8N_ADMIN_ACTIONS_WEBHOOK_URL/_SECRET`
+  ajoutées au `.env` de production sur le VPS).
+- L'IA se tait quand un humain a la main (`escalated`) ; alerte WhatsApp au propriétaire
+  (max 1 / 30 min, avec lien direct) ; reprise automatique par l'IA si le client réécrit plus de
+  2 h après la dernière action humaine ; `escalate_to_human` pose désormais le statut.
+- Base `golden_market` : colonnes `human_last_action_at`, `owner_alerted_at`, rôle `human`.
+- **Template `reprise_conversation` (id Meta 1757148805539141) encore PENDING au 2026-09-27** :
+  tant qu'il n'est pas approuvé, le bouton de relance affiche l'erreur Meta.
+- **Non vérifié** : le rendu mobile de la page (la fenêtre Chrome n'a pas pu être réduite).
+- Pièges rencontrés : le nœud HTTP n8n renvoie l'erreur Meta sur sa sortie succès (toujours
+  vérifier le wamid) ; `escalation_alert` attend 3 paramètres.
+
 2026-09-27 - **Fiabilité de l'agent WhatsApp : audit de deux conversations réelles ratées +
 correctifs déployés et testés en conditions réelles.** Détail des causes et correctifs dans
 `n8n_automation/guide-golden-market-agent.md` § 3 (entrée 2026-09-27). Résumé :
