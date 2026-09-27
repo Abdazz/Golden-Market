@@ -17,12 +17,25 @@ export type ConversationSummary = {
   lastMessageAt: Date
   lastMessagePreview: string | null
   messageCount: number
+  // Dernier message venu du client alors qu'un humain a la main : le
+  // propriétaire doit répondre (point "en attente de votre réponse").
+  awaitingReply: boolean
 }
 
 export type ChatMessage = {
-  role: "user" | "assistant" | "system"
+  // "human" = message écrit par le propriétaire depuis l'admin (via n8n).
+  role: "user" | "assistant" | "system" | "human"
   content: string
   createdAt: Date
+}
+
+export type ConversationDetail = {
+  phoneNumber: string
+  customerName: string | null
+  status: string
+  humanLastActionAt: Date | null
+  lastUserMessageAt: Date | null
+  messages: ChatMessage[]
 }
 
 let pool: Pool | null | undefined
@@ -68,10 +81,11 @@ const LIST_CONVERSATIONS_QUERY = `
     c.status,
     c.last_message_at,
     m.content AS last_message_preview,
-    COALESCE(mc.message_count, 0) AS message_count
+    COALESCE(mc.message_count, 0) AS message_count,
+    (m.role = 'user' AND c.status = 'escalated') AS awaiting_reply
   FROM conversations c
   LEFT JOIN LATERAL (
-    SELECT content FROM messages WHERE conversation_id = c.id ORDER BY seq DESC LIMIT 1
+    SELECT content, role FROM messages WHERE conversation_id = c.id ORDER BY seq DESC LIMIT 1
   ) m ON true
   LEFT JOIN (
     SELECT conversation_id, COUNT(*) AS message_count FROM messages GROUP BY conversation_id
@@ -99,6 +113,7 @@ export async function listConversations(
       lastMessagePreview: (row.last_message_preview as string | null) ?? null,
       // COUNT(*) revient en bigint -> chaîne côté driver pg, jamais un number natif.
       messageCount: Number(row.message_count),
+      awaitingReply: row.awaiting_reply === true,
     }))
   } catch (error) {
     console.error("[whatsapp-chat-db] Échec de listConversations :", error)
@@ -106,32 +121,59 @@ export async function listConversations(
   }
 }
 
-const GET_CONVERSATION_MESSAGES_QUERY = `
-  SELECT m.role, m.content, m.created_at
-  FROM messages m
-  JOIN conversations c ON c.id = m.conversation_id
+const GET_CONVERSATION_QUERY = `
+  SELECT
+    c.id,
+    c.phone_number,
+    c.customer_name,
+    c.status,
+    c.human_last_action_at,
+    (SELECT max(created_at) FROM messages WHERE conversation_id = c.id AND role = 'user')
+      AS last_user_message_at
+  FROM conversations c
   WHERE c.phone_number = $1
-  ORDER BY m.seq ASC
 `
 
-export async function getConversationMessages(
+const GET_MESSAGES_QUERY = `
+  SELECT role, content, created_at
+  FROM messages
+  WHERE conversation_id = $1
+  ORDER BY seq ASC
+`
+
+// null = base indisponible ; "not_found" = aucune conversation pour ce
+// numéro (lien direct vers une conversation supprimée, par exemple).
+export async function getConversation(
   phoneNumber: string,
   executor: QueryExecutor | null = getDefaultExecutor()
-): Promise<ChatMessage[] | null> {
+): Promise<ConversationDetail | "not_found" | null> {
   if (!executor) {
     return null
   }
 
   try {
-    const result = await executor.query(GET_CONVERSATION_MESSAGES_QUERY, [phoneNumber])
+    const { rows } = await executor.query(GET_CONVERSATION_QUERY, [phoneNumber])
+    const conversation = rows[0]
+    if (!conversation) {
+      return "not_found"
+    }
 
-    return result.rows.map((row) => ({
-      role: row.role as ChatMessage["role"],
-      content: row.content as string,
-      createdAt: row.created_at as Date,
-    }))
+    const messages = await executor.query(GET_MESSAGES_QUERY, [conversation.id])
+
+    return {
+      phoneNumber: conversation.phone_number as string,
+      customerName: (conversation.customer_name as string | null) ?? null,
+      status: conversation.status as string,
+      humanLastActionAt: (conversation.human_last_action_at as Date | null) ?? null,
+      lastUserMessageAt: (conversation.last_user_message_at as Date | null) ?? null,
+      messages: messages.rows.map((row) => ({
+        role: row.role as ChatMessage["role"],
+        content: row.content as string,
+        createdAt: row.created_at as Date,
+      })),
+    }
   } catch (error) {
-    console.error("[whatsapp-chat-db] Échec de getConversationMessages :", error)
+    console.error("[whatsapp-chat-db] Échec de getConversation :", error)
     return null
   }
 }

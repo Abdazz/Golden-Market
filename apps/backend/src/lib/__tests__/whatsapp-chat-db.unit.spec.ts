@@ -1,4 +1,4 @@
-import { getConversationMessages, listConversations } from "../whatsapp-chat-db"
+import { getConversation, listConversations } from "../whatsapp-chat-db"
 
 describe("listConversations", () => {
   it("returns null when no executor is configured", async () => {
@@ -19,6 +19,7 @@ describe("listConversations", () => {
           last_message_preview: "Merci, à bientôt !",
           // pg renvoie COUNT(*) en chaîne (bigint) - jamais un number natif
           message_count: "4",
+          awaiting_reply: true,
         },
       ],
     })
@@ -33,6 +34,7 @@ describe("listConversations", () => {
         lastMessageAt,
         lastMessagePreview: "Merci, à bientôt !",
         messageCount: 4,
+        awaitingReply: true,
       },
     ])
   })
@@ -84,43 +86,60 @@ describe("listConversations", () => {
   })
 })
 
-describe("getConversationMessages", () => {
+describe("getConversation", () => {
   it("returns null when no executor is configured", async () => {
-    const result = await getConversationMessages("+22670000000", null)
-
-    expect(result).toBeNull()
+    expect(await getConversation("22670000000", null)).toBeNull()
   })
 
-  it("maps rows into chat messages, preserving query order", async () => {
-    const queryMock = jest.fn().mockResolvedValue({
-      rows: [
-        { role: "user", content: "Bonjour", created_at: new Date("2026-09-07T10:00:00Z") },
-        {
-          role: "assistant",
-          content: "Bonjour, comment puis-je vous aider ?",
-          created_at: new Date("2026-09-07T10:00:01Z"),
-        },
+  it("returns not_found when the conversation does not exist", async () => {
+    const queryMock = jest.fn().mockResolvedValueOnce({ rows: [] })
+
+    expect(await getConversation("22670000000", { query: queryMock })).toBe("not_found")
+  })
+
+  it("maps the conversation and its messages, human role included, ordered by the query", async () => {
+    const humanAt = new Date("2026-09-27T10:00:00Z")
+    const userAt = new Date("2026-09-27T09:00:00Z")
+    const queryMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: "conv-1",
+            phone_number: "22670000000",
+            customer_name: null,
+            status: "escalated",
+            human_last_action_at: humanAt,
+            last_user_message_at: userAt,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          { role: "user", content: "Bonjour", created_at: userAt },
+          { role: "human", content: "Je m'en occupe", created_at: humanAt },
+        ],
+      })
+
+    const result = await getConversation("22670000000", { query: queryMock })
+
+    expect(result).toEqual({
+      phoneNumber: "22670000000",
+      customerName: null,
+      status: "escalated",
+      humanLastActionAt: humanAt,
+      lastUserMessageAt: userAt,
+      messages: [
+        { role: "user", content: "Bonjour", createdAt: userAt },
+        { role: "human", content: "Je m'en occupe", createdAt: humanAt },
       ],
     })
-
-    const result = await getConversationMessages("+22670000000", { query: queryMock })
-
-    expect(result).toEqual([
-      { role: "user", content: "Bonjour", createdAt: new Date("2026-09-07T10:00:00Z") },
-      {
-        role: "assistant",
-        content: "Bonjour, comment puis-je vous aider ?",
-        createdAt: new Date("2026-09-07T10:00:01Z"),
-      },
-    ])
-    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["+22670000000"])
+    expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining("ORDER BY seq ASC"), ["conv-1"])
   })
 
-  it("returns null when the query fails", async () => {
+  it("returns null when a query fails", async () => {
     const queryMock = jest.fn().mockRejectedValue(new Error("connection refused"))
 
-    const result = await getConversationMessages("+22670000000", { query: queryMock })
-
-    expect(result).toBeNull()
+    expect(await getConversation("22670000000", { query: queryMock })).toBeNull()
   })
 })
