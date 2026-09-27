@@ -26,12 +26,12 @@ Spec `docs/superpowers/specs/2026-09-28-livreurs-livraisons-design.md`, plan
   journée »). Report automatique nocturne (00 h 05) des livraisons non faites.
 - Livrée -> paiement marqué payé + « Fulfillment » livré ; Déposée à la gare -> « shipped ».
 - Message au livreur : modèle Meta `livraison_livreur` (une information par ligne, id
-  1793026108499601, soumis le 2026-09-27, **en attente de validation** au moment de l'envoi) ;
+  1793026108499601, **approuvé** le 2026-09-27, message réel reçu sur plusieurs lignes) ;
   il remplace `nouvelle_livraison` (id 1914471039533315, approuvé mais tout sur une ligne,
   jugé illisible par le propriétaire). Message réel reçu en staging sur le numéro du
   propriétaire (livreur de test « Test (propriétaire) » créé en staging).
-- **À faire par le propriétaire** : créer les vrais livreurs (Abdourazack, Zakaria…) avec leurs
-  numéros WhatsApp dans l'onglet « Livreurs » en production.
+- Livreurs en production : Gildas (+22656599282) enregistré le 2026-09-27. Les autres
+  (Abdourazack, Zakaria…) restent à ajouter par le propriétaire (onglet « Livreurs »).
 - Limites connues : deux « Livrée » strictement simultanés (deux appareils) non verrouillés ;
   vue téléphone non vérifiée visuellement. Les 8 commandes de production antérieures étaient
   toutes des tests : toutes annulées (les 3 dernières le 2026-09-27 à la demande du propriétaire).
