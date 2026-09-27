@@ -17,8 +17,9 @@ export type ConversationSummary = {
   lastMessageAt: Date
   lastMessagePreview: string | null
   messageCount: number
-  // Dernier message venu du client alors qu'un humain a la main : le
-  // propriétaire doit répondre (point "en attente de votre réponse").
+  // Dernier message venu du client, quel que soit le statut : question en
+  // attente (humain aux commandes, main rendue à l'IA sans réponse, ou IA en
+  // échec) - point "en attente de votre réponse" dans l'admin.
   awaitingReply: boolean
 }
 
@@ -82,7 +83,7 @@ const LIST_CONVERSATIONS_QUERY = `
     c.last_message_at,
     m.content AS last_message_preview,
     COALESCE(mc.message_count, 0) AS message_count,
-    (m.role = 'user' AND c.status = 'escalated') AS awaiting_reply
+    (m.role = 'user') AS awaiting_reply
   FROM conversations c
   LEFT JOIN LATERAL (
     SELECT content, role FROM messages WHERE conversation_id = c.id ORDER BY seq DESC LIMIT 1

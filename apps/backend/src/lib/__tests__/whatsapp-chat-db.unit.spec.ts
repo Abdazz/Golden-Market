@@ -39,6 +39,17 @@ describe("listConversations", () => {
     ])
   })
 
+  it("marks a conversation as awaiting a reply whenever the client wrote last, whatever its status", async () => {
+    // Sans ça, "Rendre la main à l'IA" faisait disparaître le point rouge alors
+    // que la dernière question du client restait sans réponse (relecture finale 2026-09-27).
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] })
+
+    await listConversations(undefined, { query: queryMock })
+
+    const sql = queryMock.mock.calls[0][0] as string
+    expect(sql).toContain("(m.role = 'user') AS awaiting_reply")
+  })
+
   it("passes null (never undefined) as the search bind parameter when no search is given", async () => {
     const queryMock = jest.fn().mockResolvedValue({ rows: [] })
 

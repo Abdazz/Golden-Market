@@ -380,21 +380,46 @@ const ConversationThreadPanel = ({
   const [detail, setDetail] = useState<DetailResponse | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [refreshFailed, setRefreshFailed] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+  // Numéro actuellement affiché : une réponse arrivée après un changement de
+  // conversation (rafraîchissement lent de A pendant qu'on ouvre B) doit être
+  // ignorée, sinon le fil de A s'afficherait alors que l'envoi part vers B.
+  const currentPhone = useRef(phoneNumber)
+  currentPhone.current = phoneNumber
 
   const load = useCallback(() => {
     if (!phoneNumber) {
       return
     }
-    fetch(`/admin/whatsapp-conversations/${encodeURIComponent(phoneNumber)}`, { credentials: "include" })
-      .then((res) => res.json())
-      .then(setDetail)
-      .catch(() => setDetail({ available: false }))
+    const requested = phoneNumber
+    // Un échec de rafraîchissement (réseau, redéploiement, session expirée)
+    // ne remplace jamais une conversation déjà affichée : la zone de saisie
+    // (brouillon en cours, erreur) resterait sinon démontée puis vidée.
+    const keepOrFail = (prev: DetailResponse | null): DetailResponse =>
+      prev && "conversation" in prev ? prev : { available: false }
+    fetch(`/admin/whatsapp-conversations/${encodeURIComponent(requested)}`, { credentials: "include" })
+      .then((res) => res.json() as Promise<DetailResponse>)
+      .then((data) => {
+        if (currentPhone.current !== requested) {
+          return
+        }
+        setRefreshFailed(!data.available)
+        setDetail((prev) => (data.available ? data : keepOrFail(prev)))
+      })
+      .catch(() => {
+        if (currentPhone.current !== requested) {
+          return
+        }
+        setRefreshFailed(true)
+        setDetail(keepOrFail)
+      })
   }, [phoneNumber])
 
   useEffect(() => {
     setDetail(null)
     setNotice(null)
+    setRefreshFailed(false)
     load()
   }, [load])
   usePolling(load, DETAIL_REFRESH_MS, phoneNumber !== null)
@@ -415,7 +440,20 @@ const ConversationThreadPanel = ({
   const conversation = detail && "conversation" in detail ? detail.conversation : null
   const humanHasHand = conversation?.status === "escalated"
 
+  const lastMessage = conversation?.messages[conversation.messages.length - 1]
+
   const toggleHand = async () => {
+    // L'IA ne répond qu'au prochain message entrant : rendre la main alors que
+    // le client attend une réponse laisserait sa dernière question sans suite.
+    if (
+      humanHasHand &&
+      lastMessage?.role === "user" &&
+      !window.confirm(
+        "Le dernier message du client restera sans réponse : l'IA ne répondra qu'à son prochain message. Rendre quand même la main à l'IA ?"
+      )
+    ) {
+      return
+    }
     setBusy(true)
     setNotice(null)
     const result = await postAction(phoneNumber, humanHasHand ? "hand-back" : "take-over")
@@ -465,6 +503,11 @@ const ConversationThreadPanel = ({
       </div>
 
       {notice && <p className="txt-compact-small border-b border-ui-border-base px-4 py-2 text-ui-fg-error">{notice}</p>}
+      {refreshFailed && conversation && (
+        <p className="txt-compact-small border-b border-ui-border-base px-4 py-2 text-ui-fg-subtle">
+          Rafraîchissement impossible pour le moment : la conversation affichée peut ne pas être à jour.
+        </p>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {detail === null && <p className="text-ui-fg-subtle">Chargement…</p>}
