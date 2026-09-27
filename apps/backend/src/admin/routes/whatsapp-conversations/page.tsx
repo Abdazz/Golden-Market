@@ -30,6 +30,9 @@ type ChatMessage = {
   role: "user" | "assistant" | "system" | "human"
   content: string
   createdAt: string
+  // Photos envoyées par l'agent ou par le client (absent sur les messages
+  // antérieurs au 2026-09-27).
+  attachments?: { type: "image"; url: string }[]
 }
 
 type ConversationDetail = {
@@ -274,6 +277,20 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
       <div className={`max-w-[85%] rounded-lg px-3 py-2 lg:max-w-[70%] ${bubbleClass}`}>
         {!fromClient && (
           <p className="txt-compact-xsmall-plus mb-0.5 opacity-70">{fromHuman ? "Vous" : "IA"}</p>
+        )}
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="mb-1 grid grid-cols-3 gap-1">
+            {message.attachments.map((attachment) => (
+              <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer">
+                <img
+                  src={attachment.url}
+                  alt=""
+                  loading="lazy"
+                  className="h-20 w-20 rounded-md object-cover"
+                />
+              </a>
+            ))}
+          </div>
         )}
         <p className="txt-compact-small whitespace-pre-wrap break-words">{message.content}</p>
         <p className="txt-compact-xsmall mt-1 text-right opacity-70">{formatTime(message.createdAt)}</p>

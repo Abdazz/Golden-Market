@@ -23,11 +23,16 @@ export type ConversationSummary = {
   awaitingReply: boolean
 }
 
+export type ChatAttachment = { type: "image"; url: string }
+
 export type ChatMessage = {
   // "human" = message écrit par le propriétaire depuis l'admin (via n8n).
   role: "user" | "assistant" | "system" | "human"
   content: string
   createdAt: Date
+  // Photos envoyées par l'agent (catalogue) ou par le client (copiées dans le
+  // stockage Medusa par n8n) - colonne messages.attachments, JSONB.
+  attachments: ChatAttachment[]
 }
 
 export type ConversationDetail = {
@@ -136,7 +141,7 @@ const GET_CONVERSATION_QUERY = `
 `
 
 const GET_MESSAGES_QUERY = `
-  SELECT role, content, created_at
+  SELECT role, content, created_at, attachments
   FROM messages
   WHERE conversation_id = $1
   ORDER BY seq ASC
@@ -171,6 +176,7 @@ export async function getConversation(
         role: row.role as ChatMessage["role"],
         content: row.content as string,
         createdAt: row.created_at as Date,
+        attachments: Array.isArray(row.attachments) ? (row.attachments as ChatAttachment[]) : [],
       })),
     }
   } catch (error) {

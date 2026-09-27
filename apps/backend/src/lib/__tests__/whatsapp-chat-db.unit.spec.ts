@@ -141,11 +141,34 @@ describe("getConversation", () => {
       humanLastActionAt: humanAt,
       lastUserMessageAt: userAt,
       messages: [
-        { role: "user", content: "Bonjour", createdAt: userAt },
-        { role: "human", content: "Je m'en occupe", createdAt: humanAt },
+        { role: "user", content: "Bonjour", createdAt: userAt, attachments: [] },
+        { role: "human", content: "Je m'en occupe", createdAt: humanAt, attachments: [] },
       ],
     })
     expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining("ORDER BY seq ASC"), ["conv-1"])
+  })
+
+  it("returns image attachments (photos sent by the agent or the client), empty list when none", async () => {
+    const at = new Date("2026-09-27T10:00:00Z")
+    const queryMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [{ id: "conv-1", phone_number: "1", customer_name: null, status: "active", human_last_action_at: null, last_user_message_at: at }],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          { role: "user", content: "[Photo envoyée par le client]", created_at: at, attachments: [{ type: "image", url: "https://x/photo.jpg" }] },
+          { role: "assistant", content: "Bonjour", created_at: at, attachments: null },
+        ],
+      })
+
+    const result = await getConversation("1", { query: queryMock })
+
+    expect(result !== null && result !== "not_found" && result.messages.map((m) => m.attachments)).toEqual([
+      [{ type: "image", url: "https://x/photo.jpg" }],
+      [],
+    ])
+    expect(queryMock.mock.calls[1][0]).toContain("attachments")
   })
 
   it("returns null when a query fails", async () => {
