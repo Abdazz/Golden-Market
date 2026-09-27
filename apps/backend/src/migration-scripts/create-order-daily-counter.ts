@@ -21,8 +21,13 @@ export default async function createOrderDailyCounter({ container }: { container
     )
   `)
 
+  // Les commandes sans numéro reprennent APRÈS le plus grand numéro déjà
+  // attribué ce jour-là (numéros existants et compteur) : ce script sert aussi
+  // de rattrapage après un déploiement (commandes créées entre la migration et
+  // le redémarrage du serveur) - repartir de 001 heurtait l'index unique
+  // (constaté sur staging le 2026-09-27).
   await knex.raw(`
-    WITH numbered AS (
+    WITH missing AS (
       SELECT id,
              to_char(created_at AT TIME ZONE 'UTC', 'YYYYMMDD') AS day,
              row_number() OVER (
@@ -31,12 +36,27 @@ export default async function createOrderDailyCounter({ container }: { container
              ) AS n
       FROM "order"
       WHERE custom_display_id IS NULL
+    ),
+    base AS (
+      SELECT d.day,
+             GREATEST(
+               COALESCE((SELECT c.last_value FROM order_daily_counter c WHERE c.day = d.day), 0),
+               COALESCE((
+                 SELECT max(substr(o.custom_display_id, 9)::integer)
+                 FROM "order" o
+                 WHERE o.custom_display_id ~ '^[0-9]{11,}$'
+                   AND substr(o.custom_display_id, 1, 8) = d.day
+               ), 0)
+             ) AS start
+      FROM (SELECT DISTINCT day FROM missing) d
     )
     UPDATE "order" o
-    SET custom_display_id = numbered.day ||
-        CASE WHEN numbered.n < 1000 THEN lpad(numbered.n::text, 3, '0') ELSE numbered.n::text END
-    FROM numbered
-    WHERE o.id = numbered.id
+    SET custom_display_id = missing.day ||
+        CASE WHEN base.start + missing.n < 1000
+             THEN lpad((base.start + missing.n)::text, 3, '0')
+             ELSE (base.start + missing.n)::text END
+    FROM missing JOIN base ON base.day = missing.day
+    WHERE o.id = missing.id
   `)
 
   await knex.raw(`
