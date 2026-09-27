@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
 
 // Formulaire "Nouvelle commande" (commande prise par téléphone) : le client
 // est identifié par son numéro WhatsApp, jamais par un e-mail. Route admin
@@ -32,7 +31,6 @@ const inputClass = "txt-compact-small w-full rounded-md border border-ui-border-
 const labelClass = "txt-compact-small-plus text-ui-fg-base"
 
 const NewPhoneOrderPage = () => {
-  const navigate = useNavigate()
   const [phone, setPhone] = useState("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -125,7 +123,8 @@ const NewPhoneOrderPage = () => {
         setError(data.message ?? "La commande n'a pas pu être créée.")
         return
       }
-      navigate(`/orders/${data.order_id}`)
+      // Adresse complète (useNavigate sans effet depuis une extension admin).
+      window.location.assign(`/app/orders/${data.order_id}`)
     } catch {
       setError("Service injoignable, réessayez.")
     } finally {
@@ -142,9 +141,9 @@ const NewPhoneOrderPage = () => {
             Commande prise par téléphone. Le client reçoit la confirmation sur son WhatsApp.
           </p>
         </div>
-        <button type="button" onClick={() => navigate("/orders")} className="txt-compact-small text-ui-fg-interactive">
+        <a href="/app/orders" className="txt-compact-small text-ui-fg-interactive">
           ← Retour aux commandes
-        </button>
+        </a>
       </div>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
