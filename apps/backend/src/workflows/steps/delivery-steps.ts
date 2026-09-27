@@ -57,7 +57,7 @@ export const updateCourierStep = createStep(
 )
 
 export const assertCanAssignStep = createStep(
-  "assert-can-assign-delivery",
+  "assert-can-assign",
   async (input: { order_id: string; courier_id: string; order_canceled: boolean }, { container }) => {
     const svc = deliveryModule(container)
     if (input.order_canceled) {
@@ -115,7 +115,7 @@ export type CompletionInput = {
 // Refus si la livraison n'est plus "Confiée" (double clic, deux onglets : la
 // seconde requête échoue) ou si la journée du livreur est déjà validée.
 export const prepareCompletionStep = createStep(
-  "prepare-delivery-completion",
+  "prepare-completion",
   async (input: CompletionInput, { container }) => {
     const svc = deliveryModule(container)
     const delivery = await svc.retrieveDelivery(input.id)
@@ -161,7 +161,7 @@ export const updateDeliveryStep = createStep(
 
 // Montant attendu recalculé côté serveur au moment de la validation.
 export const computeSettlementStep = createStep(
-  "compute-courier-settlement",
+  "compute-settlement",
   async (input: { courier_id: string; day: string }, { container }) => {
     const svc = deliveryModule(container)
     const [existing] = await svc.listCourierSettlements({ courier_id: input.courier_id, day: input.day })
@@ -179,7 +179,7 @@ export const computeSettlementStep = createStep(
 )
 
 export const createSettlementStep = createStep(
-  "create-courier-settlement",
+  "create-settlement",
   async (
     input: { courier_id: string; day: string; expected_amount: number; received_amount: number; note?: string | null },
     { container }
@@ -197,7 +197,7 @@ export const createSettlementStep = createStep(
 )
 
 export const deleteSettlementStep = createStep(
-  "delete-courier-settlement",
+  "delete-settlement",
   async (input: { id: string }, { container }) => {
     const svc = deliveryModule(container)
     const previous = await svc.retrieveCourierSettlement(input.id)

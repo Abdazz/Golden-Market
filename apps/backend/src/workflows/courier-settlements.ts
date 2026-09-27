@@ -3,7 +3,7 @@ import { computeSettlementStep, createSettlementStep, deleteSettlementStep } fro
 
 // Valide le versement d'un livreur pour une journée (verrouille la journée).
 export const validateSettlementWorkflow = createWorkflow(
-  "validate-courier-settlement",
+  "validate-settlement",
   function (input: { courier_id: string; day: string; received_amount: number; note?: string | null }) {
     const expected = computeSettlementStep(input)
     const data = transform({ input, expected }, ({ input, expected }) => ({
@@ -20,7 +20,7 @@ export const validateSettlementWorkflow = createWorkflow(
 
 // "Rouvrir la journée" : supprime le versement, les livraisons redeviennent modifiables.
 export const reopenSettlementWorkflow = createWorkflow(
-  "reopen-courier-settlement",
+  "reopen-settlement",
   function (input: { id: string }) {
     const result = deleteSettlementStep(input)
     return new WorkflowResponse(result)

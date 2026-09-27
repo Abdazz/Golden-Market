@@ -2,6 +2,7 @@ import { authenticate, defineMiddlewares, errorHandler } from "@medusajs/framewo
 import type { MedusaRequest, MedusaResponse, MedusaNextFunction } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import * as Sentry from "@sentry/node"
+import { deliveryMiddlewares } from "./admin/deliveries/middlewares"
 import { checkRateLimit } from "./middlewares/rate-limiter"
 
 // Observabilité backend (GlitchTip self-hosted) : capture chaque erreur avant de
@@ -252,6 +253,8 @@ export default defineMiddlewares({
       methods: ["POST"],
       middlewares: [authenticate("customer", ["session", "bearer"])],
     },
+    // Livreurs et livraisons (spec 2026-09-28).
+    ...deliveryMiddlewares,
   ],
   errorHandler: (error: any, req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
     Sentry.captureException(error)

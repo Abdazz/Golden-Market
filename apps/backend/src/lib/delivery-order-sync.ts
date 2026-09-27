@@ -12,6 +12,8 @@ import {
 // un avertissement affiché dans l'admin (le statut de livraison fait foi).
 // Idempotent : relit l'état de la commande avant chaque action. Sans
 // notification Medusa (no_notification) : le client est suivi par WhatsApp.
+const firstLine = (e: unknown) => String((e as Error)?.message ?? e).split("\n")[0].slice(0, 300)
+
 export async function syncOrderAfterDelivery(
   container: any,
   input: { orderId: string; status: "delivered" | "shipped"; collected: number }
@@ -26,8 +28,9 @@ export async function syncOrderAfterDelivery(
       "id",
       "payment_collections.id",
       "payment_collections.status",
-      "items.id",
-      "items.quantity",
+      // Articles chargés en entier : avec items.quantity seul, la quantité
+      // revient vide et la création du fulfillment échoue.
+      "items.*",
       "fulfillments.id",
       "fulfillments.shipped_at",
       "fulfillments.delivered_at",
@@ -42,7 +45,7 @@ export async function syncOrderAfterDelivery(
       try {
         await markPaymentCollectionAsPaid(container).run({ input: { order_id: order.id, payment_collection_id: pending.id } })
       } catch (e) {
-        warnings.push(`Paiement non marqué payé : ${(e as Error).message}`)
+        warnings.push(`Paiement non marqué payé : ${firstLine(e)}`)
       }
     }
   }
@@ -73,7 +76,7 @@ export async function syncOrderAfterDelivery(
       await markOrderFulfillmentAsDeliveredWorkflow(container).run({ input: { orderId: order.id, fulfillmentId: fulfillment.id } })
     }
   } catch (e) {
-    warnings.push(`Statut « Fulfillment » non mis à jour : ${(e as Error).message}`)
+    warnings.push(`Statut « Fulfillment » non mis à jour : ${firstLine(e)}`)
   }
 
   return warnings.length ? warnings.join(" ") : null
