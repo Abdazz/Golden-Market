@@ -161,5 +161,10 @@ module.exports = defineConfig({
         ],
       },
     },
+    // Livreurs et livraisons (spec 2026-09-28) : tables courier, delivery,
+    // courier_settlement.
+    delivery: {
+      resolve: './src/modules/delivery',
+    },
   }
 })
