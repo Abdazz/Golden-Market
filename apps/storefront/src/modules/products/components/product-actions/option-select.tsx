@@ -25,24 +25,32 @@ const OptionSelect: React.FC<OptionSelectProps> = ({
     .map((v) => v.value)
 
   return (
-    <div className="flex flex-col gap-y-3">
-      <span className="text-sm">{title}</span>
-      <div
-        className="flex flex-wrap justify-between gap-2"
-        data-testid={dataTestId}
-      >
+    <div className="flex flex-col gap-y-2">
+      {/* Charte Golden Market : pilules arrondies comme le sélecteur de
+          quantité, option choisie en violet (comme les boutons secondaires). */}
+      <span className="text-sm text-gm-ink-muted">
+        {title}
+        {current && (
+          <>
+            {" : "}
+            <span className="font-semibold text-gm-ink">{current}</span>
+          </>
+        )}
+      </span>
+      <div className="flex flex-wrap gap-2" data-testid={dataTestId}>
         {filteredOptions.map((v) => {
+          const selected = v === current
           return (
             <button
+              type="button"
               onClick={() => updateOption(option.id, v)}
               key={v}
+              aria-pressed={selected}
               className={clx(
-                "border-ui-border-base bg-ui-bg-subtle border text-small-regular h-10 rounded-rounded p-2 flex-1 ",
-                {
-                  "border-ui-border-interactive": v === current,
-                  "hover:shadow-elevation-card-rest transition-shadow ease-in-out duration-150":
-                    v !== current,
-                }
+                "min-h-10 rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-150 disabled:opacity-40",
+                selected
+                  ? "border-gm-violet bg-gm-violet text-gm-on-violet"
+                  : "border-gm-border bg-gm-ivoire-2 text-gm-ink hover:border-gm-violet hover:text-gm-violet"
               )}
               disabled={disabled}
               data-testid="option-button"
