@@ -1,6 +1,7 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { formatAmount } from "../modules/resend/templates"
+import { PHONE_ORDER_PAYMENT_METHODS, PhoneOrderPaymentMethod } from "../lib/phone-order"
 
 type OrderConfirmationData = {
   id: string
@@ -119,7 +120,13 @@ export default async function orderPlacedCustomerWhatsappHandler({
     const amount = payment?.amount ?? collection?.amount ?? typedOrder.total
     const total = formatAmount(amount, typedOrder.currency_code)
     const displayId = String(typedOrder.display_id)
-    const paymentMethod = paymentMethodLabel(providerId)
+    // Commande prise par téléphone (bouton "Nouvelle commande" de l'admin) :
+    // aucun paiement enregistré, le moyen convenu est dans les métadonnées.
+    const agreedMethod = typedOrder.metadata?.payment_method as PhoneOrderPaymentMethod | undefined
+    const paymentMethod =
+      !providerId && agreedMethod && PHONE_ORDER_PAYMENT_METHODS[agreedMethod]
+        ? PHONE_ORDER_PAYMENT_METHODS[agreedMethod]
+        : paymentMethodLabel(providerId)
 
     // Deux templates Meta approuvés : order_confirmation_from_website
     // (avec "Bonjour {prénom}") pour les commandes du site, et

@@ -115,6 +115,41 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     )
   })
 
+  it("commande par téléphone : affiche le moyen de paiement convenu (metadata.payment_method)", async () => {
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_15",
+          display_id: 15,
+          currency_code: "xof",
+          total: 0,
+          metadata: { source: "telephone", payment_method: "orange-money" },
+          shipping_address: { first_name: "Awa", phone: "+22670000000" },
+          items: [{ product_title: "Balai-éponge à essorage automatique" }],
+          payment_collections: [{ amount: 9500, payments: [] }],
+        },
+      ],
+    })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_15" } } as any,
+      container: container as any,
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.template_name).toBe("order_confirmation_from_website")
+    expect(body.params).toEqual([
+      "Awa",
+      "Balai-éponge à essorage automatique",
+      formatAmount(9500, "xof"),
+      "15",
+      "Orange Money",
+    ])
+  })
+
   it("uses payment.amount rather than order.total, which can stay stale right after order.placed", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 
