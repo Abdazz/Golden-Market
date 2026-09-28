@@ -2,7 +2,7 @@ import { createWorkflow, transform, when, WorkflowResponse } from "@medusajs/fra
 import { adjustInventoryLevelsStep } from "@medusajs/medusa/core-flows"
 import { cancelCashEntry, orderCashEntry } from "../lib/procurement-rules"
 import { recordAutoEntriesStep } from "./steps/cash-entry-steps"
-import { prepareReceptionStep, recordCostsStep, saveDraftStep, setStatusStep } from "./steps/procurement-steps"
+import { prepareReceptionStep, recordCostsStep, saveDraftStep, setStatusStep, setVariantCostStep } from "./steps/procurement-steps"
 import type { DraftInput } from "./steps/procurement-steps"
 
 // Commandes fournisseurs (spec 2026-09-28 approvisionnement-marges).
@@ -41,3 +41,12 @@ export const cancelSupplierOrderWorkflow = createWorkflow("cancel-supplier-order
   })
   return new WorkflowResponse(changed.order)
 })
+
+// Coût de revient saisi à la main depuis l'onglet Marges.
+export const setVariantCostWorkflow = createWorkflow(
+  "set-variant-cost",
+  function (input: { variant_id: string; unit_cost_xof: number }) {
+    const cost = setVariantCostStep(input)
+    return new WorkflowResponse(cost)
+  }
+)

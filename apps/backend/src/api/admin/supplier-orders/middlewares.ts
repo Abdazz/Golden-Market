@@ -26,7 +26,14 @@ export const DraftSchema = z.object({
 })
 export type DraftSchema = z.infer<typeof DraftSchema>
 
+export const VariantCostSchema = z.object({
+  variant_id: z.string().min(1),
+  unit_cost_xof: z.number().positive("Coût invalide : nombre positif en F CFA."),
+})
+export type VariantCostSchema = z.infer<typeof VariantCostSchema>
+
 export const supplierOrderMiddlewares: MiddlewareRoute[] = [
+  { matcher: "/admin/margins/costs", methods: ["POST"], middlewares: [validateAndTransformBody(VariantCostSchema)] },
   { matcher: "/admin/supplier-orders", methods: ["POST"], middlewares: [validateAndTransformBody(DraftSchema)] },
   { matcher: "/admin/supplier-orders/:id", methods: ["POST"], middlewares: [validateAndTransformBody(DraftSchema)] },
 ]

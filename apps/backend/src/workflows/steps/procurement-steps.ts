@@ -206,3 +206,24 @@ export const recordCostsStep = createStep(
     for (const id of undo.lineIds) await svc.updateSupplierOrderLines({ id, unit_cost_xof: null })
   }
 )
+
+// Coût de revient saisi à la main (stock existant, déjà acheté avant l'outil).
+export const setVariantCostStep = createStep(
+  "set-variant-cost",
+  async (input: { variant_id: string; unit_cost_xof: number }, { container }) => {
+    const svc = procurement(container)
+    const [existing] = await svc.listVariantCosts({ variant_id: input.variant_id })
+    if (existing) {
+      const updated = await svc.updateVariantCosts({ id: existing.id, unit_cost_xof: input.unit_cost_xof, source_line_id: null })
+      return new StepResponse(updated, { restore: { id: existing.id, unit_cost_xof: existing.unit_cost_xof, source_line_id: existing.source_line_id }, created: null as string | null })
+    }
+    const created = await svc.createVariantCosts({ variant_id: input.variant_id, unit_cost_xof: input.unit_cost_xof, source_line_id: null })
+    return new StepResponse(created, { restore: null as any, created: created.id as string | null })
+  },
+  async (undo, { container }) => {
+    if (!undo) return
+    const svc = procurement(container)
+    if (undo.created) await svc.deleteVariantCosts(undo.created)
+    if (undo.restore) await svc.updateVariantCosts(undo.restore)
+  }
+)

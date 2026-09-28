@@ -2,16 +2,17 @@ import { parseLine } from "../../../lib/procurement-rules"
 import type { LineValues } from "../../../workflows/steps/procurement-steps"
 import type { DraftSchema } from "./middlewares"
 
-const rate = (value: unknown, fallback: number) => {
+// minimum : taux de change > 0, frais de transaction >= 0.
+const rate = (value: unknown, fallback: number, allowZero = false) => {
   if (value === undefined || value === null || value === "") return fallback
   const n = typeof value === "number" ? value : Number(String(value).replace(",", "."))
-  return Number.isFinite(n) && n > 0 ? n : NaN
+  return Number.isFinite(n) && (allowZero ? n >= 0 : n > 0) ? n : NaN
 }
 
 // Corps validé -> entrée du workflow de brouillon (message clair sinon).
 export function toDraftInput(body: DraftSchema, id?: string) {
   const exchange_rate = rate(body.exchange_rate, 670)
-  const fee_rate = rate(body.fee_rate, 0.0299)
+  const fee_rate = rate(body.fee_rate, 0.0299, true)
   if (Number.isNaN(exchange_rate) || Number.isNaN(fee_rate)) {
     return { ok: false as const, message: "Taux de conversion ou frais de transaction invalides." }
   }
