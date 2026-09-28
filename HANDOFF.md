@@ -16,6 +16,13 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-28 (soir) - **Stock confié aux livreurs : livré** (spec
+`docs/superpowers/specs/2026-09-28-stock-livreurs-design.md`). Onglet « Stock livreurs » de la page
+Livraisons : au dépôt / chez chaque livreur / total, Remettre / Retour / Corriger, historique par
+livreur ; déstockage automatique à « Livrée ». Stock Medusa = total possédé (choix du propriétaire,
+sinon les commandes de produits détenus par les livreurs auraient été refusées). Corrigé au passage :
+deux « Livrée » simultanés créaient deux fulfillments (stock Medusa baissé deux fois) -> verrou.
+
 2026-09-28 (nuit, suite) - **Mini-SaaS de gestion : sous-projets 2, 3 et 4 livrés en production**,
 construits en autonomie à la demande du propriétaire (« prends les meilleures décisions toi-même ») ;
 **les hypothèses de chaque spec sont à valider par lui**.
@@ -68,7 +75,7 @@ Spec `docs/superpowers/specs/2026-09-28-livreurs-livraisons-design.md`, plan
   propriétaire (livreur de test « Test (propriétaire) » créé en staging).
 - Livreurs en production : Gildas (+22656599282) enregistré le 2026-09-27. Les autres
   (Abdourazack, Zakaria…) restent à ajouter par le propriétaire (onglet « Livreurs »).
-- Limites connues : deux « Livrée » strictement simultanés (deux appareils) non verrouillés ;
+- Limites connues : (deux « Livrée » simultanés : verrouillés depuis le 2026-09-28 soir) ;
   vue téléphone non vérifiée visuellement. Les 8 commandes de production antérieures étaient
   toutes des tests : toutes annulées (les 3 dernières le 2026-09-27 à la demande du propriétaire).
 - Aussi ce jour : numérotation `AAAAMMJJ` + compteur déployée en production (rattrapage
