@@ -20,6 +20,9 @@ RUN npm install --omit=dev
 
 FROM node:20-alpine
 WORKDIR /app
+# ffmpeg : conversion des notes vocales de l'admin en OGG/Opus pour WhatsApp
+# (src/lib/whatsapp-media-prepare.ts).
+RUN apk add --no-cache ffmpeg
 COPY --from=builder /app/apps/backend/.medusa/server ./
 EXPOSE 9000
 CMD ["npm", "run", "start"]
