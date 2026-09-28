@@ -16,6 +16,22 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-28 (nuit) - **Chat WhatsApp complet dans l'admin : livré en production** (spec
+`docs/superpowers/specs/2026-09-28-whatsapp-chat-medias-design.md`, plan
+`docs/superpowers/plans/2026-09-28-whatsapp-chat-medias.md`).
+- Zone de message : photos, vidéos, documents (trombone multiple, glisser-déposer, Ctrl+V), légende,
+  sélecteur d'emojis, notes vocales (micro ; converties en OGG/Opus par **ffmpeg**, ajouté à l'image
+  Docker du backend). Envoi séquentiel, « Réessayer » par fichier.
+- Conversation : photos en grille, lecteurs vidéo et audio, cartes document, « Média expiré /
+  indisponible ». Médias des clients (vidéo, vocal, document) copiés par n8n ; purge 90 jours étendue
+  (jamais les fichiers de l'agent).
+- Vérifié en production (propriétaire endormi, tests sur son numéro autorisé) : photo + légende,
+  document, vocal, vidéo reçus via `send_media` ; chaîne complète Medusa -> n8n -> WhatsApp ;
+  réception simulée signée (document, vocal parlé transcrit, vidéo décrite, photo) ; purge testée.
+- **À vérifier par le propriétaire** : réception des messages de test sur son téléphone ; le micro
+  (non testable en navigateur automatisé) ; sa conversation de test est en mode « humain » (rendre
+  la main à l'IA depuis l'admin si besoin).
+
 2026-09-27 (nuit) - **Livreurs et livraisons (sous-projet 1 du mini-SaaS de gestion) : livré.**
 Spec `docs/superpowers/specs/2026-09-28-livreurs-livraisons-design.md`, plan
 `docs/superpowers/plans/2026-09-28-livreurs-livraisons.md`, détail technique dans `AGENTS.md`
