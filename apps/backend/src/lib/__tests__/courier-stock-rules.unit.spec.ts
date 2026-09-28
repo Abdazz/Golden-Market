@@ -104,6 +104,7 @@ describe("itemLabel", () => {
     expect(itemLabel({ variants: [{ title: "Simple", product: { title: "Balai" } }] })).toBe("Balai - Simple")
     expect(itemLabel({ variants: [{ title: "Default variant", product: { title: "Seau" } }] })).toBe("Seau")
     expect(itemLabel({ variants: [{ title: "Default Title", product: { title: "Balai" } }] })).toBe("Balai")
+    expect(itemLabel({ variants: [{ title: "Aiguiseur 4 en 1", product: { title: "Aiguiseur 4 en 1" } }] })).toBe("Aiguiseur 4 en 1")
     expect(itemLabel({ title: "Éponge", variants: [] })).toBe("Éponge")
     expect(itemLabel({ sku: "SKU-1" })).toBe("SKU-1")
   })

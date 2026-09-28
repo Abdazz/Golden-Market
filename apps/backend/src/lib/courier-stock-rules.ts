@@ -106,6 +106,9 @@ export const itemLabel = (item: {
 }) => {
   const variant = item.variants?.[0]
   const product = variant?.product?.title
-  if (product) return variant?.title && !DEFAULT_VARIANT.test(variant.title) ? `${product} - ${variant.title}` : product
+  if (product) {
+    const own = variant?.title && !DEFAULT_VARIANT.test(variant.title) && variant.title !== product
+    return own ? `${product} - ${variant!.title}` : product
+  }
   return item.title || item.sku || "Article sans nom"
 }
