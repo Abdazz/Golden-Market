@@ -123,7 +123,7 @@ export const defaultTypeForCity = (city: string | null | undefined): DeliveryTyp
   return c === "" || c.startsWith("ouaga") ? "express" : "expedition"
 }
 
-export async function api<T>(path: string, init?: { method?: "GET" | "POST"; body?: unknown }): Promise<T> {
+export async function api<T>(path: string, init?: { method?: "GET" | "POST" | "DELETE"; body?: unknown }): Promise<T> {
   const res = await fetch(path, {
     method: init?.method ?? "GET",
     credentials: "include",
