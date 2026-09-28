@@ -3,6 +3,8 @@ import type { MedusaRequest, MedusaResponse, MedusaNextFunction } from "@medusaj
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import * as Sentry from "@sentry/node"
 import { deliveryMiddlewares } from "./admin/deliveries/middlewares"
+import multer from "multer"
+import { MAX_UPLOAD_BYTES } from "../lib/whatsapp-media-types"
 import { checkRateLimit } from "./middlewares/rate-limiter"
 
 // Observabilité backend (GlitchTip self-hosted) : capture chaque erreur avant de
@@ -252,6 +254,21 @@ export default defineMiddlewares({
       matcher: "/store/customers/me/claim-order",
       methods: ["POST"],
       middlewares: [authenticate("customer", ["session", "bearer"])],
+    },
+    // Médias joints depuis la page Conversations WhatsApp (spec 2026-09-28) :
+    // fichier gardé en mémoire (comme /admin/uploads natif), 100 Mo maximum.
+    // Noms de fichiers décodés en UTF-8 (latin1 par défaut dans multer :
+    // "Facture n°12 été.pdf" arrivait en "Facture nÂ°12 Ã©tÃ©.pdf").
+    {
+      matcher: "/admin/whatsapp-conversations/:phone/media",
+      methods: ["POST"],
+      middlewares: [
+        multer({
+          storage: multer.memoryStorage(),
+          limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+          defParamCharset: "utf8",
+        }).single("file"),
+      ],
     },
     // Livreurs et livraisons (spec 2026-09-28).
     ...deliveryMiddlewares,

@@ -4,7 +4,18 @@
 // (spec docs/superpowers/specs/2026-09-27-whatsapp-reprise-manuelle-design.md).
 // Variables présentes en production uniquement, comme WHATSAPP_CHAT_DATABASE_URL.
 
-export type AdminAction = "take_over" | "hand_back" | "send_text" | "send_reengagement"
+export type AdminAction = "take_over" | "hand_back" | "send_text" | "send_reengagement" | "send_media"
+
+// Média déjà téléversé dans le stockage Medusa (route .../media), envoyé à
+// WhatsApp par lien par n8n (spec 2026-09-28 whatsapp-chat-medias).
+export type OutgoingMedia = {
+  kind: "image" | "video" | "audio" | "document"
+  url: string
+  mime_type: string
+  filename: string
+  size: number
+  voice: boolean
+}
 
 export type SentMessage = { role: "human"; content: string; createdAt: string }
 
@@ -29,7 +40,7 @@ const BUSINESS_ERRORS: AdminActionErrorKind[] = [
 const UNAVAILABLE_MESSAGE = "Service WhatsApp injoignable pour le moment, réessayez."
 
 export async function runAdminAction(
-  input: { action: AdminAction; phoneNumber: string; text?: string },
+  input: { action: AdminAction; phoneNumber: string; text?: string; media?: OutgoingMedia; caption?: string },
   deps: { url?: string; secret?: string; fetchImpl?: typeof fetch; timeoutMs?: number } = {}
 ): Promise<AdminActionResult> {
   // "url" in deps distingue "non fourni" (lire l'env) de "fourni à undefined"
@@ -49,7 +60,12 @@ export async function runAdminAction(
     const response = await fetchImpl(url, {
       method: "POST",
       headers: { "content-type": "application/json", "x-admin-actions-secret": secret },
-      body: JSON.stringify({ action: input.action, phone_number: input.phoneNumber, text: input.text }),
+      body: JSON.stringify({
+        action: input.action,
+        phone_number: input.phoneNumber,
+        text: input.action === "send_media" ? input.caption ?? "" : input.text,
+        ...(input.media ? { media: input.media } : {}),
+      }),
       signal: controller.signal,
     })
     const body = (await response.json()) as {

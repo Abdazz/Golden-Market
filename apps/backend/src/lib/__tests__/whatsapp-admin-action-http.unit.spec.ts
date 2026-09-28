@@ -1,4 +1,4 @@
-import { parseSendTextBody, toHttpResponse } from "../whatsapp-admin-action-http"
+import { parseSendMediaBody, parseSendTextBody, toHttpResponse } from "../whatsapp-admin-action-http"
 
 describe("toHttpResponse", () => {
   it("renvoie 200 avec le message et l'avertissement en cas de succès", () => {
@@ -35,5 +35,25 @@ describe("parseSendTextBody", () => {
   it("refuse plus de 4096 caractères", () => {
     expect(parseSendTextBody({ text: "a".repeat(4097) }).ok).toBe(false)
     expect(parseSendTextBody({ text: "a".repeat(4096) }).ok).toBe(true)
+  })
+})
+
+describe("parseSendMediaBody", () => {
+  const media = {
+    kind: "image",
+    url: "https://golden-market.co/static/1-wa-media-a.jpg",
+    mime_type: "image/jpeg",
+    filename: "image.jpg",
+    size: 1200,
+    voice: false,
+  }
+  it("accepte un média et une légende facultative", () => {
+    expect(parseSendMediaBody({ ...media, caption: " Voici la photo " })).toEqual({ ok: true, media, caption: "Voici la photo" })
+    expect(parseSendMediaBody(media)).toEqual({ ok: true, media, caption: "" })
+  })
+  it("refuse un type inconnu, une URL non https ou une légende de plus de 1 024 caractères", () => {
+    expect(parseSendMediaBody({ ...media, kind: "sticker" }).ok).toBe(false)
+    expect(parseSendMediaBody({ ...media, url: "http://x/y.jpg" }).ok).toBe(false)
+    expect(parseSendMediaBody({ ...media, caption: "a".repeat(1025) }).ok).toBe(false)
   })
 })

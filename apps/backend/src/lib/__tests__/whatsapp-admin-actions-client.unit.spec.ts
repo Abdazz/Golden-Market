@@ -33,6 +33,28 @@ describe("runAdminAction", () => {
     )
   })
 
+  it("send_media : transmet le média et la légende au webhook", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(jsonResponse(200, { ok: true, message: null, warning: null }))
+    const media = {
+      kind: "document" as const,
+      url: "https://golden-market.co/static/1-wa-media-b.pdf",
+      mime_type: "application/pdf",
+      filename: "Facture.pdf",
+      size: 10,
+      voice: false,
+    }
+    await runAdminAction(
+      { action: "send_media", phoneNumber: "22677406101", media, caption: "Votre facture" },
+      { ...deps, fetchImpl }
+    )
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({
+      action: "send_media",
+      phone_number: "22677406101",
+      text: "Votre facture",
+      media,
+    })
+  })
+
   it("traduit un succès avec le message enregistré", async () => {
     const message = { role: "human", content: "Bonjour", createdAt: "2026-09-27T10:00:00.000Z" }
     const fetchImpl = jest.fn().mockResolvedValue(jsonResponse(200, { ok: true, message, warning: null }))
