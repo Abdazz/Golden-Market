@@ -16,6 +16,26 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-09-28 (nuit, suite) - **Mini-SaaS de gestion : sous-projets 2, 3 et 4 livrés en production**,
+construits en autonomie à la demande du propriétaire (« prends les meilleures décisions toi-même ») ;
+**les hypothèses de chaque spec sont à valider par lui**.
+- **Caisse** (`/app/cash`, spec `2026-09-28-journal-de-caisse-design.md`) : solde, entrées/sorties
+  du mois, chiffre d'affaires, historique 12 mois ; ventes/remboursements automatiques
+  (`payment.captured` / `payment.refunded`), frais de livraison automatiques, achats fournisseurs
+  automatiques, saisie manuelle (solde initial, achats, publicité, divers). **À faire par le
+  propriétaire : saisir le solde initial de sa caisse.**
+- **Approvisionnement et marges** (`/app/procurement`, spec `2026-09-28-approvisionnement-marges-design.md`) :
+  commandes fournisseurs avec les formules de sa feuille « Sourcing » (vérifiées sur ses lignes),
+  Commander (caisse), Réceptionner (stock Medusa + coût de revient), onglet Marges (coûts saisissables
+  à la main pour le stock existant).
+- **Prospects** (`/app/prospects`, spec `2026-09-28-prospects-design.md`) : à relancer aujourd'hui,
+  en attente de stock (retours en stock en tête), conversion automatique à la commande.
+- **Correctif Livraisons** : une commande du **site** en paiement à la livraison (paiement
+  « autorisé ») n'était pas encaissée quand le livreur la marquait livrée ; désormais capturée
+  (`7f38aff`, vérifié en local avec une vraie commande du site).
+- Vérifications : tests unitaires (386), parcours API et écrans en local (Playwright, bureau et
+  téléphone), staging (vente automatique au journal, réception sur le vrai stock, stock remis).
+
 2026-09-28 (nuit) - **Chat WhatsApp complet dans l'admin : livré en production** (spec
 `docs/superpowers/specs/2026-09-28-whatsapp-chat-medias-design.md`, plan
 `docs/superpowers/plans/2026-09-28-whatsapp-chat-medias.md`).
