@@ -24,4 +24,16 @@ describe("computeReplyWindow", () => {
     const last = new Date(now.getTime() - 3600 * 1000).toISOString()
     expect(computeReplyWindow(last, now).open).toBe(true)
   })
+
+  it("est fermée si Meta a refusé un message pour fenêtre dépassée après le dernier message client", () => {
+    const last = new Date(now.getTime() - 3600 * 1000)
+    const refused = new Date(now.getTime() - 60 * 1000)
+    expect(computeReplyWindow(last, now, refused)).toEqual({ open: false, expiresAt: null })
+  })
+
+  it("un refus antérieur au dernier message client ne ferme plus la fenêtre", () => {
+    const refused = new Date(now.getTime() - 2 * 3600 * 1000)
+    const last = new Date(now.getTime() - 3600 * 1000)
+    expect(computeReplyWindow(last, now, refused).open).toBe(true)
+  })
 })

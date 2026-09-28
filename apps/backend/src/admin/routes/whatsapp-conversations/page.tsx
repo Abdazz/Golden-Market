@@ -37,6 +37,8 @@ type ChatMessage = {
   // depuis l'admin (absent sur les messages antérieurs au 2026-09-27).
   // url null : média supprimé après 90 jours ou copie en échec.
   attachments?: ChatAttachment[]
+  // Message refusé par WhatsApp après l'envoi, libellé prêt à afficher.
+  deliveryFailure?: string | null
 }
 
 type ConversationDetail = {
@@ -309,6 +311,9 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
         )}
         {message.content && <p className="txt-compact-small whitespace-pre-wrap break-words">{message.content}</p>}
         <p className="txt-compact-xsmall mt-1 text-right opacity-70">{formatTime(message.createdAt)}</p>
+        {message.deliveryFailure && (
+          <p className="txt-compact-xsmall-plus mt-1 text-right text-ui-fg-error">{message.deliveryFailure}</p>
+        )}
       </div>
     </div>
   )

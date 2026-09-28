@@ -56,6 +56,8 @@ export type ChatMessage = {
   // Photos envoyées par l'agent (catalogue) ou par le client (copiées dans le
   // stockage Medusa par n8n) - colonne messages.attachments, JSONB.
   attachments: ChatAttachment[]
+  // Refus de Meta après l'envoi ("code: raison"), colonne messages.delivery_error.
+  deliveryError: string | null
 }
 
 export type ConversationDetail = {
@@ -164,7 +166,7 @@ const GET_CONVERSATION_QUERY = `
 `
 
 const GET_MESSAGES_QUERY = `
-  SELECT role, content, created_at, attachments
+  SELECT role, content, created_at, attachments, delivery_status, delivery_error
   FROM messages
   WHERE conversation_id = $1
   ORDER BY seq ASC
@@ -200,6 +202,7 @@ export async function getConversation(
         content: row.content as string,
         createdAt: row.created_at as Date,
         attachments: normalizeAttachments(row.attachments),
+        deliveryError: row.delivery_status === "failed" ? ((row.delivery_error as string | null) ?? "Refusé par WhatsApp") : null,
       })),
     }
   } catch (error) {
