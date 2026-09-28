@@ -2,6 +2,7 @@ import { authenticate, defineMiddlewares, errorHandler } from "@medusajs/framewo
 import type { MedusaRequest, MedusaResponse, MedusaNextFunction } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import * as Sentry from "@sentry/node"
+import { cashEntryMiddlewares } from "./admin/cash-entries/middlewares"
 import { deliveryMiddlewares } from "./admin/deliveries/middlewares"
 import multer from "multer"
 import { MAX_UPLOAD_BYTES } from "../lib/whatsapp-media-types"
@@ -272,6 +273,8 @@ export default defineMiddlewares({
     },
     // Livreurs et livraisons (spec 2026-09-28).
     ...deliveryMiddlewares,
+    // Journal de caisse (spec 2026-09-28).
+    ...cashEntryMiddlewares,
   ],
   errorHandler: (error: any, req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
     Sentry.captureException(error)
