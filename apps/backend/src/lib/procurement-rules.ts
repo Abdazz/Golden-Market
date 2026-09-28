@@ -1,3 +1,4 @@
+import { MedusaError } from "@medusajs/framework/utils"
 import type { NewEntry } from "./cashbook-rules"
 
 // Règles de l'approvisionnement (spec 2026-09-28 approvisionnement-marges) :
@@ -79,7 +80,9 @@ export const inventoryAdjustments = (
   const totals = new Map<string, number>()
   for (const line of lines) {
     const items = inventoryByVariant[line.variant_id]
-    if (!items?.length) throw new Error("Variante introuvable ou sans stock suivi : vérifiez le produit de la ligne.")
+    if (!items?.length) {
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Variante introuvable ou sans stock suivi : vérifiez le produit de la ligne.")
+    }
     for (const item of items) {
       totals.set(item.inventory_item_id, (totals.get(item.inventory_item_id) ?? 0) + line.quantity * (item.required_quantity || 1))
     }
