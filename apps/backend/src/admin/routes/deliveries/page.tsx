@@ -24,6 +24,9 @@ import type {
   UnpaidExpedition,
   ValidatedSettlement,
 } from "../../lib/deliveries"
+import { Badge, card, inputClass, NoticeText, primaryButton, secondaryButton, useCouriers } from "../../components/delivery-ui"
+import type { Notice } from "../../components/delivery-ui"
+import { CourierStockTab } from "../../components/courier-stock-tab"
 
 // Page "Livraisons" (spec 2026-09-28 livreurs-livraisons) : confier les
 // commandes, suivre la tournée d'un livreur et vérifier son versement du
@@ -32,54 +35,15 @@ import type {
 // Pas de composant @medusajs/ui (conflit de types React 18/19, voir
 // widgets/analytics-summary.tsx) : HTML natif + classes utilitaires Medusa.
 
-type Tab = "to-assign" | "tour" | "unpaid" | "couriers"
+type Tab = "to-assign" | "tour" | "unpaid" | "stock" | "couriers"
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "to-assign", label: "À confier" },
   { id: "tour", label: "Tournée du jour" },
   { id: "unpaid", label: "Expéditions à faire payer" },
+  { id: "stock", label: "Stock livreurs" },
   { id: "couriers", label: "Livreurs" },
 ]
-
-const inputClass =
-  "txt-compact-small w-full rounded-md border border-ui-border-base bg-ui-bg-field px-2 py-1.5 text-ui-fg-base"
-const primaryButton =
-  "txt-compact-small-plus rounded-md bg-ui-button-inverted px-3 py-1.5 text-ui-fg-on-inverted disabled:opacity-50"
-const secondaryButton =
-  "txt-compact-small-plus rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-1.5 text-ui-fg-base disabled:opacity-50"
-const card = "bg-ui-bg-base shadow-elevation-card-rest rounded-lg"
-
-type Notice = { kind: "error" | "warning" | "success"; text: string } | null
-
-const NoticeText = ({ notice }: { notice: Notice }) =>
-  notice ? (
-    <p
-      className={`txt-compact-small ${
-        notice.kind === "error"
-          ? "text-ui-fg-error"
-          : notice.kind === "warning"
-            ? "text-ui-tag-orange-text"
-            : "text-ui-tag-green-text"
-      }`}
-    >
-      {notice.text}
-    </p>
-  ) : null
-
-const Badge = ({ className, children }: { className: string; children: string }) => (
-  <span className={`txt-compact-xsmall-plus whitespace-nowrap rounded-full px-2 py-0.5 ${className}`}>{children}</span>
-)
-
-const useCouriers = () => {
-  const [couriers, setCouriers] = useState<Courier[] | null>(null)
-  const reload = useCallback(() => {
-    api<{ couriers: Courier[] }>("/admin/couriers")
-      .then((r) => setCouriers(r.couriers))
-      .catch(() => setCouriers([]))
-  }, [])
-  useEffect(reload, [reload])
-  return { couriers, reload }
-}
 
 const FeeInput = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
   <label className="flex flex-col gap-y-1">
@@ -276,7 +240,11 @@ const LineAction = ({
     setBusy(true)
     setError(null)
     try {
-      const result = await api<{ sync_warning: string | null }>(`/admin/deliveries/${line.id}/complete`, {
+      const result = await api<{
+        sync_warning: string | null
+        stock_taken?: { label: string; quantity: number }[]
+        courier_name?: string | null
+      }>(`/admin/deliveries/${line.id}/complete`, {
         method: "POST",
         body: {
           status: kind,
@@ -284,10 +252,13 @@ const LineAction = ({
           ...(kind === "failed" ? { failure_reason: reason === "Autre" ? otherReason : reason, redeliver } : {}),
         },
       })
+      const taken = result.stock_taken?.length
+        ? ` Pris dans le stock de ${result.courier_name ?? "livreur"} : ${result.stock_taken.map((t) => `${t.quantity} ${t.label}`).join(", ")}.`
+        : ""
       onDone(
         result.sync_warning
-          ? { kind: "warning", text: `Commande ${line.order_number} enregistrée. ${result.sync_warning}` }
-          : { kind: "success", text: `Commande ${line.order_number} : ${STATUS_LABELS[kind].toLowerCase()}.` }
+          ? { kind: "warning", text: `Commande ${line.order_number} enregistrée. ${result.sync_warning}${taken}` }
+          : { kind: "success", text: `Commande ${line.order_number} : ${STATUS_LABELS[kind].toLowerCase()}.${taken}` }
       )
     } catch (e) {
       setError((e as Error).message)
@@ -781,6 +752,7 @@ const DeliveriesPage = () => {
       {tab === "to-assign" && <ToAssignTab />}
       {tab === "tour" && <TourTab />}
       {tab === "unpaid" && <UnpaidTab />}
+      {tab === "stock" && <CourierStockTab />}
       {tab === "couriers" && <CouriersTab />}
     </div>
   )

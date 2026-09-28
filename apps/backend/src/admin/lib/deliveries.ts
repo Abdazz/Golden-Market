@@ -83,6 +83,30 @@ export type AssignResult = {
 }
 
 // Compagnies de transport habituelles (saisie libre possible).
+export type StockMovementType = "handover" | "return" | "delivery" | "adjustment"
+
+export type CourierStockOverview = {
+  couriers: { id: string; name: string }[]
+  items: { id: string; label: string; stocked: number; warehouse: number; total_couriers: number; by_courier: Record<string, number> }[]
+}
+
+export type CourierStockMovement = {
+  id: string
+  created_at: string
+  type: StockMovementType
+  quantity: number
+  label: string
+  order_number: string | null
+  note: string | null
+}
+
+export const MOVEMENT_LABELS: Record<StockMovementType, string> = {
+  handover: "Remise",
+  return: "Retour au dépôt",
+  delivery: "Livraison",
+  adjustment: "Correction",
+}
+
 export const TRANSPORT_COMPANIES = ["STAF", "TSR", "Rakieta", "SOGEBAF", "TCV"]
 export const FEE_SHORTCUTS = [1000, 1500]
 export const FAILURE_REASONS = ["Client absent", "Client injoignable", "Refus du client"]
