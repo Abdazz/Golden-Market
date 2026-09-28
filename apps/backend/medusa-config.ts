@@ -166,5 +166,9 @@ module.exports = defineConfig({
     delivery: {
       resolve: './src/modules/delivery',
     },
+    // Journal de caisse (spec 2026-09-28) : table cash_entry.
+    cashbook: {
+      resolve: './src/modules/cashbook',
+    },
   }
 })
