@@ -239,8 +239,18 @@ const ProspectCard = ({ prospect, today, onChanged, onEdit }: { prospect: Prospe
         <a href={waLink(prospect.phone)} target="_blank" rel="noreferrer" className={secondaryButton}>
           Ouvrir WhatsApp
         </a>
+        {prospect.status === "waiting_stock" && prospect.available === true && (
+          <button type="button" className={primaryButton} disabled={busy} onClick={() => void run("notify-restock", {})}>
+            Prévenir (retour en stock)
+          </button>
+        )}
         {active && (
-          <button type="button" className={primaryButton} disabled={busy} onClick={() => void run("follow-up", {})}>
+          <button
+            type="button"
+            className={prospect.status === "waiting_stock" && prospect.available === true ? secondaryButton : primaryButton}
+            disabled={busy}
+            onClick={() => void run("follow-up", {})}
+          >
             Relancé (rappel dans 3 jours)
           </button>
         )}
@@ -260,6 +270,48 @@ const ProspectCard = ({ prospect, today, onChanged, onEdit }: { prospect: Prospe
           </button>
         )}
       </div>
+    </div>
+  )
+}
+
+// "Prévenir tous" : un bouton par produit revenu en stock, envois un par un.
+const NotifyAllBar = ({ waiting, onDone }: { waiting: Prospect[]; onDone: () => void }) => {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [report, setReport] = useState<string | null>(null)
+  const groups = new Map<string, Prospect[]>()
+  for (const p of waiting) {
+    if (p.available === true && p.variant_id) groups.set(p.variant_id, [...(groups.get(p.variant_id) ?? []), p])
+  }
+  if (groups.size === 0 && !report) return null
+  const notifyAll = async (variantId: string, list: Prospect[]) => {
+    setBusy(variantId)
+    let sent = 0
+    const failures: string[] = []
+    for (const p of list) {
+      try {
+        await api(`/admin/prospects/${p.id}/notify-restock`, { method: "POST", body: {} })
+        sent += 1
+      } catch (e) {
+        failures.push(`${p.name ?? p.phone} : ${(e as Error).message}`)
+      }
+    }
+    setBusy(null)
+    setReport(`${sent} client(s) prévenu(s).${failures.length ? ` Échecs : ${failures.join(" ; ")}` : ""}`)
+    onDone()
+  }
+  return (
+    <div className={`${card} flex flex-col gap-y-2 px-4 py-3`}>
+      {[...groups.entries()].map(([variantId, list]) => (
+        <div key={variantId} className="flex flex-wrap items-center justify-between gap-2">
+          <span className="txt-compact-small text-ui-fg-base">
+            <span className="txt-compact-small-plus">{list[0].product}</span> est de nouveau disponible : {list.length} client(s) l'attendent.
+          </span>
+          <button type="button" className={primaryButton} disabled={busy !== null} onClick={() => void notifyAll(variantId, list)}>
+            {busy === variantId ? "Envoi…" : `Prévenir les ${list.length} client(s)`}
+          </button>
+        </div>
+      ))}
+      {report && <span className="txt-compact-small text-ui-fg-subtle">{report}</span>}
     </div>
   )
 }
@@ -355,6 +407,8 @@ const ProspectsPage = () => {
       {tab === "all" && (
         <input className={inputClass} placeholder="Rechercher par nom ou numéro" value={q} onChange={(e) => setQ(e.target.value)} />
       )}
+
+      {tab === "waiting" && lists && <NotifyAllBar waiting={lists.waiting} onDone={load} />}
 
       {!current ? (
         <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>

@@ -1,4 +1,5 @@
 import type { DeliveryType } from "./delivery-rules"
+import { sendTemplateMessage } from "./whatsapp-template-sender"
 
 // Message WhatsApp au livreur quand une commande lui est confiée : modèle Meta
 // "livraison_livreur" (5 variables, une information par ligne ; remplace
@@ -35,18 +36,5 @@ export async function sendCourierMessage(
   input: { phone: string; params: string[] },
   deps: { url?: string; secret?: string; fetchImpl?: typeof fetch } = {}
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const url = "url" in deps ? deps.url : process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL
-  const secret = "secret" in deps ? deps.secret : process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_SECRET
-  const fetchImpl = deps.fetchImpl ?? fetch
-  if (!url) return { ok: false, error: "Envoi WhatsApp non configuré (N8N_ORDER_CONFIRMATION_WEBHOOK_URL)" }
-  try {
-    const response = await fetchImpl(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(secret ? { "x-webhook-secret": secret } : {}) },
-      body: JSON.stringify({ phone: input.phone, template_name: "livraison_livreur", params: input.params }),
-    })
-    return response.ok ? { ok: true } : { ok: false, error: `Webhook n8n a répondu ${response.status}` }
-  } catch (error) {
-    return { ok: false, error: (error as Error).message }
-  }
+  return sendTemplateMessage({ phone: input.phone, template_name: "livraison_livreur", params: input.params }, deps)
 }

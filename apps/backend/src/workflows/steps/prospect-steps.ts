@@ -116,3 +116,18 @@ export const convertProspectsStep = createStep(
     if (previous?.length) await prospects(container).updateProspects(previous)
   }
 )
+
+// Après le message de retour en stock : fiche passée "à relancer" (voir
+// restockNotifiedChanges).
+export const applyProspectChangesStep = createStep(
+  "apply-prospect-changes",
+  async (changes: { id: string } & Record<string, unknown>, { container }) => {
+    const svc = prospects(container)
+    const previous = await svc.retrieveProspect(changes.id)
+    const updated = await svc.updateProspects(changes as any)
+    return new StepResponse(updated, snapshot(previous))
+  },
+  async (previous, { container }) => {
+    if (previous) await prospects(container).updateProspects(previous)
+  }
+)
