@@ -1,4 +1,4 @@
-import { getConversation, listConversations } from "../whatsapp-chat-db"
+import { getConversation, listConversations, normalizeAttachments } from "../whatsapp-chat-db"
 
 describe("listConversations", () => {
   it("returns null when no executor is configured", async () => {
@@ -175,5 +175,26 @@ describe("getConversation", () => {
     const queryMock = jest.fn().mockRejectedValue(new Error("connection refused"))
 
     expect(await getConversation("22670000000", { query: queryMock })).toBeNull()
+  })
+})
+
+describe("normalizeAttachments", () => {
+  it("garde les anciennes photos et les nouveaux types, ignore le reste", () => {
+    expect(
+      normalizeAttachments([
+        { type: "image", url: "https://x/a.jpg" },
+        { type: "video", url: "https://x/b.mp4", mime_type: "video/mp4" },
+        { type: "audio", url: null, expired: true, voice: true },
+        { type: "document", url: "https://x/c.pdf", filename: "Facture.pdf", size: 1200 },
+        { type: "sticker", url: "https://x/d.webp" },
+        "n'importe quoi",
+      ])
+    ).toEqual([
+      { type: "image", url: "https://x/a.jpg" },
+      { type: "video", url: "https://x/b.mp4", mime_type: "video/mp4" },
+      { type: "audio", url: null, expired: true, voice: true },
+      { type: "document", url: "https://x/c.pdf", filename: "Facture.pdf", size: 1200 },
+    ])
+    expect(normalizeAttachments(null)).toEqual([])
   })
 })

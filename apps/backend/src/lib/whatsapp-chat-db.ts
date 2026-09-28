@@ -23,9 +23,30 @@ export type ConversationSummary = {
   awaitingReply: boolean
 }
 
-// url null + expired : photo client supprimée du disque après 90 jours
-// (workflow n8n "Maintenance - purge des photos clients").
-export type ChatAttachment = { type: "image"; url: string | null; expired?: boolean }
+// Pièce jointe d'un message (spec 2026-09-28 whatsapp-chat-medias) :
+// url null + expired : fichier supprimé du disque après 90 jours (workflow
+// n8n "Maintenance - purge des médias") ; unavailable : copie en échec à la
+// réception. Les anciennes photos { type: "image", url } restent valides.
+export type ChatAttachment = {
+  type: "image" | "video" | "audio" | "document"
+  url: string | null
+  mime_type?: string
+  filename?: string
+  size?: number
+  voice?: boolean
+  expired?: boolean
+  unavailable?: boolean
+}
+
+const ATTACHMENT_TYPES = ["image", "video", "audio", "document"]
+
+export function normalizeAttachments(raw: unknown): ChatAttachment[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (a): a is ChatAttachment =>
+      !!a && typeof a === "object" && ATTACHMENT_TYPES.includes((a as { type?: string }).type ?? "")
+  )
+}
 
 export type ChatMessage = {
   // "human" = message écrit par le propriétaire depuis l'admin (via n8n).
@@ -178,7 +199,7 @@ export async function getConversation(
         role: row.role as ChatMessage["role"],
         content: row.content as string,
         createdAt: row.created_at as Date,
-        attachments: Array.isArray(row.attachments) ? (row.attachments as ChatAttachment[]) : [],
+        attachments: normalizeAttachments(row.attachments),
       })),
     }
   } catch (error) {
