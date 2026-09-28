@@ -175,5 +175,9 @@ module.exports = defineConfig({
     procurement: {
       resolve: './src/modules/procurement',
     },
+    // Prospects à relancer (spec 2026-09-28).
+    prospects: {
+      resolve: './src/modules/prospects',
+    },
   }
 })
