@@ -8,6 +8,9 @@ export type StockMovementType = "handover" | "return" | "delivery" | "adjustment
 export type MovementLike = { courier_id: string; inventory_item_id: string; quantity: number }
 type Line = { inventory_item_id: string; quantity: number }
 
+// Garde-fou contre les fautes de frappe (3000 au lieu de 3).
+const MAX_QUANTITY = 10000
+
 const refuse = (message: string) => new MedusaError(MedusaError.Types.NOT_ALLOWED, message)
 
 export const balances = (movements: MovementLike[]) => {
@@ -66,6 +69,7 @@ export const parseMovementLines = (
   for (const l of lines) {
     const valid = Number.isInteger(l.quantity) && (type === "adjustment" ? l.quantity >= 0 : l.quantity > 0)
     if (!valid) throw refuse("Quantité invalide : nombre entier positif.")
+    if (l.quantity > MAX_QUANTITY) throw refuse("Quantité trop grande (plus de 10 000) : vérifiez la saisie.")
   }
   if (type === "adjustment") {
     const counted = new Map(lines.map((l) => [l.inventory_item_id, l.quantity]))

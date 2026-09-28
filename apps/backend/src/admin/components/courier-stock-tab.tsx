@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { parseFormLines } from "../lib/courier-stock-form"
 import { api, MOVEMENT_LABELS } from "../lib/deliveries"
 import type { CourierStockMovement, CourierStockOverview } from "../lib/deliveries"
 import { card, inputClass, NoticeText, primaryButton, secondaryButton } from "./delivery-ui"
@@ -42,14 +43,10 @@ const MovementForm = ({
   const setLine = (index: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, i) => (i === index ? { ...l, ...patch } : l)))
 
   const submit = async () => {
-    const parsed = lines
-      .filter((l) => l.inventory_item_id)
-      .map((l) => ({ inventory_item_id: l.inventory_item_id, quantity: Number(l.quantity) }))
     if (!courierId) return setError("Choisissez un livreur.")
-    if (!parsed.length) return setError("Ajoutez au moins un produit.")
-    if (parsed.some((l) => l.quantity === 0 && mode !== "adjustment") || parsed.some((l) => !Number.isInteger(l.quantity) || l.quantity < 0)) {
-      return setError("Quantité invalide : nombre entier positif.")
-    }
+    const form = parseFormLines(mode, lines)
+    if ("error" in form) return setError(form.error)
+    const parsed = form.lines
     if (mode === "adjustment" && !note.trim()) return setError("Indiquez la raison de la correction.")
     setBusy(true)
     setError(null)
@@ -113,13 +110,13 @@ const MovementForm = ({
   )
 }
 
-const History = ({ courierId }: { courierId: string }) => {
+const History = ({ courierId, version }: { courierId: string; version: number }) => {
   const [movements, setMovements] = useState<CourierStockMovement[] | null>(null)
   useEffect(() => {
     api<{ movements: CourierStockMovement[] }>(`/admin/courier-stock/movements?courier_id=${encodeURIComponent(courierId)}`)
       .then((r) => setMovements(r.movements))
       .catch(() => setMovements([]))
-  }, [courierId])
+  }, [courierId, version])
   if (movements === null) return <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>
   if (!movements.length) return <p className="txt-compact-small text-ui-fg-subtle">Aucun mouvement.</p>
   return (
@@ -145,9 +142,13 @@ export const CourierStockTab = () => {
   const [mode, setMode] = useState<Mode | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const [historyOf, setHistoryOf] = useState<string | null>(null)
+  const [version, setVersion] = useState(0)
   const reload = useCallback(() => {
     api<CourierStockOverview>("/admin/courier-stock")
-      .then(setData)
+      .then((r) => {
+        setData(r)
+        setVersion((v) => v + 1)
+      })
       .catch((e) => setNotice({ kind: "error", text: (e as Error).message }))
   }, [])
   useEffect(reload, [reload])
@@ -203,7 +204,7 @@ export const CourierStockTab = () => {
             </button>
           ))}
         </div>
-        {historyOf && <History courierId={historyOf} />}
+        {historyOf && <History courierId={historyOf} version={version} />}
       </div>
     </div>
   )

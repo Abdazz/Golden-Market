@@ -94,6 +94,9 @@ describe("parseMovementLines", () => {
     expect(() => parseMovementLines("adjustment", [{ inventory_item_id: "balai", quantity: -1 }], ctx)).toThrow(/entier/)
     expect(() => parseMovementLines("handover", [], ctx)).toThrow(/au moins un produit/)
   })
+  it("refuse une quantité aberrante (faute de frappe) au-delà de 10 000", () => {
+    expect(() => parseMovementLines("adjustment", [{ inventory_item_id: "balai", quantity: 30000 }], ctx)).toThrow(/10 000/)
+  })
 })
 
 describe("itemLabel", () => {

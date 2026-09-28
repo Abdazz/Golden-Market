@@ -55,7 +55,7 @@ export const CourierStockMovementSchema = z.object({
   courier_id: z.string().min(1, "Choisissez un livreur."),
   type: z.enum(["handover", "return", "adjustment"]),
   lines: z
-    .array(z.object({ inventory_item_id: z.string().min(1), quantity: z.number().int("Quantité invalide : nombre entier.") }))
+    .array(z.object({ inventory_item_id: z.string().min(1), quantity: z.number().int("Quantité invalide : nombre entier.").min(0).max(10000, "Quantité trop grande (plus de 10 000).") }))
     .min(1, "Ajoutez au moins un produit."),
   note: z.string().nullish(),
 })
