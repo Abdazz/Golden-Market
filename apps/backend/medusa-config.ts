@@ -170,5 +170,10 @@ module.exports = defineConfig({
     cashbook: {
       resolve: './src/modules/cashbook',
     },
+    // Approvisionnement et marges (spec 2026-09-28) : commandes fournisseurs,
+    // coûts de revient.
+    procurement: {
+      resolve: './src/modules/procurement',
+    },
   }
 })
