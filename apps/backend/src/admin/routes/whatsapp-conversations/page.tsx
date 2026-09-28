@@ -1,6 +1,9 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { ChatBubbleLeftRight } from "@medusajs/icons"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { WhatsappAttachment } from "../../components/whatsapp-attachment"
+import type { ChatAttachment } from "../../components/whatsapp-attachment"
+import { WhatsappComposer } from "../../components/whatsapp-composer"
 
 // Conversations WhatsApp de l'agent IA (base golden_market, propriété de
 // n8n_automation) : lecture + reprise manuelle (prendre la main, répondre,
@@ -30,10 +33,10 @@ type ChatMessage = {
   role: "user" | "assistant" | "system" | "human"
   content: string
   createdAt: string
-  // Photos envoyées par l'agent ou par le client (absent sur les messages
-  // antérieurs au 2026-09-27).
-  // url null : photo client supprimée après 90 jours (conservation limitée).
-  attachments?: { type: "image"; url: string | null; expired?: boolean }[]
+  // Photos, vidéos, vocaux, documents envoyés par l'agent, le client ou
+  // depuis l'admin (absent sur les messages antérieurs au 2026-09-27).
+  // url null : média supprimé après 90 jours ou copie en échec.
+  attachments?: ChatAttachment[]
 }
 
 type ConversationDetail = {
@@ -280,117 +283,33 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
           <p className="txt-compact-xsmall-plus mb-0.5 opacity-70">{fromHuman ? "Vous" : "IA"}</p>
         )}
         {message.attachments && message.attachments.length > 0 && (
-          <div className="mb-1 grid grid-cols-3 gap-1">
-            {message.attachments.map((attachment, index) =>
-              attachment.url ? (
-                <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer">
-                  <img
-                    src={attachment.url}
-                    alt=""
-                    loading="lazy"
-                    className="h-20 w-20 rounded-md object-cover"
-                  />
-                </a>
-              ) : (
-                <span
-                  key={index}
-                  className="txt-compact-xsmall flex h-20 w-20 items-center justify-center rounded-md bg-ui-bg-subtle p-1 text-center text-ui-fg-muted"
-                >
-                  Photo supprimée (90 jours)
-                </span>
-              )
+          <div className="mb-1 flex flex-col gap-1">
+            {/* Photos en grille (l'agent en envoie souvent plusieurs d'un
+                coup), les autres médias dessous. Clé indexée : un même
+                fichier peut apparaître deux fois dans un message. */}
+            {message.attachments.some((a) => a.type === "image") && (
+              <div className="flex flex-wrap gap-1">
+                {message.attachments
+                  .filter((a) => a.type === "image")
+                  .map((attachment, index) => (
+                    <WhatsappAttachment
+                      key={`image-${index}`}
+                      attachment={attachment}
+                      compact={message.attachments!.filter((a) => a.type === "image").length > 1}
+                    />
+                  ))}
+              </div>
             )}
+            {message.attachments
+              .filter((a) => a.type !== "image")
+              .map((attachment, index) => (
+                <WhatsappAttachment key={`${attachment.type}-${index}`} attachment={attachment} />
+              ))}
           </div>
         )}
-        <p className="txt-compact-small whitespace-pre-wrap break-words">{message.content}</p>
+        {message.content && <p className="txt-compact-small whitespace-pre-wrap break-words">{message.content}</p>}
         <p className="txt-compact-xsmall mt-1 text-right opacity-70">{formatTime(message.createdAt)}</p>
       </div>
-    </div>
-  )
-}
-
-const Composer = ({
-  phoneNumber,
-  replyWindow,
-  onSent,
-}: {
-  phoneNumber: string
-  replyWindow: ConversationDetail["replyWindow"]
-  onSent: (warning: string | null) => void
-}) => {
-  const [text, setText] = useState("")
-  const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  // Si n8n signale la fenêtre expirée (409) alors que l'affichage la croyait
-  // ouverte, on bascule sur la relance sans attendre le prochain rafraîchissement.
-  const [windowClosed, setWindowClosed] = useState(false)
-
-  // Réinitialise la zone de saisie uniquement au changement de conversation,
-  // jamais sur un rafraîchissement périodique.
-  useEffect(() => {
-    setText("")
-    setError(null)
-    setWindowClosed(false)
-  }, [phoneNumber])
-
-  const run = async (path: string, body?: unknown) => {
-    setSending(true)
-    setError(null)
-    const result = await postAction(phoneNumber, path, body)
-    setSending(false)
-    if (result.ok) {
-      if (path === "messages") {
-        setText("")
-      }
-      onSent(result.warning)
-      return
-    }
-    if (result.error_code === "window_expired") {
-      setWindowClosed(true)
-    }
-    setError(result.message)
-  }
-
-  const open = replyWindow.open && !windowClosed
-
-  return (
-    <div className="border-t border-ui-border-base p-3">
-      {error && <p className="txt-compact-small mb-2 text-ui-fg-error">{error}</p>}
-      {open ? (
-        <div className="flex items-end gap-x-2">
-          <textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            rows={2}
-            maxLength={4096}
-            placeholder="Votre réponse au client…"
-            className="txt-compact-small flex-1 resize-none rounded-md border border-ui-border-base px-3 py-2"
-          />
-          <button
-            type="button"
-            disabled={sending || text.trim().length === 0}
-            onClick={() => run("messages", { text })}
-            className="txt-compact-small-plus rounded-md bg-ui-button-inverted px-4 py-2 text-ui-fg-on-inverted disabled:opacity-50"
-          >
-            {sending ? "Envoi…" : "Envoyer"}
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-y-2">
-          <p className="txt-compact-small text-ui-fg-subtle">
-            Le client n'a pas écrit depuis plus de 24 h : WhatsApp n'autorise plus de réponse libre.
-            Envoyez le message de relance ; dès que le client répond, vous pourrez de nouveau lui écrire.
-          </p>
-          <button
-            type="button"
-            disabled={sending}
-            onClick={() => run("reengagement")}
-            className="txt-compact-small-plus self-start rounded-md bg-ui-button-inverted px-4 py-2 text-ui-fg-on-inverted disabled:opacity-50"
-          >
-            {sending ? "Envoi…" : "Envoyer le message de relance"}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
@@ -558,7 +477,7 @@ const ConversationThreadPanel = ({
       </div>
 
       {conversation && (
-        <Composer phoneNumber={phoneNumber} replyWindow={conversation.replyWindow} onSent={afterSend} />
+        <WhatsappComposer phoneNumber={phoneNumber} replyWindow={conversation.replyWindow} onSent={afterSend} />
       )}
     </div>
   )
