@@ -1,5 +1,6 @@
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import {
+  capturePaymentWorkflow,
   createOrderFulfillmentWorkflow,
   createOrderShipmentWorkflow,
   markOrderFulfillmentAsDeliveredWorkflow,
@@ -28,6 +29,8 @@ export async function syncOrderAfterDelivery(
       "id",
       "payment_collections.id",
       "payment_collections.status",
+      "payment_collections.payments.id",
+      "payment_collections.payments.captured_at",
       // Articles chargés en entier : avec items.quantity seul, la quantité
       // revient vide et la création du fulfillment échoue.
       "items.*",
@@ -40,10 +43,19 @@ export async function syncOrderAfterDelivery(
   if (!order) return "Commande introuvable pour la synchronisation."
 
   if (input.status === "delivered" && input.collected > 0) {
-    const pending = (order.payment_collections ?? []).find((pc: any) => pc.status === "not_paid")
-    if (pending) {
+    for (const collection of order.payment_collections ?? []) {
       try {
-        await markPaymentCollectionAsPaid(container).run({ input: { order_id: order.id, payment_collection_id: pending.id } })
+        if (collection.status === "not_paid") {
+          // Commande prise par téléphone : aucun paiement encore enregistré.
+          await markPaymentCollectionAsPaid(container).run({ input: { order_id: order.id, payment_collection_id: collection.id } })
+        } else if (collection.status === "authorized" || collection.status === "partially_authorized") {
+          // Commande du site en paiement à la livraison : paiement autorisé
+          // à la commande, capturé ici quand le livreur a encaissé (constaté
+          // le 2026-09-28 : sans cela la commande restait non encaissée).
+          for (const payment of collection.payments ?? []) {
+            if (!payment.captured_at) await capturePaymentWorkflow(container).run({ input: { payment_id: payment.id } })
+          }
+        }
       } catch (e) {
         warnings.push(`Paiement non marqué payé : ${firstLine(e)}`)
       }
