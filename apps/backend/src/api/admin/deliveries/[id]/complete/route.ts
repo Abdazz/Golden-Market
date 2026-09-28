@@ -3,6 +3,8 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { feeEntriesFromDelivery } from "../../../../../lib/cashbook-rules"
 import { orderNumberOf } from "../../../../../lib/order-number"
 import { recordAutoEntriesWorkflow } from "../../../../../workflows/cash-entries"
+import { itemLabel } from "../../../../../lib/courier-stock-rules"
+import { takeDeliveryStockWorkflow } from "../../../../../workflows/courier-stock"
 import { syncOrderAfterDelivery } from "../../../../../lib/delivery-order-sync"
 import { completeDeliveryWorkflow } from "../../../../../workflows/complete-delivery"
 import { updateDeliveryWorkflow } from "../../../../../workflows/update-delivery"
@@ -28,8 +30,32 @@ export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchem
     }
   }
 
+  // Stock confié au livreur (spec 2026-09-28 stock-livreurs) : il déstocke ce
+  // qu'il détient. Jamais bloquant ; une seconde exécution ne déstocke rien.
+  let stockTaken: { label: string; quantity: number }[] = []
+  if (delivery.status === "delivered" || delivery.status === "shipped") {
+    try {
+      const { result: taken } = await takeDeliveryStockWorkflow(req.scope).run({ input: { delivery_id: delivery.id } })
+      if (taken.length) {
+        const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+        const { data: items } = await query.graph({
+          entity: "inventory_item",
+          fields: ["id", "title", "sku", "variants.title", "variants.product.title"],
+          filters: { id: taken.map((m: any) => m.inventory_item_id) },
+        })
+        const labels = Object.fromEntries(items.map((i: any) => [i.id, itemLabel(i)]))
+        stockTaken = taken.map((m: any) => ({ label: labels[m.inventory_item_id] ?? "Article", quantity: -m.quantity }))
+      }
+    } catch (error) {
+      req.scope.resolve(ContainerRegistrationKeys.LOGGER).error(
+        `Stock livreur : livraison ${delivery.id} non déstockée (${(error as Error).message})`
+      )
+    }
+  }
+
   // Frais livreur / compagnie -> sorties du journal de caisse (spec
   // 2026-09-28 journal-de-caisse). Jamais bloquant pour la livraison.
+  let courierName: string | null = null
   try {
     const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
     const {
@@ -38,6 +64,7 @@ export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchem
     const {
       data: [order],
     } = await query.graph({ entity: "order", fields: ["id", "custom_display_id", "display_id"], filters: { id: delivery.order_id } })
+    courierName = courier?.name ?? null
     const entries = feeEntriesFromDelivery(delivery, courier?.name ?? null, order ? orderNumberOf(order) : null)
     if (entries.length) await recordAutoEntriesWorkflow(req.scope).run({ input: entries })
   } catch (error) {
@@ -46,5 +73,5 @@ export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchem
     )
   }
 
-  res.json({ delivery: { ...delivery, sync_warning: syncWarning }, sync_warning: syncWarning })
+  res.json({ delivery: { ...delivery, sync_warning: syncWarning }, sync_warning: syncWarning, stock_taken: stockTaken, courier_name: courierName })
 }

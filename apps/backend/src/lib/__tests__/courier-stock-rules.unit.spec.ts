@@ -100,6 +100,7 @@ describe("itemLabel", () => {
   it("produit + variante, sans variante par défaut, repli titre/sku", () => {
     expect(itemLabel({ variants: [{ title: "Simple", product: { title: "Balai" } }] })).toBe("Balai - Simple")
     expect(itemLabel({ variants: [{ title: "Default variant", product: { title: "Seau" } }] })).toBe("Seau")
+    expect(itemLabel({ variants: [{ title: "Default Title", product: { title: "Balai" } }] })).toBe("Balai")
     expect(itemLabel({ title: "Éponge", variants: [] })).toBe("Éponge")
     expect(itemLabel({ sku: "SKU-1" })).toBe("SKU-1")
   })

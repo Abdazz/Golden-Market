@@ -93,7 +93,7 @@ export const parseMovementLines = (
   }
 }
 
-const DEFAULT_VARIANT = /^(default|default variant|défaut)$/i
+const DEFAULT_VARIANT = /^(default|default variant|default title|défaut)$/i
 
 export const itemLabel = (item: {
   title?: string | null

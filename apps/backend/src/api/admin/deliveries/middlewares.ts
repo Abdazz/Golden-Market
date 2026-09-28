@@ -51,6 +51,16 @@ export const ValidateSettlementSchema = z.object({
 })
 export type ValidateSettlementSchema = z.infer<typeof ValidateSettlementSchema>
 
+export const CourierStockMovementSchema = z.object({
+  courier_id: z.string().min(1, "Choisissez un livreur."),
+  type: z.enum(["handover", "return", "adjustment"]),
+  lines: z
+    .array(z.object({ inventory_item_id: z.string().min(1), quantity: z.number().int("Quantité invalide : nombre entier.") }))
+    .min(1, "Ajoutez au moins un produit."),
+  note: z.string().nullish(),
+})
+export type CourierStockMovementSchema = z.infer<typeof CourierStockMovementSchema>
+
 export const deliveryMiddlewares: MiddlewareRoute[] = [
   { matcher: "/admin/couriers", methods: ["POST"], middlewares: [validateAndTransformBody(CreateCourierSchema)] },
   { matcher: "/admin/couriers/:id", methods: ["POST"], middlewares: [validateAndTransformBody(UpdateCourierSchema)] },
@@ -64,5 +74,10 @@ export const deliveryMiddlewares: MiddlewareRoute[] = [
     matcher: "/admin/courier-settlements",
     methods: ["POST"],
     middlewares: [validateAndTransformBody(ValidateSettlementSchema)],
+  },
+  {
+    matcher: "/admin/courier-stock/movements",
+    methods: ["POST"],
+    middlewares: [validateAndTransformBody(CourierStockMovementSchema)],
   },
 ]
