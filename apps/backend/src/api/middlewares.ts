@@ -4,6 +4,7 @@ import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import * as Sentry from "@sentry/node"
 import { cashEntryMiddlewares } from "./admin/cash-entries/middlewares"
 import { deliveryMiddlewares } from "./admin/deliveries/middlewares"
+import { prospectMiddlewares } from "./admin/prospects/middlewares"
 import { supplierOrderMiddlewares } from "./admin/supplier-orders/middlewares"
 import multer from "multer"
 import { MAX_UPLOAD_BYTES } from "../lib/whatsapp-media-types"
@@ -278,6 +279,8 @@ export default defineMiddlewares({
     ...cashEntryMiddlewares,
     // Approvisionnement et marges (spec 2026-09-28).
     ...supplierOrderMiddlewares,
+    // Prospects à relancer (spec 2026-09-28).
+    ...prospectMiddlewares,
   ],
   errorHandler: (error: any, req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
     Sentry.captureException(error)
