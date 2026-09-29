@@ -1,6 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { getConversation } from "../../../../lib/whatsapp-chat-db"
 import { deliveryFailureLabel, lastWindowFailureAt } from "../../../../lib/whatsapp-delivery-failure"
+import { automaticMessageLabel } from "../../../../lib/whatsapp-template-labels"
 import { computeReplyWindow } from "../../../../lib/whatsapp-reply-window"
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
@@ -21,7 +22,11 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     found: true,
     conversation: {
       ...conversation,
-      messages: conversation.messages.map((m) => ({ ...m, deliveryFailure: deliveryFailureLabel(m.deliveryError) })),
+      messages: conversation.messages.map((m) => ({
+        ...m,
+        deliveryFailure: deliveryFailureLabel(m.deliveryError),
+        automaticLabel: automaticMessageLabel(m.templateName),
+      })),
       replyWindow: { open: replyWindow.open, expiresAt: replyWindow.expiresAt?.toISOString() ?? null },
     },
   })

@@ -168,6 +168,8 @@ La page `/app/whatsapp-conversations` lit directement la base `golden_market` (p
 
 Messages non envoyés : Meta peut refuser un message après l'avoir accepté (accusé de statut `failed`, ex. 131047 = plus de 24 h depuis le dernier message du client). n8n l'inscrit dans `messages.delivery_status` / `delivery_error` ("code: raison") ; l'admin affiche « Non envoyé » (`src/lib/whatsapp-delivery-failure.ts`) et considère la fenêtre fermée après un refus 131047 postérieur au dernier message client (`computeReplyWindow`, 3e paramètre). Piège : les messages entrants simulés par webhook signé comptent comme des messages client et faussent le calcul de la fenêtre.
 
+Messages automatiques (confirmations de commande, retour en stock, livraison au livreur) : enregistrés par n8n dans la conversation du destinataire (`role = 'assistant'`, colonne `messages.template_name`, conversation créée si besoin ; jamais les codes de vérification). L'admin affiche « Message automatique · <modèle> » au lieu de « IA » (`src/lib/whatsapp-template-labels.ts`).
+
 ### Numéro de commande Golden Market
 
 Format `AAAAMMJJ` + compteur du jour sur 3 chiffres (ex. `20260927001`), stocké dans le champ natif `order.custom_display_id` (recherchable dans la liste des commandes). Généré par l'option `generateCustomDisplayId` du module order (`medusa-config.ts`, `src/lib/order-number.ts`) avec la table `order_daily_counter`. Rattrapage idempotent des commandes sans numéro (commandes créées entre la migration et le redémarrage du serveur) : `docker exec <backend> npx medusa exec ./src/migration-scripts/create-order-daily-counter.js`. Toujours afficher le numéro via `orderNumberOf(order)`.

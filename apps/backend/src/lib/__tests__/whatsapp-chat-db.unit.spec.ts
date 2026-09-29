@@ -129,6 +129,7 @@ describe("getConversation", () => {
         rows: [
           { role: "user", content: "Bonjour", created_at: userAt },
           { role: "human", content: "Je m'en occupe", created_at: humanAt, delivery_status: "failed", delivery_error: "131047: Message failed" },
+          { role: "assistant", content: "Bonne nouvelle", created_at: humanAt, template_name: "retour_en_stock" },
         ],
       })
 
@@ -141,12 +142,14 @@ describe("getConversation", () => {
       humanLastActionAt: humanAt,
       lastUserMessageAt: userAt,
       messages: [
-        { role: "user", content: "Bonjour", createdAt: userAt, attachments: [], deliveryError: null },
-        { role: "human", content: "Je m'en occupe", createdAt: humanAt, attachments: [], deliveryError: "131047: Message failed" },
+        { role: "user", content: "Bonjour", createdAt: userAt, attachments: [], deliveryError: null, templateName: null },
+        { role: "human", content: "Je m'en occupe", createdAt: humanAt, attachments: [], deliveryError: "131047: Message failed", templateName: null },
+        { role: "assistant", content: "Bonne nouvelle", createdAt: humanAt, attachments: [], deliveryError: null, templateName: "retour_en_stock" },
       ],
     })
     expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining("ORDER BY seq ASC"), ["conv-1"])
     expect(queryMock.mock.calls[1][0]).toContain("delivery_error")
+    expect(queryMock.mock.calls[1][0]).toContain("template_name")
   })
 
   it("returns image attachments (photos sent by the agent or the client), empty list when none", async () => {

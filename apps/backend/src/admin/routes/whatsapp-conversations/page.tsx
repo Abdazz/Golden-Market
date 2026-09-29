@@ -39,6 +39,8 @@ type ChatMessage = {
   attachments?: ChatAttachment[]
   // Message refusé par WhatsApp après l'envoi, libellé prêt à afficher.
   deliveryFailure?: string | null
+  // Message automatique (modèle Meta) : libellé à la place de « IA ».
+  automaticLabel?: string | null
 }
 
 type ConversationDetail = {
@@ -282,7 +284,7 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
     <div className={`flex ${fromClient ? "justify-start" : "justify-end"}`}>
       <div className={`max-w-[85%] rounded-lg px-3 py-2 lg:max-w-[70%] ${bubbleClass}`}>
         {!fromClient && (
-          <p className="txt-compact-xsmall-plus mb-0.5 opacity-70">{fromHuman ? "Vous" : "IA"}</p>
+          <p className="txt-compact-xsmall-plus mb-0.5 opacity-70">{fromHuman ? "Vous" : (message.automaticLabel ?? "IA")}</p>
         )}
         {message.attachments && message.attachments.length > 0 && (
           <div className="mb-1 flex flex-col gap-1">
