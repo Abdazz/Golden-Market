@@ -16,6 +16,19 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-01 - **Chat WhatsApp et prospects : 3 améliorations livrées en production.**
+- « Non envoyé » : les refus de Meta après acceptation (accusé `failed`, ex. 131047 hors fenêtre
+  24 h) sont inscrits par n8n (`messages.delivery_status` / `delivery_error`) et affichés en rouge
+  sous le message ; la fenêtre est considérée fermée après un refus 131047 (bouton de relance).
+- Messages automatiques dans l'historique : confirmations de commande, retour en stock, message au
+  livreur enregistrés dans la conversation du destinataire (texte réel lu chez Meta,
+  `messages.template_name`, libellé « Message automatique · … ») ; jamais les codes de vérification.
+  Les réponses de l'agent IA stockent aussi leur wamid sortant.
+- « Suivre comme prospect » depuis l'en-tête d'une conversation (badge si déjà suivi).
+- Modèle Meta `retour_en_stock` approuvé (catégorie marketing), testé en réel sur le numéro du
+  propriétaire.
+- Reste à faire / proposé : voir `docs/HANDOFF-PROMPT.md`.
+
 2026-09-28 (soir) - **Stock confié aux livreurs : livré** (spec
 `docs/superpowers/specs/2026-09-28-stock-livreurs-design.md`). Onglet « Stock livreurs » de la page
 Livraisons : au dépôt / chez chaque livreur / total, Remettre / Retour / Corriger, historique par
