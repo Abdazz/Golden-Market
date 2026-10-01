@@ -27,6 +27,9 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 - « Suivre comme prospect » depuis l'en-tête d'une conversation (badge si déjà suivi).
 - Modèle Meta `retour_en_stock` approuvé (catégorie marketing), testé en réel sur le numéro du
   propriétaire.
+- Agent : vidéos client non décrites le 2026-09-29 (Gemini surchargé, un seul essai) -> 3 essais
+  sur vidéo / photo / vocal, modèle de secours `gemini-3.5-flash` pour la vidéo, et si tout échoue
+  l'agent prévient le client et passe la main (`escalate_to_human`).
 - Reste à faire / proposé : voir `docs/HANDOFF-PROMPT.md`.
 
 2026-09-28 (soir) - **Stock confié aux livreurs : livré** (spec
