@@ -1,7 +1,7 @@
 # Prompt de reprise (nouvelle session Claude Code)
 
 Copier le bloc ci-dessous comme premier message d'une nouvelle session ouverte dans
-`medusa-golden-market/`. Mis à jour le 2026-10-01.
+`medusa-golden-market/`. Mis à jour le 2026-10-01 (soir).
 
 ---
 
@@ -21,7 +21,24 @@ dans le code, sans trailer Co-Authored-By.
   `retour_en_stock`).
 - Chat WhatsApp de l'admin : médias, vocaux, reprise manuelle, « Non envoyé » (refus Meta),
   messages automatiques (modèles) dans l'historique, « Suivre comme prospect ».
+- Agent WhatsApp, médias client : description vidéo par Gemini (`gemini-3.6-flash`, 3 essais, puis
+  secours `gemini-3.5-flash`, 2 essais), photo par OpenAI et vocal par Whisper (3 essais chacun) ;
+  si tout échoue, l'agent prévient le client et appelle `escalate_to_human`. Claude ne lit pas la
+  vidéo (texte, images, PDF seulement). Le chemin de secours et l'escalade n'ont été testés que hors
+  ligne (impossible de forcer une surcharge de Google) : surveiller les exécutions n8n.
 - Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (2026-09-27 et 09-28).
+
+## À vérifier en début de session
+
+- Le propriétaire devait envoyer une vidéo de test depuis son téléphone : vérifier dans n8n
+  (workflow `i6KGA9BvK9unjxxj`, nœuds `Describe Video (Vision)` / `(Vision, secours)`) qu'elle a été
+  décrite, et que la réponse de l'agent en tient compte.
+- Le client 22664947373 (vidéos du 2026-09-29) cherchait un balai-éponge à tête interchangeable :
+  piste de relance à rappeler au propriétaire (le numéro est aussi l'un de ses propres comptes de
+  test, à confirmer avec lui).
+- Messages modèles envoyés aux clients : remis au téléphone, mais **pas affichés sur WhatsApp Web
+  ni sur les appareils liés** (comportement de WhatsApp, constaté le 2026-10-01). Un message
+  « delivered » sans « Non envoyé » est donc bien arrivé sur le téléphone.
 
 ## Prochaines tâches proposées au propriétaire (à lui faire choisir)
 
@@ -66,6 +83,13 @@ le stock qu'il leur confie ; « Rendre la main » sur sa conversation de test (2
   version précédente. Workflows : principal `i6KGA9BvK9unjxxj`, modèles / webhook générique
   `pse4PNU4MF5OMGHB`, actions admin `AdmConvAction7Qx`, purge `PurgeClientPhot1`. Le serveur MCP
   n8n refuse le jeton (401) : passer par la CLI sur le VPS.
+- Clés d'API des identifiants n8n (ex. Gemini `googlePalmApi`) : `n8n export:credentials --all
+  --decrypted --output=/tmp/c.json` dans le conteneur, lire la clé dans un script Node exécuté dans
+  le conteneur, supprimer le fichier aussitôt ; ne jamais afficher la clé.
+- Déploiements : pousser staging et main en même temps a déjà fait échouer la production au tout
+  début (« Déployer sur le VPS ») sans rien casser ; vérifier l'état avec
+  `curl https://api.github.com/repos/Abdazz/Golden-Market/actions/runs?per_page=3` (dépôt public
+  en lecture) et demander au propriétaire de cliquer « Re-run » si besoin (pas de `gh` ici).
 - Local : Postgres docker sur 5433 ; lancer `npx medusa develop` directement dans `apps/backend`
   (turbo enlève les variables) avec `WHATSAPP_CHAT_DATABASE_URL` pointant sur la base
   `golden_market_chat_test` ; sessions en mémoire (se reconnecter après chaque redémarrage).
@@ -84,3 +108,8 @@ le stock qu'il leur confie ; « Rendre la main » sur sa conversation de test (2
 - Toute nouvelle colonne de la base chat lue par Medusa doit exister en production AVANT le
   déploiement du backend (sinon le chat devient « indisponible ») ; l'ajouter aussi à
   `../n8n_automation/schema.sql` et à la base locale de test.
+- Modèles Gemini : vérifier qu'un modèle existe encore pour la clé avant de l'utiliser
+  (`gemini-2.5-flash` renvoie 404 « no longer available to new users »).
+- Le scratchpad de session est vidé entre les sessions : recréer l'admin de test local et
+  ré-exporter les workflows n8n au besoin.
+
