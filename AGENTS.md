@@ -170,6 +170,8 @@ Messages non envoyés : Meta peut refuser un message après l'avoir accepté (ac
 
 Messages automatiques (confirmations de commande, retour en stock, livraison au livreur) : enregistrés par n8n dans la conversation du destinataire (`role = 'assistant'`, colonne `messages.template_name`, conversation créée si besoin ; jamais les codes de vérification). L'admin affiche « Message automatique · <modèle> » au lieu de « IA » (`src/lib/whatsapp-template-labels.ts`).
 
+Prospect depuis le chat : bouton « Suivre comme prospect » dans l'en-tête d'une conversation (`src/admin/components/whatsapp-prospect.tsx`, formulaire partagé `prospect-form.tsx`), ou badge « Prospect · … » si le numéro est déjà suivi (comparaison sur les 8 derniers chiffres, `src/admin/lib/prospect-match.ts`).
+
 ### Numéro de commande Golden Market
 
 Format `AAAAMMJJ` + compteur du jour sur 3 chiffres (ex. `20260927001`), stocké dans le champ natif `order.custom_display_id` (recherchable dans la liste des commandes). Généré par l'option `generateCustomDisplayId` du module order (`medusa-config.ts`, `src/lib/order-number.ts`) avec la table `order_daily_counter`. Rattrapage idempotent des commandes sans numéro (commandes créées entre la migration et le redémarrage du serveur) : `docker exec <backend> npx medusa exec ./src/migration-scripts/create-order-daily-counter.js`. Toujours afficher le numéro via `orderNumberOf(order)`.

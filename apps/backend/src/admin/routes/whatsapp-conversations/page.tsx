@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { WhatsappAttachment } from "../../components/whatsapp-attachment"
 import type { ChatAttachment } from "../../components/whatsapp-attachment"
 import { WhatsappComposer } from "../../components/whatsapp-composer"
+import { WhatsappProspect } from "../../components/whatsapp-prospect"
 
 // Conversations WhatsApp de l'agent IA (base golden_market, propriété de
 // n8n_automation) : lecture + reprise manuelle (prendre la main, répondre,
@@ -453,6 +454,7 @@ const ConversationThreadPanel = ({
             {humanHasHand ? "Rendre la main à l'IA" : "Prendre la main"}
           </button>
         )}
+        {conversation && <WhatsappProspect phoneNumber={conversation.phoneNumber} customerName={conversation.customerName} />}
       </div>
 
       {notice && <p className="txt-compact-small border-b border-ui-border-base px-4 py-2 text-ui-fg-error">{notice}</p>}
