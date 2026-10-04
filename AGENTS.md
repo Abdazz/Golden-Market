@@ -126,6 +126,19 @@ cd apps/backend
 
 Ces deux scripts ne sont **pas** joués automatiquement par `medusa db:migrate` ni par les workflows de déploiement — nécessaires sur tout environnement (nouvelle machine de dev, nouveau volume Postgres, nouvel environnement de staging) qui n'a jamais reçu ces schémas, sans quoi le subscriber d'embeddings logue une erreur à chaque sauvegarde produit et la route `/store/products-semantic-search` répond 500. Nécessite l'extension Postgres `pgvector` disponible sur l'image utilisée par `docker-compose.yml`/`docker-compose.prod.yml` (absente de l'image `postgres:16-alpine` par défaut au moment d'écrire cette entrée). Voir `docs/superpowers/specs/2026-09-17-recherche-semantique-produits-design.md`.
 
+### Frais d'expédition par produit (one-shot, idempotent)
+
+```bash
+cd apps/backend
+<pm> run setup:calculated-shipping   # remplace l'option de livraison à 0 F par l'option calculée (fournisseur golden-market-shipping)
+```
+
+À lancer une fois par environnement **après** le déploiement du backend qui enregistre le fournisseur
+`golden-market-shipping` (`medusa-config.ts`). Frais : gratuits à Ouagadougou ; ailleurs, le
+maximum de `product.metadata.frais_expedition_xof` des produits du panier (1 500 F par défaut),
+saisi dans l'encadré « Frais d'expédition » de la fiche produit. Voir
+`docs/superpowers/specs/2026-10-04-frais-expedition-par-produit-design.md`.
+
 ### Téléphone comme identifiant principal du compte client
 
 Le téléphone est l'identifiant d'authentification principal (obligatoire à
