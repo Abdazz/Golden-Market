@@ -247,11 +247,16 @@ const Shipping: React.FC<ShippingProps> = ({ cart, availableShippingMethods }) =
                     <span className="text-sm font-semibold text-gm-ink">
                       {option.price_type === "flat" ? (
                         convertToLocale({ amount: option.amount!, currency_code: cart?.currency_code })
-                      ) : calculatedPricesMap[option.id] ? (
-                        convertToLocale({
-                          amount: calculatedPricesMap[option.id],
-                          currency_code: cart?.currency_code,
-                        })
+                      ) : typeof calculatedPricesMap[option.id] === "number" ? (
+                        // 0 F (Ouagadougou) est un montant valide : afficher « Gratuite », pas « - ».
+                        calculatedPricesMap[option.id] === 0 ? (
+                          "Gratuite"
+                        ) : (
+                          convertToLocale({
+                            amount: calculatedPricesMap[option.id],
+                            currency_code: cart?.currency_code,
+                          })
+                        )
                       ) : isLoadingPrices ? (
                         <Loader />
                       ) : (
