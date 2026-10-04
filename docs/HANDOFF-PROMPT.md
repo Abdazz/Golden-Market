@@ -1,7 +1,7 @@
 # Prompt de reprise (nouvelle session Claude Code)
 
 Copier le bloc ci-dessous comme premier message d'une nouvelle session ouverte dans
-`medusa-golden-market/`. Mis à jour le 2026-10-01 (soir).
+`medusa-golden-market/`. Mis à jour le 2026-10-04.
 
 ---
 
@@ -28,7 +28,18 @@ dans le code, sans trailer Co-Authored-By.
   ligne (impossible de forcer une surcharge de Google) : surveiller les exécutions n8n.
 - Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (2026-09-27 et 09-28).
 
+- Frais d'expédition par produit (2026-10-04) : option de livraison calculée (gratuit à
+  Ouagadougou, sinon frais les plus élevés du panier, 1 500 F par défaut), saisis dans l'encadré de
+  la fiche produit ; l'agent les annonce. Agent : alerte de paiement réparée, reçus lus, frais de
+  retrait (~1 %) acceptés, réactions emoji enregistrées.
+
 ## À vérifier en début de session
+
+- Premières commandes hors Ouagadougou après le 2026-10-04 : total frais compris correct (site,
+  WhatsApp, téléphone), message de l'agent annonçant le total ; première commande par téléphone
+  hors Ouaga (non testée en réel, calcul partagé vérifié par panier).
+- Premier reçu de paiement envoyé par un client : alerte « Paiement signalé » reçue par le
+  propriétaire, référence inscrite sur la commande.
 
 - Le propriétaire devait envoyer une vidéo de test depuis son téléphone : vérifier dans n8n
   (workflow `i6KGA9BvK9unjxxj`, nœuds `Describe Video (Vision)` / `(Vision, secours)`) qu'elle a été
@@ -42,7 +53,7 @@ dans le code, sans trailer Co-Authored-By.
 
 ## Prochaines tâches proposées au propriétaire (à lui faire choisir)
 
-1. **Tableau de bord de gestion** : une page « Aujourd'hui / ce mois » (ventes, caisse, marges,
+1. **Tableau de bord de gestion** (spec et plan écrits le 2026-10-04 : `docs/superpowers/specs/2026-10-04-tableau-de-bord-design.md`, `docs/superpowers/plans/2026-10-04-tableau-de-bord.md`, à exécuter, méthode à faire choisir) : une page « Aujourd'hui / ce mois » (ventes, caisse, marges,
    livraisons faites / à faire, stock chez les livreurs, prospects à relancer). Architectural :
    brainstorming + spec + plan.
 2. **Finitions du stock livreurs** (mineurs de la revue finale) : recherche produit par nom dans les
@@ -57,6 +68,12 @@ dans le code, sans trailer Co-Authored-By.
    reproposer seulement si demandé) ; micro du chat non testé sur téléphone.
 
 ## À rappeler au propriétaire (actions de son côté)
+
+Saisir les frais d'expédition des produits qui ne sont pas à 1 500 F (encadré de la fiche produit) ;
+répondre au client de Kaya (22674834919, commande 20261003001 : 11 000 F reçus hors frais de retrait,
+commande à marquer payée). Mineurs différés de la revue : widget vidéo produit (« Retirer » ne
+supprime pas `video_url`, fusion des métadonnées Medusa), widget frais sans gestion d'échec réseau,
+route téléphone sans test unitaire.
 
 Valider les hypothèses des specs caisse / approvisionnement / prospects ; saisir le solde initial de
 caisse et les coûts de revient du stock existant (onglet Marges) ; ajouter ses autres livreurs puis

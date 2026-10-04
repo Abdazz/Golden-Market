@@ -16,6 +16,24 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-04 - **Agent WhatsApp corrigé (paiements) et frais d'expédition par produit livrés en production.**
+- Incident réel (client de Kaya, commande 20261003001, 2026-10-03) : l'agent a contesté un paiement
+  correct (9 595 F = prix + frais de retrait, puis 1 515 F d'expédition) et l'alerte « paiement
+  signalé » n'avait jamais fonctionné (Meta 131008, paramètre vide). Corrigé dans n8n : alerte,
+  lecture des reçus par la vision, consigne (frais de retrait normaux, ne jamais contester un
+  paiement), réactions emoji enregistrées sans réponse de l'IA. Détail : guide n8n.
+- Frais d'expédition par produit (spec `docs/superpowers/specs/2026-10-04-frais-expedition-par-produit-design.md`) :
+  encadré « Frais d'expédition » sur la fiche produit (`metadata.frais_expedition_xof`, 1 500 F par
+  défaut), option de livraison « Livraison » à prix calculé (fournisseur `golden-market-shipping` :
+  gratuit à Ouagadougou, ailleurs les frais les plus élevés du panier), script
+  `setup:calculated-shipping` joué sur staging et production (ancienne option à 0 F supprimée,
+  paniers ouverts rafraîchis), commandes par téléphone, recherches produit de l'agent
+  (`shipping_fee_xof`), checkout « Gratuite » à 0 F, agent n8n (frais par produit, total frais
+  compris). Vérifié en production par panier API non validé (Kaya 1 500 F, Ouagadougou 0 F).
+- Plan du tableau de bord de gestion écrit (`docs/superpowers/plans/2026-10-04-tableau-de-bord.md`),
+  pas encore exécuté.
+- Reste à faire / proposé : voir `docs/HANDOFF-PROMPT.md`.
+
 2026-10-01 - **Chat WhatsApp et prospects : 3 améliorations livrées en production.**
 - « Non envoyé » : les refus de Meta après acceptation (accusé `failed`, ex. 131047 hors fenêtre
   24 h) sont inscrits par n8n (`messages.delivery_status` / `delivery_error`) et affichés en rouge
