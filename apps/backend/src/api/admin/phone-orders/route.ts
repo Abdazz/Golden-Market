@@ -7,6 +7,7 @@ import {
   createOrderWorkflow,
 } from "@medusajs/medusa/core-flows"
 import { buildDraftOrderInput, parsePhoneOrderInput } from "../../../lib/phone-order"
+import { shippingFeeForVariants } from "../../../lib/shipping-fee-query"
 
 // Bouton "Nouvelle commande" de l'admin (commande prise par téléphone) :
 // retrouve ou crée le client par son numéro WhatsApp, crée un brouillon avec
@@ -22,7 +23,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
   // Store mono-région (Burkina Faso, XOF), un seul canal de vente, un seul
-  // mode de livraison ("à convenir") au 2026-09-27 : résolus dynamiquement.
+  // mode de livraison (« Livraison », prix calculé) : résolus dynamiquement.
   const { data: regions } = await query.graph({
     entity: "region",
     fields: ["id", "currency_code", "countries.iso_2"],
@@ -31,7 +32,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const { data: channels } = await query.graph({ entity: "sales_channel", fields: ["id"] })
   const { data: options } = await query.graph({
     entity: "shipping_option",
-    fields: ["id", "name", "prices.amount", "prices.currency_code", "rules.attribute", "rules.value"],
+    fields: ["id", "name", "rules.attribute", "rules.value"],
   })
   const shipping = options.find(
     (o: any) => !(o.rules ?? []).some((r: any) => r.attribute === "is_return" && r.value === "true")
@@ -40,8 +41,13 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     res.status(500).json({ message: "Configuration de la boutique incomplète (région, canal de vente ou livraison)." })
     return
   }
-  const shippingAmount =
-    ((shipping as any).prices ?? []).find((p: any) => p.currency_code === region.currency_code)?.amount ?? 0
+  // Frais d'expédition calculés comme pour le site et l'agent WhatsApp
+  // (spec 2026-10-04 frais-expedition-par-produit).
+  const shippingAmount = await shippingFeeForVariants(
+    query,
+    input.city,
+    input.items.map((item) => item.variant_id)
+  )
 
   const { data: existing } = await query.graph({
     entity: "customer",
@@ -65,7 +71,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       regionId: region.id,
       currencyCode: region.currency_code,
       salesChannelId: channels[0].id,
-      shippingOption: { id: shipping.id, name: shipping.name, amount: Number(shippingAmount) },
+      shippingOption: { id: shipping.id, name: shipping.name, amount: shippingAmount },
     }) as any,
   })
   await convertDraftOrderWorkflow(req.scope).run({ input: { id: draft.id } })
