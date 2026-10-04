@@ -1,7 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { ContainerRegistrationKeys, getTotalVariantAvailability } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { todayInOuaga } from "../../../lib/delivery-rules"
-import { computeAvailability } from "../../../lib/meta-catalog-mapping"
+import { loadVariantSummaries } from "../../../lib/prospect-query"
 import { dueToday, parseProspect, sortWaiting } from "../../../lib/prospect-rules"
 import { PROSPECTS_MODULE } from "../../../modules/prospects"
 import { saveProspectWorkflow } from "../../../workflows/prospects"
@@ -14,22 +14,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const all = await svc.listProspects({}, { order: { updated_at: "DESC" } })
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const variantIds = [...new Set(all.map((p: any) => p.variant_id).filter(Boolean))] as string[]
-  const titles: Record<string, string> = {}
-  const availability: Record<string, boolean> = {}
-  if (variantIds.length) {
-    const { data: variants } = await query.graph({
-      entity: "product_variant",
-      fields: ["id", "title", "manage_inventory", "allow_backorder", "product.title", "product.handle"],
-      filters: { id: variantIds },
-    })
-    const stock = await getTotalVariantAvailability(query, { variant_ids: variants.map((v: any) => v.id) })
-    for (const v of variants) {
-      // Variante unique de Medusa ("Default Title") : le nom du produit suffit.
-      const generic = !v.title || ["Default Title", "Default variant"].includes(v.title)
-      titles[v.id] = v.product?.title ? (generic ? v.product.title : `${v.product.title} - ${v.title}`) : v.title
-      availability[v.id] = computeAvailability(v, stock[v.id]?.availability ?? null) === "in stock"
-    }
-  }
+  const { titles, availability } = await loadVariantSummaries(query, variantIds)
   const withTitle = (p: any) => ({ ...p, product: p.variant_id ? titles[p.variant_id] ?? p.product_label : p.product_label })
   const q = String(req.query.q ?? "").trim().toLowerCase()
   const digits = q.replace(/\D/g, "")
