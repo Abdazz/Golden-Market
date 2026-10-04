@@ -145,6 +145,18 @@ module.exports = defineConfig({
         ],
       },
     },
+    // Livraison : fournisseur manuel de Medusa (conservé pour les anciennes
+    // commandes) + fournisseur Golden Market à prix calculé (frais
+    // d'expédition par produit, spec 2026-10-04 frais-expedition-par-produit).
+    fulfillment: {
+      resolve: '@medusajs/medusa/fulfillment',
+      options: {
+        providers: [
+          { resolve: '@medusajs/medusa/fulfillment-manual', id: 'manual' },
+          { resolve: './src/modules/golden-market-shipping', id: 'golden-market-shipping' },
+        ],
+      },
+    },
     notification: {
       resolve: '@medusajs/medusa/notification',
       options: {
