@@ -52,11 +52,13 @@ describe("searchProductsFuzzy", () => {
               {
                 id: "prod_second",
                 title: "Second",
+                metadata: null,
                 variants: [{ id: "variant_second", manage_inventory: true, allow_backorder: false }],
               },
               {
                 id: "prod_best",
                 title: "Best",
+                metadata: { frais_expedition_xof: 2500 },
                 variants: [{ id: "variant_best", manage_inventory: false, allow_backorder: false }],
               },
             ],
@@ -76,6 +78,10 @@ describe("searchProductsFuzzy", () => {
     expect(result[0].variants[0].availability).toBe("in stock")
     // manage_inventory: true, pas d'inventaire lié, pas de backorder -> rupture
     expect(result[1].variants[0].availability).toBe("out of stock")
+    // Frais d'expédition : valeur des métadonnées sinon défaut, sans fuite des métadonnées
+    expect(result[0].shipping_fee_xof).toBe(2500)
+    expect(result[1].shipping_fee_xof).toBe(1500)
+    expect(result[0]).not.toHaveProperty("metadata")
   })
 
   it("returns an empty array without calling query.graph when no id matches", async () => {

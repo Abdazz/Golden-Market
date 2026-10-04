@@ -7,6 +7,7 @@ import {
 import { embedText } from "../../../lib/product-embedding-client"
 import { findNearestProductIds } from "../../../lib/product-embedding-store"
 import { computeAvailability } from "../../../lib/meta-catalog-mapping"
+import { productShippingFee } from "../../../lib/shipping-fee-rules"
 
 const DEFAULT_LIMIT = 8
 const MAX_LIMIT = 15
@@ -19,6 +20,9 @@ const SEARCH_FIELDS = [
   // WhatsApp devinait (conversation réelle du 2026-09-26).
   "description",
   "handle",
+  // Frais d'expédition hors Ouagadougou (spec 2026-10-04) : transformés en
+  // shipping_fee_xof, les métadonnées ne sortent pas de la route.
+  "metadata",
   "variants.id",
   // Nom de la variante ("Avec seau"...) : l'agent présente toutes les options.
   "variants.title",
@@ -32,6 +36,8 @@ type SearchProduct = {
   id: string
   title: string
   handle: string
+  metadata?: Record<string, unknown> | null
+  shipping_fee_xof?: number
   description: string | null
   variants: Array<{
     id: string
@@ -100,6 +106,8 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
         availability[variant.id]?.availability ?? null
       )
     }
+    product.shipping_fee_xof = productShippingFee(product.metadata)
+    delete product.metadata
   }
 
   // Préserve l'ordre de pertinence pgvector - query.graph ne le garantit pas.

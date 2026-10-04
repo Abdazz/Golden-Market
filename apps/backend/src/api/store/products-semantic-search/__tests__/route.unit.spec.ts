@@ -54,6 +54,7 @@ describe("GET /store/products-semantic-search", () => {
               id: "prod_2",
               title: "Balai à franges",
               handle: "balai",
+              metadata: { frais_expedition_xof: 2000 },
               variants: [
                 {
                   id: "variant_2",
@@ -101,6 +102,9 @@ describe("GET /store/products-semantic-search", () => {
     expect(res.jsonBody.products.map((p: any) => p.id)).toEqual(["prod_2", "prod_1"])
     expect(res.jsonBody.products[1].variants[0].availability).toBe("out of stock")
     expect(res.jsonBody.products[0].variants[0].availability).toBe("in stock")
+    expect(res.jsonBody.products[0].shipping_fee_xof).toBe(2000)
+    expect(res.jsonBody.products[1].shipping_fee_xof).toBe(1500)
+    expect(res.jsonBody.products[0]).not.toHaveProperty("metadata")
   })
 
   it("returns 400 when q is missing", async () => {

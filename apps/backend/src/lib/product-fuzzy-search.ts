@@ -1,5 +1,6 @@
 import { QueryContext, getTotalVariantAvailability } from "@medusajs/framework/utils"
 import { computeAvailability } from "./meta-catalog-mapping"
+import { productShippingFee } from "./shipping-fee-rules"
 
 export const FUZZY_SEARCH_FIELDS = [
   "id",
@@ -9,6 +10,9 @@ export const FUZZY_SEARCH_FIELDS = [
   // WhatsApp devinait (conversation réelle du 2026-09-26).
   "description",
   "handle",
+  // Frais d'expédition hors Ouagadougou (spec 2026-10-04) : transformés en
+  // shipping_fee_xof, les métadonnées ne sortent pas de la route.
+  "metadata",
   "variants.id",
   // Nom de la variante ("Avec seau"...) : l'agent présente toutes les options.
   "variants.title",
@@ -74,6 +78,8 @@ async function fetchProductsWithAvailability(query: any, ids: string[]): Promise
         availability[variant.id]?.availability ?? null
       )
     }
+    product.shipping_fee_xof = productShippingFee(product.metadata)
+    delete product.metadata
   }
 
   // filters:{id:[...]} ne préserve pas l'ordre - le retrier selon l'ordre des ids fournis.
