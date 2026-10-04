@@ -7,6 +7,7 @@ import { createShippingOptionsWorkflow, deleteShippingOptionsWorkflow } from "@m
 // l'option "Livraison" à prix calculé (fournisseur golden-market-shipping).
 // Les commandes passées gardent leur mode de livraison.
 const PROVIDER_ID = "golden-market-shipping_golden-market-shipping"
+const OLD_OPTION_NAME = "Livraison — à convenir avec le marchand"
 
 export default async function setupCalculatedShipping({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
@@ -62,10 +63,17 @@ export default async function setupCalculatedShipping({ container }: ExecArgs) {
     logger.info("Option de livraison calculée créée.")
   }
 
-  const obsolete = outbound.filter((o: any) => o.provider_id !== PROVIDER_ID).map((o: any) => o.id)
+  // Seule l'ancienne option à 0 F est supprimée ; toute autre option est laissée telle quelle.
+  const obsolete = outbound.filter((o: any) => o.provider_id !== PROVIDER_ID && o.name === OLD_OPTION_NAME)
+  const others = outbound.filter((o: any) => o.provider_id !== PROVIDER_ID && o.name !== OLD_OPTION_NAME)
+  for (const o of others) {
+    logger.warn(`Option de livraison conservée (non remplacée) : ${o.id} « ${o.name} » (fournisseur ${o.provider_id}).`)
+  }
   if (obsolete.length) {
-    await deleteShippingOptionsWorkflow(container).run({ input: { ids: obsolete } })
-    logger.info(`Option(s) de livraison à prix fixe supprimée(s) : ${obsolete.length}.`)
+    await deleteShippingOptionsWorkflow(container).run({ input: { ids: obsolete.map((o: any) => o.id) } })
+    for (const o of obsolete) {
+      logger.info(`Option de livraison à prix fixe supprimée : ${o.id} « ${o.name} ».`)
+    }
   }
   logger.info("Livraison à frais d'expédition calculés : prête.")
 }
