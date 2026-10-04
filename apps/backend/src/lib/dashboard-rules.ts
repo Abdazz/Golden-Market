@@ -41,9 +41,14 @@ export const unremittedByCourier = (
   return [...byCourier.values()]
 }
 
-export const countInProgress = (deliveries: { status: string; tour_date: string }[], today: string) => {
+// En retard = date de tournée initiale passée : le job nocturne ramène tour_date à aujourd'hui,
+// first_tour_date n'est jamais modifiée par le report.
+export const countInProgress = (
+  deliveries: { status: string; tour_date?: string; first_tour_date: string }[],
+  today: string
+) => {
   const inProgress = deliveries.filter((d) => d.status === "assigned")
-  return { count: inProgress.length, late: inProgress.filter((d) => d.tour_date < today).length }
+  return { count: inProgress.length, late: inProgress.filter((d) => d.first_tour_date < today).length }
 }
 
 export const orderedTotals = (

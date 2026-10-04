@@ -30,7 +30,7 @@ export const loadToAssign = async (scope: Scope) => {
 export const loadInProgress = async (scope: Scope, today: string) => {
   const { data } = await queryOf(scope).graph({
     entity: "delivery",
-    fields: ["id", "status", "tour_date"],
+    fields: ["id", "status", "tour_date", "first_tour_date"],
     filters: { status: "assigned" },
   })
   return countInProgress(data, today)

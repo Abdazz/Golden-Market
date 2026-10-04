@@ -34,7 +34,7 @@ affichée, grisée (« rien à faire » est une information).
 | Ligne | Définition | Lien |
 |---|---|---|
 | Commandes à confier | Même règle que l'onglet « À confier » (`/admin/deliveries/to-assign`) : commandes non annulées / brouillon / archivées, ni livrées ni expédiées, sans livraison `assigned` / `delivered` / `shipped`. Détail : dont N « à relivrer ». | `/app/deliveries` |
-| Livraisons en cours | Livraisons `assigned`, tous jours prévus confondus. Détail : dont N en retard (`tour_date` < aujourd'hui). | `/app/deliveries` |
+| Livraisons en cours | Livraisons `assigned`, tous jours prévus confondus. Détail : dont N en retard (date de tournée initiale `first_tour_date` < aujourd'hui, car le job nocturne reporte `tour_date` à aujourd'hui). | `/app/deliveries` |
 | Argent à récupérer chez les livreurs | Pour chaque livreur et chaque jour où il a terminé au moins une livraison (`delivered` / `failed` / `shipped`, jour de `completed_at`) **sans versement validé** (`courier_settlement` pour ce livreur et ce jour) : montant `computeSettlement(...).toRemit`. Total, plus détail par livreur (nom, montant, nombre de jours). Un montant négatif (frais > encaissé) est affiché tel quel, comme dans l'onglet Tournée. | `/app/deliveries` |
 | Prospects à relancer | `dueToday` (relance prévue aujourd'hui ou avant) ; détail : dont N en retard, plus N « en attente de stock » dont le produit est de nouveau disponible (`sortWaiting`, `available === true`). | `/app/prospects` |
 | Conversations en attente | Conversations dont `awaitingReply` est vrai (`listConversations`, même point que dans le chat). | `/app/whatsapp-conversations` |

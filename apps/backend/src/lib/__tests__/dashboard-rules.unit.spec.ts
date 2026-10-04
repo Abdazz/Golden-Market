@@ -62,16 +62,24 @@ describe("unremittedByCourier", () => {
 })
 
 describe("countInProgress", () => {
-  it("compte les livraisons en cours et celles prévues avant aujourd'hui", () => {
+  it("compte les livraisons en cours et celles dont la date de tournée initiale est passée", () => {
     const result = countInProgress(
       [
-        { status: "assigned", tour_date: "2026-10-04" },
-        { status: "assigned", tour_date: "2026-10-02" },
-        { status: "delivered", tour_date: "2026-10-01" },
+        { status: "assigned", tour_date: "2026-10-04", first_tour_date: "2026-10-04" },
+        { status: "assigned", tour_date: "2026-10-02", first_tour_date: "2026-10-02" },
+        { status: "delivered", tour_date: "2026-10-01", first_tour_date: "2026-10-01" },
       ],
       "2026-10-04"
     )
     expect(result).toEqual({ count: 2, late: 1 })
+  })
+
+  it("une livraison reportée à aujourd'hui par le job nocturne reste en retard", () => {
+    const result = countInProgress(
+      [{ status: "assigned", tour_date: "2026-10-04", first_tour_date: "2026-10-02" }],
+      "2026-10-04"
+    )
+    expect(result).toEqual({ count: 1, late: 1 })
   })
 })
 
