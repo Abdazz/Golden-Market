@@ -18,6 +18,8 @@ type VariantResult = {
 
 type Line = VariantResult & { quantity: number }
 
+type Fee = { state: "idle" | "loading" | "ready" | "error"; amount: number }
+
 const PAYMENT_METHODS = [
   { value: "cash-on-delivery", label: "Paiement à la réception (cash)" },
   { value: "orange-money", label: "Orange Money" },
@@ -43,6 +45,7 @@ const NewPhoneOrderPage = () => {
   const [lines, setLines] = useState<Line[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fee, setFee] = useState<Fee>({ state: "idle", amount: 0 })
 
   // Client déjà connu pour ce numéro : pré-remplit nom et dernière adresse
   // (sans écraser ce qui a déjà été saisi).
@@ -78,6 +81,30 @@ const NewPhoneOrderPage = () => {
     }, 300)
     return () => window.clearTimeout(timer)
   }, [search])
+
+  // Frais d'expédition : même calcul que la création de la commande (route
+  // GET /admin/phone-orders/shipping-fee), recalculé à chaque changement de
+  // ville ou d'articles.
+  const variantKey = lines.map((l) => l.variant_id).join(",")
+  useEffect(() => {
+    if (!variantKey) {
+      setFee({ state: "idle", amount: 0 })
+      return
+    }
+    let stale = false
+    setFee((f) => ({ ...f, state: "loading" }))
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams({ city, variant_ids: variantKey })
+      fetch(`/admin/phone-orders/shipping-fee?${params}`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((data) => !stale && setFee({ state: "ready", amount: Number(data.amount) || 0 }))
+        .catch(() => !stale && setFee({ state: "error", amount: 0 }))
+    }, 300)
+    return () => {
+      stale = true
+      window.clearTimeout(timer)
+    }
+  }, [city, variantKey])
 
   const addLine = (variant: VariantResult) => {
     setLines((current) => {
@@ -247,7 +274,18 @@ const NewPhoneOrderPage = () => {
                 <span className="txt-compact-small-plus w-24 text-right">{formatXof((l.price ?? 0) * l.quantity)}</span>
               </li>
             ))}
-            <li className="txt-compact-small-plus flex justify-end px-3">Total : {formatXof(total)}</li>
+            <li className="txt-compact-small flex justify-end px-3 text-ui-fg-subtle">
+              {fee.state === "loading"
+                ? "Livraison : calcul…"
+                : fee.state === "error"
+                  ? "Livraison : calculée à la validation"
+                  : fee.amount === 0
+                    ? "Livraison : Gratuite (Ouagadougou)"
+                    : `Livraison : ${formatXof(fee.amount)}`}
+            </li>
+            <li className="txt-compact-small-plus flex justify-end px-3">
+              Total : {formatXof(total + (fee.state === "ready" ? fee.amount : 0))}
+            </li>
           </ul>
         )}
       </section>
