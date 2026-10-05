@@ -29,7 +29,9 @@ const ProductPicker = ({
   const selected = choices.find((c) => c.id === value)
   const [text, setText] = useState(selected?.label ?? "")
   const [open, setOpen] = useState(false)
-  useEffect(() => setText(selected?.label ?? ""), [selected?.label])
+  useEffect(() => {
+    if (selected) setText(selected.label)
+  }, [selected?.label])
   const matches = choices.filter((c) => matchesSearch(c.label, text)).slice(0, 30)
   return (
     <div className="relative min-w-0 flex-1">
