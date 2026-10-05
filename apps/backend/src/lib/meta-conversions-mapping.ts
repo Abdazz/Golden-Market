@@ -5,11 +5,13 @@
 // testables avec de simples objets, sans mocker fetch.
 import { createHash } from "crypto"
 
+export type MetaActionSource = "website" | "phone_call"
+
 export type MetaConversionEvent = {
   event_name: "Purchase"
   event_time: number
   event_id: string
-  action_source: "website"
+  action_source: MetaActionSource
   user_data: { ph?: string[] }
   custom_data: {
     currency: string
@@ -24,6 +26,7 @@ export type OrderForMetaConversion = {
   currency_code: string
   total: number
   shipping_address?: { phone?: string | null }
+  metadata?: Record<string, unknown> | null
   items?: Array<{ variant_id?: string | null; quantity: number; unit_price?: number | null }>
   shipping_methods?: Array<{ amount?: number | null }>
 }
@@ -65,6 +68,11 @@ export function normalizePhoneForMeta(
   return digits
 }
 
+// Commande saisie dans l'admin (bouton "Nouvelle commande") : vente conclue
+// par téléphone, sans pixel navigateur. Site et agent WhatsApp : "website".
+export const actionSourceFor = (metadata: Record<string, unknown> | null | undefined): MetaActionSource =>
+  metadata?.source === "telephone" ? "phone_call" : "website"
+
 export function buildPurchaseEvent(
   order: OrderForMetaConversion,
   eventTime: number
@@ -78,7 +86,7 @@ export function buildPurchaseEvent(
     // client (order-tracker) - c'est ce qui permet à Meta de dédupliquer les
     // deux événements plutôt que de compter la vente deux fois.
     event_id: order.id,
-    action_source: "website",
+    action_source: actionSourceFor(order.metadata),
     user_data: phone ? { ph: [hashForMeta(phone)] } : {},
     custom_data: {
       currency: order.currency_code.toUpperCase(),

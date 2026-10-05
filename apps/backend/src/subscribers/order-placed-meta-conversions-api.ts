@@ -10,9 +10,11 @@ import { sendConversionEvent } from "../lib/meta-conversions-client"
  * Envoie l'événement Purchase à la Meta Conversions API - complète (jamais
  * ne remplace) le pixel côté client (order-tracker), qui pousse le même
  * event_id (order.id) pour permettre à Meta de dédupliquer les deux plutôt
- * que de compter la vente en double. Voir meta-catalog-sync pour
- * l'intégration Meta soeur (synchro catalogue) - même pattern try/catch,
- * jamais de throw, qu'order-placed-customer-whatsapp.ts.
+ * que de compter la vente en double. Le pixel ne déduplique que les
+ * commandes du site (action_source "website") ; les commandes par téléphone
+ * (action_source "phone_call") sont envoyées sans pixel côté client.
+ * Voir meta-catalog-sync pour l'intégration Meta soeur (synchro catalogue) -
+ * même pattern try/catch, jamais de throw, qu'order-placed-customer-whatsapp.ts.
  */
 export default async function orderPlacedMetaConversionsApiHandler({
   event,
@@ -40,6 +42,7 @@ export default async function orderPlacedMetaConversionsApiHandler({
         "id",
         "currency_code",
         "total",
+        "metadata",
         "shipping_address.phone",
         // Articles et livraison chargés en entier : avec items.quantity demandé
         // seul, query.graph ne renvoie pas la quantité (constaté le 2026-09-27).

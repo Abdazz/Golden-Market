@@ -2,6 +2,7 @@ import {
   hashForMeta,
   normalizePhoneForMeta,
   buildPurchaseEvent,
+  actionSourceFor,
   type OrderForMetaConversion,
 } from "../meta-conversions-mapping"
 
@@ -30,6 +31,17 @@ describe("normalizePhoneForMeta", () => {
 
   it("returns null when there is no phone at all", () => {
     expect(normalizePhoneForMeta(undefined)).toBeNull()
+  })
+})
+
+describe("actionSourceFor", () => {
+  it("commande saisie par téléphone : phone_call", () => {
+    expect(actionSourceFor({ source: "telephone" })).toBe("phone_call")
+  })
+  it("site, agent WhatsApp ou métadonnées absentes : website", () => {
+    expect(actionSourceFor({ source: "whatsapp" })).toBe("website")
+    expect(actionSourceFor(null)).toBe("website")
+    expect(actionSourceFor(undefined)).toBe("website")
   })
 })
 
@@ -96,5 +108,10 @@ describe("buildPurchaseEvent", () => {
   it("omits ph from user_data when the order has no phone", () => {
     const event = buildPurchaseEvent({ ...order, shipping_address: {} }, 1700000000)
     expect(event.user_data.ph).toBeUndefined()
+  })
+
+  it("buildPurchaseEvent : action_source phone_call pour une commande par téléphone", () => {
+    const event = buildPurchaseEvent({ ...order, metadata: { source: "telephone" } }, 1700000000)
+    expect(event.action_source).toBe("phone_call")
   })
 })

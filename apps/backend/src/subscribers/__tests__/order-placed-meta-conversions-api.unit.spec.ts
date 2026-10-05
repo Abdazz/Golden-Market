@@ -68,6 +68,7 @@ describe("orderPlacedMetaConversionsApiHandler", () => {
       container: container as any,
     })
 
+    expect(graph.mock.calls[0][0].fields).toEqual(expect.arrayContaining(["metadata"]))
     expect(graph).toHaveBeenCalledWith(
       expect.objectContaining({ fields: expect.arrayContaining(["items.*", "shipping_methods.*"]) })
     )
