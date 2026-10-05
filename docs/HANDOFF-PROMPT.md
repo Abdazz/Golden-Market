@@ -67,9 +67,9 @@ dans le code, sans trailer Co-Authored-By.
 
 ## À rappeler au propriétaire (actions de son côté)
 
-Saisir les frais d'expédition des produits qui ne sont pas à 1 500 F (encadré de la fiche produit) ;
-répondre au client de Kaya (22674834919, commande 20261003001 : 11 000 F reçus hors frais de retrait,
-commande à marquer payée). Mineurs différés de la revue : widget vidéo produit (« Retirer » ne
+Frais d'expédition saisis le 2026-10-05 sur les 39 produits (balai-éponge 1 500 F, les autres
+1 000 F) ; un nouveau produit sans frais saisis prend 1 500 F par défaut, à saisir à sa création.
+Client de Kaya (20261003001) : réglé par le propriétaire (commande expédiée). Mineurs différés de la revue : widget vidéo produit (« Retirer » ne
 supprime pas `video_url`, fusion des métadonnées Medusa), widget frais sans gestion d'échec réseau,
 route téléphone sans test unitaire.
 
