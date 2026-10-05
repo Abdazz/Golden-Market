@@ -65,6 +65,16 @@ Aucun produit existant ne change (tous ont des frais saisis).
   ville ou d'articles (attente de 300 ms) ; pendant le calcul « Livraison : calcul… » ; en cas d'échec
   « Livraison : calculée à la validation » et le total affiché reste celui des articles.
 
+### 9. Suivi Meta des commandes par téléphone
+
+L'événement Purchase envoyé à l'API Conversions de Meta porte aujourd'hui `action_source: "website"`
+pour toutes les commandes. Une commande saisie dans l'admin (`order.metadata.source = "telephone"`)
+est envoyée avec `action_source: "phone_call"` (valeur prévue par Meta pour une vente conclue par
+téléphone ; aucun pixel navigateur, donc pas de déduplication à gérer). Les commandes du site et de
+l'agent WhatsApp gardent `website` (la valeur Meta `business_messaging` exige une configuration
+WhatsApp côté Meta non vérifiée : hors périmètre). Règle pure `actionSourceFor(metadata)` dans
+`src/lib/meta-conversions-mapping.ts`, testée ; l'abonné demande `metadata` dans `query.graph`.
+
 ## Tests
 
 Unitaires (TDD) : `deliveriesToCancel`, route des commandes par téléphone, route `shipping-fee`
