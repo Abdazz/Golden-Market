@@ -1,6 +1,6 @@
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
 import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk"
-import { balances, courierTotals, orderItemNeeds, parseMovementLines } from "../../lib/courier-stock-rules"
+import { balances, courierTotals, inventoryByManagedVariant, orderItemNeeds, parseMovementLines } from "../../lib/courier-stock-rules"
 import { loadCourierBalance, loadStockItems, prepareDeliveryTakes } from "../../lib/courier-stock-query"
 import { DELIVERY_MODULE } from "../../modules/delivery"
 import type DeliveryModuleService from "../../modules/delivery/service"
@@ -85,16 +85,11 @@ export const prepareDeliveryTakesStep = createStep(
     const { data: variants } = variantIds.length
       ? await query.graph({
           entity: "product_variant",
-          fields: ["id", "inventory_items.inventory_item_id", "inventory_items.required_quantity"],
+          fields: ["id", "manage_inventory", "inventory_items.inventory_item_id", "inventory_items.required_quantity"],
           filters: { id: variantIds },
         })
       : { data: [] }
-    const inventoryByVariant = Object.fromEntries(
-      variants.map((v: any) => [
-        v.id,
-        (v.inventory_items ?? []).map((i: any) => ({ inventory_item_id: i.inventory_item_id, required_quantity: Number(i.required_quantity) })),
-      ])
-    )
+    const inventoryByVariant = inventoryByManagedVariant(variants as any[])
     const needs = orderItemNeeds(
       (order?.items ?? []).map((i: any) => ({ variant_id: i.variant_id, quantity: Number(i.quantity) })),
       inventoryByVariant

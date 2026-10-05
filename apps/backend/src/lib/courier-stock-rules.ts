@@ -48,6 +48,25 @@ export const orderItemNeeds = (
   return needs
 }
 
+// Table variante -> articles physiques pour le déstockage d'une livraison.
+// Les variantes sans suivi de stock (manage_inventory = false) sont exclues :
+// Medusa ne suit pas leur stock, le livreur ne les déstocke pas.
+export const inventoryByManagedVariant = (
+  variants: {
+    id: string
+    manage_inventory?: boolean | null
+    inventory_items?: { inventory_item_id: string; required_quantity: number | string | null }[] | null
+  }[]
+) =>
+  Object.fromEntries(
+    variants
+      .filter((v) => v.manage_inventory !== false)
+      .map((v) => [
+        v.id,
+        (v.inventory_items ?? []).map((i) => ({ inventory_item_id: i.inventory_item_id, required_quantity: Number(i.required_quantity) })),
+      ])
+  ) as Record<string, { inventory_item_id: string; required_quantity: number }[]>
+
 // Le livreur prend dans son stock ce qu'il a ; le reste vient du dépôt.
 export const deliveryTakes = (needs: Record<string, number>, balance: Record<string, number>): Line[] =>
   Object.entries(needs)
@@ -72,6 +91,9 @@ export const parseMovementLines = (
     if (l.quantity > MAX_QUANTITY) throw refuse("Quantité trop grande (plus de 10 000) : vérifiez la saisie.")
   }
   if (type === "adjustment") {
+    if (new Set(lines.map((l) => l.inventory_item_id)).size !== lines.length) {
+      throw refuse("Ce produit est saisi deux fois : gardez une seule ligne.")
+    }
     const counted = new Map(lines.map((l) => [l.inventory_item_id, l.quantity]))
     const movements = [...counted.entries()]
       .map(([inventory_item_id, qty]) => ({ inventory_item_id, quantity: qty - (ctx.balance[inventory_item_id] ?? 0) }))

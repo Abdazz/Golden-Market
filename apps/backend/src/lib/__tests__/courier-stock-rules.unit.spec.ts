@@ -1,4 +1,4 @@
-import { balances, courierTotals, deliveryTakes, itemLabel, orderItemNeeds, parseMovementLines } from "../courier-stock-rules"
+import { balances, courierTotals, deliveryTakes, inventoryByManagedVariant, itemLabel, orderItemNeeds, parseMovementLines } from "../courier-stock-rules"
 
 describe("balances / courierTotals", () => {
   it("somme les mouvements par livreur et article, omet les soldes nuls", () => {
@@ -51,6 +51,15 @@ describe("deliveryTakes", () => {
 
 describe("parseMovementLines", () => {
   const ctx = { balance: { balai: 3 }, warehouse: { balai: 4, seau: 0 } }
+  it("correction : refuse un produit saisi deux fois", () => {
+    expect(() =>
+      parseMovementLines("adjustment", [{ inventory_item_id: "balai", quantity: 1 }, { inventory_item_id: "balai", quantity: 4 }], ctx)
+    ).toThrow("Ce produit est saisi deux fois : gardez une seule ligne.")
+  })
+  it("retour : les doublons s'additionnent toujours", () => {
+    const r = parseMovementLines("return", [{ inventory_item_id: "balai", quantity: 1 }, { inventory_item_id: "balai", quantity: 1 }], ctx)
+    expect(r.movements).toEqual([{ inventory_item_id: "balai", quantity: -2 }])
+  })
   it("remise : fusionne les doublons, quantité positive", () => {
     expect(
       parseMovementLines("handover", [
@@ -107,5 +116,24 @@ describe("itemLabel", () => {
     expect(itemLabel({ variants: [{ title: "Aiguiseur 4 en 1", product: { title: "Aiguiseur 4 en 1" } }] })).toBe("Aiguiseur 4 en 1")
     expect(itemLabel({ title: "Éponge", variants: [] })).toBe("Éponge")
     expect(itemLabel({ sku: "SKU-1" })).toBe("SKU-1")
+  })
+})
+
+describe("inventoryByManagedVariant", () => {
+  it("exclut les variantes sans suivi de stock et convertit les quantités", () => {
+    expect(
+      inventoryByManagedVariant([
+        { id: "suivie", manage_inventory: true, inventory_items: [{ inventory_item_id: "balai", required_quantity: "2" }] },
+        { id: "libre", manage_inventory: false, inventory_items: [{ inventory_item_id: "seau", required_quantity: 1 }] },
+        { id: "sans-items", manage_inventory: true, inventory_items: null },
+      ])
+    ).toEqual({ suivie: [{ inventory_item_id: "balai", required_quantity: 2 }], "sans-items": [] })
+  })
+  it("commande mixte : seule la variante suivie produit un besoin", () => {
+    const inv = inventoryByManagedVariant([
+      { id: "suivie", manage_inventory: true, inventory_items: [{ inventory_item_id: "balai", required_quantity: 1 }] },
+      { id: "libre", manage_inventory: false, inventory_items: [{ inventory_item_id: "seau", required_quantity: 1 }] },
+    ])
+    expect(orderItemNeeds([{ variant_id: "suivie", quantity: 2 }, { variant_id: "libre", quantity: 3 }], inv)).toEqual({ balai: 2 })
   })
 })
