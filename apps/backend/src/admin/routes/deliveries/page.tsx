@@ -242,6 +242,7 @@ const LineAction = ({
     try {
       const result = await api<{
         sync_warning: string | null
+        stock_warning?: string | null
         stock_taken?: { label: string; quantity: number }[]
         courier_name?: string | null
       }>(`/admin/deliveries/${line.id}/complete`, {

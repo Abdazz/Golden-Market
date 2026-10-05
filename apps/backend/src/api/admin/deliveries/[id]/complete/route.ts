@@ -3,7 +3,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { feeEntriesFromDelivery } from "../../../../../lib/cashbook-rules"
 import { orderNumberOf } from "../../../../../lib/order-number"
 import { recordAutoEntriesWorkflow } from "../../../../../workflows/cash-entries"
-import { itemLabel } from "../../../../../lib/courier-stock-rules"
+import { combineWarnings, itemLabel, STOCK_WARNING } from "../../../../../lib/courier-stock-rules"
 import { takeDeliveryStockWorkflow } from "../../../../../workflows/courier-stock"
 import { syncOrderAfterDelivery } from "../../../../../lib/delivery-order-sync"
 import { completeDeliveryWorkflow } from "../../../../../workflows/complete-delivery"
@@ -11,8 +11,9 @@ import { updateDeliveryWorkflow } from "../../../../../workflows/update-delivery
 import type { CompleteDeliverySchema } from "../../middlewares"
 
 // Livrée / Échec / Déposée à la gare, puis répercussion sur la commande
-// (paiement, "Fulfillment") : un échec de synchronisation est enregistré comme
-// avertissement, la livraison reste terminée.
+// (paiement, "Fulfillment") : un échec de synchronisation ou de déstockage du
+// livreur est enregistré comme avertissement (un seul, combiné), la livraison
+// reste terminée.
 export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchema>, res: MedusaResponse) {
   const { result: delivery } = await completeDeliveryWorkflow(req.scope).run({
     input: { id: req.params.id, ...req.validatedBody },
@@ -25,13 +26,11 @@ export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchem
       status: delivery.status,
       collected: delivery.amount_collected ?? 0,
     })
-    if (syncWarning) {
-      await updateDeliveryWorkflow(req.scope).run({ input: { id: delivery.id, sync_warning: syncWarning } })
-    }
   }
 
   // Stock confié au livreur (spec 2026-09-28 stock-livreurs) : il déstocke ce
   // qu'il détient. Jamais bloquant ; une seconde exécution ne déstocke rien.
+  let stockWarning: string | null = null
   let stockTaken: { label: string; quantity: number }[] = []
   if (delivery.status === "delivered" || delivery.status === "shipped") {
     try {
@@ -47,11 +46,15 @@ export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchem
         stockTaken = taken.map((m: any) => ({ label: labels[m.inventory_item_id] ?? "Article", quantity: -m.quantity }))
       }
     } catch (error) {
+      stockWarning = STOCK_WARNING
       req.scope.resolve(ContainerRegistrationKeys.LOGGER).error(
         `Stock livreur : livraison ${delivery.id} non déstockée (${(error as Error).message})`
       )
     }
   }
+
+  const warning = combineWarnings(syncWarning, stockWarning)
+  if (warning) await updateDeliveryWorkflow(req.scope).run({ input: { id: delivery.id, sync_warning: warning } })
 
   // Frais livreur / compagnie -> sorties du journal de caisse (spec
   // 2026-09-28 journal-de-caisse). Jamais bloquant pour la livraison.
@@ -73,5 +76,11 @@ export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchem
     )
   }
 
-  res.json({ delivery: { ...delivery, sync_warning: syncWarning }, sync_warning: syncWarning, stock_taken: stockTaken, courier_name: courierName })
+  res.json({
+    delivery: { ...delivery, sync_warning: warning },
+    sync_warning: warning,
+    stock_warning: stockWarning,
+    stock_taken: stockTaken,
+    courier_name: courierName,
+  })
 }

@@ -1,4 +1,4 @@
-import { balances, courierTotals, deliveryTakes, inventoryByManagedVariant, itemLabel, orderItemNeeds, parseMovementLines } from "../courier-stock-rules"
+import { balances, combineWarnings, courierTotals, deliveryTakes, inventoryByManagedVariant, itemLabel, orderItemNeeds, parseMovementLines, STOCK_WARNING } from "../courier-stock-rules"
 
 describe("balances / courierTotals", () => {
   it("somme les mouvements par livreur et article, omet les soldes nuls", () => {
@@ -135,5 +135,16 @@ describe("inventoryByManagedVariant", () => {
       { id: "libre", manage_inventory: false, inventory_items: [{ inventory_item_id: "seau", required_quantity: 1 }] },
     ])
     expect(orderItemNeeds([{ variant_id: "suivie", quantity: 2 }, { variant_id: "libre", quantity: 3 }], inv)).toEqual({ balai: 2 })
+  })
+})
+
+describe("combineWarnings", () => {
+  it("joint les avertissements présents, null si aucun", () => {
+    expect(combineWarnings("Paiement non marqué.", STOCK_WARNING)).toBe(`Paiement non marqué. ${STOCK_WARNING}`)
+    expect(combineWarnings(null, STOCK_WARNING)).toBe(STOCK_WARNING)
+    expect(combineWarnings(null, undefined, "")).toBeNull()
+  })
+  it("texte de l'avertissement de stock", () => {
+    expect(STOCK_WARNING).toBe("Stock du livreur non mis à jour : faites une correction dans l'onglet Stock livreurs.")
   })
 })
