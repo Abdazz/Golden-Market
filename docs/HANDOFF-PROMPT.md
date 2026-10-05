@@ -1,7 +1,7 @@
 # Prompt de reprise (nouvelle session Claude Code)
 
 Copier le bloc ci-dessous comme premier message d'une nouvelle session ouverte dans
-`medusa-golden-market/`. Mis à jour le 2026-10-04.
+`medusa-golden-market/`. Mis à jour le 2026-10-05.
 
 ---
 
@@ -53,9 +53,7 @@ dans le code, sans trailer Co-Authored-By.
 
 ## Prochaines tâches proposées au propriétaire (à lui faire choisir)
 
-1. **Tableau de bord de gestion** (spec et plan écrits le 2026-10-04 : `docs/superpowers/specs/2026-10-04-tableau-de-bord-design.md`, `docs/superpowers/plans/2026-10-04-tableau-de-bord.md`, à exécuter, méthode à faire choisir) : une page « Aujourd'hui / ce mois » (ventes, caisse, marges,
-   livraisons faites / à faire, stock chez les livreurs, prospects à relancer). Architectural :
-   brainstorming + spec + plan.
+1. **Tableau de bord de gestion : livré le 2026-10-05** (`/app/dashboard`). Mineurs différés : chiffres indisponibles sans libellé, grilles à 3 colonnes serrées sur téléphone, entrée de menu après les pages natives Medusa (limite de Medusa), livraisons de commandes annulées comptées en cours tant que la tournée n'est pas ouverte.
 2. **Finitions du stock livreurs** (mineurs de la revue finale) : recherche produit par nom dans les
    formulaires ; avertissement visible si le déstockage échoue à « Livrée » (aujourd'hui seulement
    journalisé) ; lignes réinitialisées au changement de livreur en mode Retour ; message d'erreur

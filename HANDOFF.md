@@ -16,6 +16,15 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-05 - **Tableau de bord de gestion livré en production** (`/app/dashboard`, entrée « Tableau de
+bord » du menu ; spec `docs/superpowers/specs/2026-10-04-tableau-de-bord-design.md`). « À faire
+aujourd'hui » (commandes à confier, livraisons en cours et en retard d'après la date de tournée
+initiale, argent à récupérer chez les livreurs, prospects à relancer, conversations en attente) puis
+chiffres du jour et du mois (commandé, encaissé, caisse, marge, stock chez les livreurs). Route
+`GET /admin/dashboard`, blocs indépendants (un bloc en échec = « indisponible »). Calculs des pages
+À confier, Marges et Prospects extraits dans `lib/` (réponses identiques avant/après, vérifié sur
+staging). Recoupé en production avec chaque page détaillée : identique.
+
 2026-10-04 - **Agent WhatsApp corrigé (paiements) et frais d'expédition par produit livrés en production.**
 - Incident réel (client de Kaya, commande 20261003001, 2026-10-03) : l'agent a contesté un paiement
   correct (9 595 F = prix + frais de retrait, puis 1 515 F d'expédition) et l'alerte « paiement
