@@ -16,50 +16,55 @@ dans le code, sans trailer Co-Authored-By.
 
 ## État (tout est en production)
 
-- Mini-SaaS : Livraisons (livreurs, tournée, versements, **stock confié aux livreurs**), Caisse,
+- Mini-SaaS : Tableau de bord (`/app/dashboard` : « À faire aujourd'hui » puis chiffres du jour et
+  du mois), Livraisons (livreurs, tournée, versements, stock confié aux livreurs), Caisse,
   Approvisionnement et marges, Prospects (relances, attente de stock, « Prévenir » = modèle Meta
   `retour_en_stock`).
+- Frais d'expédition par produit : option de livraison « Livraison » à prix calculé (fournisseur
+  `golden-market-shipping`) : gratuite à Ouagadougou, ailleurs les frais les plus élevés du panier ;
+  saisis dans l'encadré « Frais d'expédition » de la fiche produit (`metadata.frais_expedition_xof`,
+  1 500 F si vide). Saisis le 2026-10-05 : balai-éponge 1 500 F, les 38 autres produits 1 000 F.
+  Le site, l'agent WhatsApp (`place_order`) et les commandes par téléphone ajoutent ces frais au
+  total ; l'agent les lit dans ses outils de recherche (`shipping_fee_xof`).
 - Chat WhatsApp de l'admin : médias, vocaux, reprise manuelle, « Non envoyé » (refus Meta),
-  messages automatiques (modèles) dans l'historique, « Suivre comme prospect ».
-- Agent WhatsApp, médias client : description vidéo par Gemini (`gemini-3.6-flash`, 3 essais, puis
-  secours `gemini-3.5-flash`, 2 essais), photo par OpenAI et vocal par Whisper (3 essais chacun) ;
-  si tout échoue, l'agent prévient le client et appelle `escalate_to_human`. Claude ne lit pas la
-  vidéo (texte, images, PDF seulement). Le chemin de secours et l'escalade n'ont été testés que hors
-  ligne (impossible de forcer une surcharge de Google) : surveiller les exécutions n8n.
-- Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (2026-09-27 et 09-28).
-
-- Frais d'expédition par produit (2026-10-04) : option de livraison calculée (gratuit à
-  Ouagadougou, sinon frais les plus élevés du panier, 1 500 F par défaut), saisis dans l'encadré de
-  la fiche produit ; l'agent les annonce. Agent : alerte de paiement réparée, reçus lus, frais de
-  retrait (~1 %) acceptés, réactions emoji enregistrées.
+  messages automatiques (modèles) dans l'historique, « Suivre comme prospect », réactions emoji
+  affichées (« Réaction : 👍🏾 »).
+- Agent WhatsApp : paiements (alerte « Paiement signalé » au propriétaire réparée le 2026-10-04,
+  reçus Orange / Moov Money lus par la vision, frais de retrait ~1 % et transferts multiples
+  acceptés, ne conteste jamais un paiement) ; médias client (vidéo par Gemini `gemini-3.6-flash`
+  puis secours `gemini-3.5-flash`, photo par OpenAI, vocal par Whisper, escalade si tout échoue).
+- Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier lot :
+  2026-10-04, frais d'expédition et tableau de bord).
 
 ## À vérifier en début de session
 
-- Premières commandes hors Ouagadougou après le 2026-10-04 : total frais compris correct (site,
-  WhatsApp, téléphone), message de l'agent annonçant le total ; première commande par téléphone
-  hors Ouaga (non testée en réel, calcul partagé vérifié par panier).
-- Premier reçu de paiement envoyé par un client : alerte « Paiement signalé » reçue par le
-  propriétaire, référence inscrite sur la commande.
-
-- Le propriétaire devait envoyer une vidéo de test depuis son téléphone : vérifier dans n8n
-  (workflow `i6KGA9BvK9unjxxj`, nœuds `Describe Video (Vision)` / `(Vision, secours)`) qu'elle a été
-  décrite, et que la réponse de l'agent en tient compte.
-- Le client 22664947373 (vidéos du 2026-09-29) cherchait un balai-éponge à tête interchangeable :
-  piste de relance à rappeler au propriétaire (le numéro est aussi l'un de ses propres comptes de
-  test, à confirmer avec lui).
-- Messages modèles envoyés aux clients : remis au téléphone, mais **pas affichés sur WhatsApp Web
-  ni sur les appareils liés** (comportement de WhatsApp, constaté le 2026-10-01). Un message
-  « delivered » sans « Non envoyé » est donc bien arrivé sur le téléphone.
+- Premières commandes hors Ouagadougou depuis le 2026-10-04 : total frais compris (site, WhatsApp,
+  téléphone) et message de l'agent annonçant ce total. La commande par téléphone et `place_order`
+  n'ont pas été testés en réel (calcul partagé vérifié par paniers API non validés).
+- Premier reçu de paiement d'un client : alerte « Paiement signalé » reçue par le propriétaire,
+  référence inscrite sur la commande (`metadata.whatsapp_payment_reference`).
+- Vidéo de test que le propriétaire devait envoyer (toujours rien au 2026-10-05) : vérifier dans
+  n8n (workflow `i6KGA9BvK9unjxxj`, nœuds `Describe Video (Vision)` / `(Vision, secours)`).
+- Le client 22664947373 (vidéos du 2026-09-29, balai-éponge à tête interchangeable) : piste de
+  relance à rappeler au propriétaire (c'est aussi son numéro Orange Money / de test, à confirmer).
+- Messages modèles : remis au téléphone mais pas affichés sur WhatsApp Web ni les appareils liés
+  (comportement de WhatsApp) ; un message « delivered » sans « Non envoyé » est bien arrivé.
 
 ## Prochaines tâches proposées au propriétaire (à lui faire choisir)
 
-1. **Tableau de bord de gestion : livré le 2026-10-05** (`/app/dashboard`). Mineurs différés : chiffres indisponibles sans libellé, grilles à 3 colonnes serrées sur téléphone, entrée de menu après les pages natives Medusa (limite de Medusa), livraisons de commandes annulées comptées en cours tant que la tournée n'est pas ouverte.
-2. **Finitions du stock livreurs** (mineurs de la revue finale) : recherche produit par nom dans les
+1. **Finitions du stock livreurs** (mineurs de la revue finale) : recherche produit par nom dans les
    formulaires ; avertissement visible si le déstockage échoue à « Livrée » (aujourd'hui seulement
    journalisé) ; lignes réinitialisées au changement de livreur en mode Retour ; message d'erreur
    au lieu de « Chargement… » sans fin ; refuser un produit saisi deux fois dans une correction ;
    ignorer les variantes `manage_inventory = false` au déstockage ; verrou entre mouvements
    manuels simultanés.
+2. **Finitions tableau de bord et frais d'expédition** (mineurs des revues du 2026-10-04/05) :
+   chiffres « Commandé » / « Encaissé » indisponibles sans libellé ; cartes à 3 montants serrées
+   sur téléphone ; livraisons de commandes annulées comptées « en cours » tant que la tournée n'est
+   pas ouverte ; encadré « Frais d'expédition » sans gestion d'échec réseau ; « Retirer » du widget
+   vidéo produit ne supprime pas `video_url` (fusion des métadonnées Medusa) ; route des commandes
+   par téléphone sans test unitaire ; défaut de 1 500 F à passer à 1 000 F si le propriétaire le
+   souhaite (constante `DEFAULT_SHIPPING_FEE_XOF`).
 3. **Suivi Meta des commandes par téléphone** (action_source « phone_call » dans l'API Conversions).
 4. **Entretien** : purger le fichier `wa-media` orphelin après un envoi échoué ; la purge nocturne
    rescanne d'anciens messages ; coches « remis / lu » dans le chat (refusé pour l'instant, à
@@ -67,21 +72,21 @@ dans le code, sans trailer Co-Authored-By.
 
 ## À rappeler au propriétaire (actions de son côté)
 
-Frais d'expédition saisis le 2026-10-05 sur les 39 produits (balai-éponge 1 500 F, les autres
-1 000 F) ; un nouveau produit sans frais saisis prend 1 500 F par défaut, à saisir à sa création.
-Client de Kaya (20261003001) : réglé par le propriétaire (commande expédiée). Mineurs différés de la revue : widget vidéo produit (« Retirer » ne
-supprime pas `video_url`, fusion des métadonnées Medusa), widget frais sans gestion d'échec réseau,
-route téléphone sans test unitaire.
-
-Valider les hypothèses des specs caisse / approvisionnement / prospects ; saisir le solde initial de
-caisse et les coûts de revient du stock existant (onglet Marges) ; ajouter ses autres livreurs puis
-le stock qu'il leur confie ; « Rendre la main » sur sa conversation de test (22677406101).
+- Saisir le solde initial de caisse (la caisse affiche 0 F en production) et les coûts de revient
+  du stock existant (onglet Marges, sinon la marge du mois reste incomplète).
+- Saisir les frais d'expédition de chaque nouveau produit à sa création (sinon 1 500 F) ; vérifier
+  ceux des produits volumineux (congélateur, vitrine, machines), réglés à 1 000 F comme les autres.
+- Valider les hypothèses des specs caisse / approvisionnement / prospects ; ajouter ses autres
+  livreurs puis le stock qu'il leur confie ; « Rendre la main » sur sa conversation de test
+  (22677406101).
 
 ## Méthode de travail attendue
 
 - Skills superpowers : brainstorming (annoncer bounded / architectural, design validé avant tout
-  code), writing-plans puis executing-plans en ligne pour l'architectural ; TDD (test qui échoue
-  d'abord) ; revue finale par un agent frais quand un plan est exécuté. Skills medusa-dev
+  code), writing-plans, puis exécution du plan **avec des sous-agents**
+  (subagent-driven-development : choix du propriétaire les 2026-10-04 et 05) ; déploiement, SSH et
+  n8n en production faits par le contrôleur, pas par les sous-agents ; TDD (test qui échoue
+  d'abord) ; revue finale par un agent frais sur le modèle le plus capable. Skills medusa-dev
   (`building-with-medusa`, `building-admin-dashboard-customizations`) pour tout code Medusa.
 - Il a donné carte blanche pour déployer jusqu'en production après tests ; tests autorisés sur son
   numéro +226 77 40 61 01 (prévenir avant tout envoi réel ; ne plus simuler de messages entrants
@@ -125,6 +130,17 @@ le stock qu'il leur confie ; « Rendre la main » sur sa conversation de test (2
   `../n8n_automation/schema.sql` et à la base locale de test.
 - Modèles Gemini : vérifier qu'un modèle existe encore pour la clé avant de l'utiliser
   (`gemini-2.5-flash` renvoie 404 « no longer available to new users »).
+- Medusa fusionne `metadata` à l'enregistrement d'un produit : pour retirer une clé, envoyer `""`
+  (l'omettre la laisse en place).
+- Le job nocturne `postpone-deliveries` ramène chaque nuit le `tour_date` des livraisons en cours à
+  aujourd'hui : « en retard » = `first_tour_date` < aujourd'hui.
+- n8n : un nœud HTTP qui échoue renvoie l'erreur Meta sur sa sortie succès ou erreur selon
+  `onError` ; un sous-workflow appelé par l'agent renvoie la sortie de son DERNIER nœud (terminer
+  par un nœud Code qui renvoie le résultat voulu). `n8n execute` par CLI ignore `pinData` : tester
+  un sous-workflow avec une copie temporaire dont le déclencheur est remplacé par un nœud Code du
+  même nom (+ `manualTrigger`), avec `-e N8N_RUNNERS_BROKER_PORT=5698`, puis la supprimer de
+  `n8n.workflow_entity`.
+- Un commit qui ne touche que la documentation ne déclenche pas de build GitHub Actions.
 - Le scratchpad de session est vidé entre les sessions : recréer l'admin de test local et
   ré-exporter les workflows n8n au besoin.
 

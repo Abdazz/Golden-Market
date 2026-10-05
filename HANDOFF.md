@@ -23,7 +23,12 @@ initiale, argent à récupérer chez les livreurs, prospects à relancer, conver
 chiffres du jour et du mois (commandé, encaissé, caisse, marge, stock chez les livreurs). Route
 `GET /admin/dashboard`, blocs indépendants (un bloc en échec = « indisponible »). Calculs des pages
 À confier, Marges et Prospects extraits dans `lib/` (réponses identiques avant/après, vérifié sur
-staging). Recoupé en production avec chaque page détaillée : identique.
+staging). Recoupé en production avec chaque page détaillée : identique. « En retard » = date de
+tournée initiale (`first_tour_date`), le report nocturne remettant `tour_date` à jour.
+- Frais d'expédition saisis en production à la demande du propriétaire : balai-éponge 1 500 F,
+  les 38 autres produits 1 000 F (vérifié par panier API non validé : Kaya 1 000 F, Ouaga 0 F).
+- Client de Kaya (20261003001) : réglé par le propriétaire, commande expédiée.
+- Reste à faire / proposé : voir `docs/HANDOFF-PROMPT.md`.
 
 2026-10-04 - **Agent WhatsApp corrigé (paiements) et frais d'expédition par produit livrés en production.**
 - Incident réel (client de Kaya, commande 20261003001, 2026-10-03) : l'agent a contesté un paiement
@@ -40,7 +45,7 @@ staging). Recoupé en production avec chaque page détaillée : identique.
   (`shipping_fee_xof`), checkout « Gratuite » à 0 F, agent n8n (frais par produit, total frais
   compris). Vérifié en production par panier API non validé (Kaya 1 500 F, Ouagadougou 0 F).
 - Plan du tableau de bord de gestion écrit (`docs/superpowers/plans/2026-10-04-tableau-de-bord.md`),
-  pas encore exécuté.
+  exécuté et livré le 2026-10-05.
 - Reste à faire / proposé : voir `docs/HANDOFF-PROMPT.md`.
 
 2026-10-01 - **Chat WhatsApp et prospects : 3 améliorations livrées en production.**
@@ -2100,6 +2105,21 @@ Non commencée, hors périmètre du lancement (sync n8n, bouton WhatsApp, import
 catalogue automatisé, nettoyage TODOs template).
 
 ## Journal
+
+- **2026-10-04/05 (paiements de l'agent, frais d'expédition, tableau de bord)** — Leçons :
+  1. Un outil n8n peut être cassé depuis toujours sans que personne le voie : `mark_payment_reported`
+     n'avait jamais envoyé son alerte (paramètre de modèle vide, Meta 131008) et l'agent recevait
+     l'erreur comme résultat. Tester chaque outil de bout en bout (copie temporaire, voir
+     `docs/HANDOFF-PROMPT.md`) et terminer chaque sous-workflow par un nœud qui renvoie toujours
+     le résultat attendu.
+  2. Une consigne de vision « orientée produit » ne lit pas un reçu : prévoir explicitement les
+     captures de paiement (recopier montant, bénéficiaire, date, référence).
+  3. Une spec peut se tromper sur la sémantique d'un champ : `tour_date` est réécrit chaque nuit par
+     le report automatique ; la revue finale l'a vu, pas les tests (qui suivaient la spec).
+  4. Un script one-shot destructif sur une vraie base (bascule d'option de livraison) doit se
+     repérer sur l'objet qu'il remplace, jamais sur `[0]` d'une liste, échouer avant toute écriture
+     si l'état n'est pas celui attendu, et réparer ce qui pointait vers l'objet supprimé (paniers
+     ouverts).
 
 - **2026-09-03 (observabilité backend, GlitchTip self-hosted)** — Deux leçons
   génériques à retenir pour tout futur service self-hosted ajouté à ce VPS
