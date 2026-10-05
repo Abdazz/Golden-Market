@@ -1,4 +1,4 @@
-import { parseFormLines } from "../courier-stock-form"
+import { parseFormLines, readableError } from "../courier-stock-form"
 
 describe("parseFormLines", () => {
   it("correction : un champ « Compté » vide est refusé (ne vaut pas 0)", () => {
@@ -40,5 +40,42 @@ describe("parseFormLines", () => {
         { inventory_item_id: "balai", quantity: "2" },
       ])
     ).toEqual({ lines: [{ inventory_item_id: "balai", quantity: 1 }, { inventory_item_id: "balai", quantity: 2 }] })
+  })
+  it("quantité saisie sans produit choisi : refusée", () => {
+    expect(parseFormLines("handover", [{ inventory_item_id: "", quantity: "2" }])).toEqual({ error: "Choisissez le produit dans la liste." })
+    expect(
+      parseFormLines("handover", [
+        { inventory_item_id: "seau", quantity: "1" },
+        { inventory_item_id: "", quantity: "2" },
+      ])
+    ).toEqual({ error: "Choisissez le produit dans la liste." })
+  })
+  it("texte tapé sans produit choisi : refusé, même sans quantité", () => {
+    expect(parseFormLines("return", [{ inventory_item_id: "", quantity: "", search: "bal" }])).toEqual({ error: "Choisissez le produit dans la liste." })
+    expect(
+      parseFormLines("adjustment", [
+        { inventory_item_id: "seau", quantity: "1", search: "Seau" },
+        { inventory_item_id: "", quantity: "", search: "bal" },
+      ])
+    ).toEqual({ error: "Choisissez le produit dans la liste." })
+  })
+  it("ligne entièrement vide (texte blanc compris) : ignorée", () => {
+    expect(
+      parseFormLines("handover", [
+        { inventory_item_id: "", quantity: " ", search: "  " },
+        { inventory_item_id: "seau", quantity: "2", search: "Seau" },
+      ])
+    ).toEqual({ lines: [{ inventory_item_id: "seau", quantity: 2 }] })
+  })
+})
+
+describe("readableError", () => {
+  it("erreur réseau : message en français", () => {
+    expect(readableError(new TypeError("Failed to fetch"))).toBe("Service injoignable, réessayez.")
+    expect(readableError(new TypeError("NetworkError when attempting to fetch resource."))).toBe("Service injoignable, réessayez.")
+  })
+  it("autre erreur : message d'origine, ou texte par défaut si vide", () => {
+    expect(readableError(new Error("Erreur 500"))).toBe("Erreur 500")
+    expect(readableError(new Error(""))).toBe("Chargement impossible.")
   })
 })

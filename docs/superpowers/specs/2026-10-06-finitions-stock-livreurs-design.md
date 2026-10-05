@@ -21,6 +21,9 @@ jamais perdre silencieusement un mouvement ou un déstockage.
 - Chaque proposition affiche la quantité utile (au dépôt / chez le livreur). Un clic choisit le
   produit ; le champ affiche alors son libellé, et le modifier annule le choix.
 - Champ vide ou sans résultat : « Aucun produit » ; utilisable au doigt sur téléphone.
+- Au plus 30 propositions ; au-delà, une dernière ligne grise « Affinez la recherche… ».
+- Une ligne avec une quantité ou un texte de recherche mais sans produit choisi dans la liste est
+  refusée : « Choisissez le produit dans la liste. » (une ligne entièrement vide reste ignorée).
 - Règle de filtrage pure : `admin/lib/product-search.ts` (`matchesSearch(label, query)`), testée.
 
 ### 2. Déstockage échoué à « Livrée » / « Déposée à la gare »
@@ -48,6 +51,10 @@ livreur). Remise et correction : inchangé.
 
 - Onglet : si `GET /admin/courier-stock` échoue, afficher le message d'erreur et un bouton
   « Réessayer » au lieu de « Chargement… » sans fin.
+- Rechargement en échec après un mouvement réussi : l'avis de succès reste affiché et, sur une
+  ligne séparée, « Mise à jour de l'affichage impossible : <message> » avec « Réessayer ».
+- Erreur réseau (fetch impossible) : « Service injoignable, réessayez. » au lieu du message brut
+  du navigateur (`readableError`, `admin/lib/courier-stock-form.ts`).
 - Historique d'un livreur : en échec, « Historique indisponible. » au lieu de « Aucun mouvement. ».
 
 ### 5. Produit saisi deux fois dans une correction
