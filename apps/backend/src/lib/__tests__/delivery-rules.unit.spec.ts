@@ -3,6 +3,7 @@ import {
   computeAmountToCollect,
   computeSettlement,
   dayOf,
+  deliveriesToCancel,
   parseCourierInput,
   postponeUpdates,
   defaultTypeForCity,
@@ -143,5 +144,21 @@ describe("postponeUpdates", () => {
       { id: "a", tour_date: "2026-09-28", postponed_count: 1 },
       { id: "d", tour_date: "2026-09-28", postponed_count: 3 },
     ])
+  })
+})
+
+describe("deliveriesToCancel", () => {
+  it("annule seulement les livraisons confiées non terminées", () => {
+    expect(
+      deliveriesToCancel([
+        { id: "d1", status: "assigned" },
+        { id: "d2", status: "delivered" },
+        { id: "d3", status: "failed" },
+        { id: "d4", status: "canceled" },
+      ])
+    ).toEqual([{ id: "d1", status: "canceled" }])
+  })
+  it("aucune livraison : rien", () => {
+    expect(deliveriesToCancel([])).toEqual([])
   })
 })

@@ -133,3 +133,7 @@ export const postponeUpdates = (
   deliveries
     .filter((d) => d.status === "assigned" && d.tour_date < today)
     .map((d) => ({ id: d.id, tour_date: today, postponed_count: d.postponed_count + 1 }))
+
+// Commande annulée : ses livraisons confiées non terminées passent "Annulée".
+export const deliveriesToCancel = (deliveries: { id: string; status: string }[]) =>
+  deliveries.filter((d) => d.status === "assigned").map((d) => ({ id: d.id, status: "canceled" as const }))
