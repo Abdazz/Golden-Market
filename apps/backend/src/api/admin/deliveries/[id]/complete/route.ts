@@ -33,28 +33,49 @@ export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchem
   let stockWarning: string | null = null
   let stockTaken: { label: string; quantity: number }[] = []
   if (delivery.status === "delivered" || delivery.status === "shipped") {
+    let taken: { inventory_item_id: string; quantity: number }[] = []
     try {
-      const { result: taken } = await takeDeliveryStockWorkflow(req.scope).run({ input: { delivery_id: delivery.id } })
-      if (taken.length) {
-        const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
-        const { data: items } = await query.graph({
-          entity: "inventory_item",
-          fields: ["id", "title", "sku", "variants.title", "variants.product.title"],
-          filters: { id: taken.map((m: any) => m.inventory_item_id) },
-        })
-        const labels = Object.fromEntries(items.map((i: any) => [i.id, itemLabel(i)]))
-        stockTaken = taken.map((m: any) => ({ label: labels[m.inventory_item_id] ?? "Article", quantity: -m.quantity }))
-      }
+      const { result } = await takeDeliveryStockWorkflow(req.scope).run({ input: { delivery_id: delivery.id } })
+      taken = result as any[]
     } catch (error) {
       stockWarning = STOCK_WARNING
       req.scope.resolve(ContainerRegistrationKeys.LOGGER).error(
         `Stock livreur : livraison ${delivery.id} non déstockée (${(error as Error).message})`
       )
     }
+    // Libellés des articles déstockés : le déstockage a eu lieu, un échec de
+    // lecture ne donne que le libellé « Article », sans avertissement de stock.
+    let labels: Record<string, string> = {}
+    if (taken.length) {
+      try {
+        const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+        const { data: items } = await query.graph({
+          entity: "inventory_item",
+          fields: ["id", "title", "sku", "variants.title", "variants.product.title"],
+          filters: { id: taken.map((m) => m.inventory_item_id) },
+        })
+        labels = Object.fromEntries(items.map((i: any) => [i.id, itemLabel(i)]))
+      } catch (error) {
+        req.scope.resolve(ContainerRegistrationKeys.LOGGER).error(
+          `Stock livreur : libellés des articles de la livraison ${delivery.id} illisibles (${(error as Error).message})`
+        )
+      }
+    }
+    stockTaken = taken.map((m) => ({ label: labels[m.inventory_item_id] ?? "Article", quantity: -m.quantity }))
   }
 
+  // La livraison est déjà terminée : un échec d'inscription de l'avertissement
+  // est journalisé, sans erreur 500 ni journal de caisse sauté.
   const warning = combineWarnings(syncWarning, stockWarning)
-  if (warning) await updateDeliveryWorkflow(req.scope).run({ input: { id: delivery.id, sync_warning: warning } })
+  if (warning) {
+    try {
+      await updateDeliveryWorkflow(req.scope).run({ input: { id: delivery.id, sync_warning: warning } })
+    } catch (error) {
+      req.scope.resolve(ContainerRegistrationKeys.LOGGER).error(
+        `Livraison ${delivery.id} : avertissement non enregistré (${(error as Error).message})`
+      )
+    }
+  }
 
   // Frais livreur / compagnie -> sorties du journal de caisse (spec
   // 2026-09-28 journal-de-caisse). Jamais bloquant pour la livraison.
