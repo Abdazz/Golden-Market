@@ -70,14 +70,16 @@ describe("POST /admin/phone-orders", () => {
     await POST(scope({ fee: 1500 }).req(body), r)
     expect(runs.customers).toHaveBeenCalled()
     const draft = runs.order.mock.calls[0][0].input
-    expect(JSON.stringify(draft)).toContain('"amount":1500')
+    expect(draft.shipping_methods).toEqual([{ name: "Livraison", shipping_option_id: "so_1", amount: 1500 }])
     expect(r.json).toHaveBeenCalledWith({ order_id: "order_1", display_id: 7, order_number: "20261006001" })
   })
 
   it("Ouagadougou : livraison gratuite, client existant réutilisé", async () => {
     await POST(scope({ existingCustomer: true }).req({ ...body, city: "Ouagadougou" }), res())
     expect(runs.customers).not.toHaveBeenCalled()
-    expect(JSON.stringify(runs.order.mock.calls[0][0].input)).toContain('"amount":0')
+    expect(runs.order.mock.calls[0][0].input.shipping_methods).toEqual([
+      { name: "Livraison", shipping_option_id: "so_1", amount: 0 },
+    ])
   })
 
   it("configuration incomplète : 500", async () => {
