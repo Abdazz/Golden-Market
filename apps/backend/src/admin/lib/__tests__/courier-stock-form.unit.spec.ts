@@ -17,4 +17,28 @@ describe("parseFormLines", () => {
     })
     expect(parseFormLines("handover", [{ inventory_item_id: "", quantity: "" }])).toEqual({ error: "Ajoutez au moins un produit." })
   })
+  it("correction : un produit saisi deux fois est refusé", () => {
+    expect(
+      parseFormLines("adjustment", [
+        { inventory_item_id: "balai", quantity: "1" },
+        { inventory_item_id: "balai", quantity: "3" },
+      ])
+    ).toEqual({ error: "Ce produit est saisi deux fois : gardez une seule ligne." })
+  })
+  it("correction : quantité manquante prioritaire sur le doublon", () => {
+    expect(
+      parseFormLines("adjustment", [
+        { inventory_item_id: "balai", quantity: "" },
+        { inventory_item_id: "balai", quantity: "3" },
+      ])
+    ).toEqual({ error: "Quantité manquante." })
+  })
+  it("remise : doublons acceptés (additionnés par le serveur)", () => {
+    expect(
+      parseFormLines("handover", [
+        { inventory_item_id: "balai", quantity: "1" },
+        { inventory_item_id: "balai", quantity: "2" },
+      ])
+    ).toEqual({ lines: [{ inventory_item_id: "balai", quantity: 1 }, { inventory_item_id: "balai", quantity: 2 }] })
+  })
 })

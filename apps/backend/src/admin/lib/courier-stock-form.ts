@@ -12,6 +12,9 @@ export const parseFormLines = (
   const chosen = lines.filter((l) => l.inventory_item_id)
   if (!chosen.length) return { error: "Ajoutez au moins un produit." }
   if (chosen.some((l) => !l.quantity.trim())) return { error: "Quantité manquante." }
+  if (mode === "adjustment" && new Set(chosen.map((l) => l.inventory_item_id)).size !== chosen.length) {
+    return { error: "Ce produit est saisi deux fois : gardez une seule ligne." }
+  }
   const parsed = chosen.map((l) => ({ inventory_item_id: l.inventory_item_id, quantity: Number(l.quantity.trim()) }))
   const min = mode === "adjustment" ? 0 : 1
   if (parsed.some((l) => !Number.isInteger(l.quantity) || l.quantity < min)) {

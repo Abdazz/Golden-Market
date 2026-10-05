@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { parseFormLines } from "../lib/courier-stock-form"
+import { matchesSearch } from "../lib/product-search"
 import { api, MOVEMENT_LABELS } from "../lib/deliveries"
 import type { CourierStockMovement, CourierStockOverview } from "../lib/deliveries"
 import { card, inputClass, NoticeText, primaryButton, secondaryButton } from "./delivery-ui"
@@ -13,6 +14,65 @@ type Mode = "handover" | "return" | "adjustment"
 const MODE_LABELS: Record<Mode, string> = { handover: "Remettre", return: "Retour", adjustment: "Corriger" }
 const DONE_LABELS: Record<Mode, string> = { handover: "Remise enregistrée", return: "Retour enregistré", adjustment: "Correction enregistrée" }
 type Line = { inventory_item_id: string; quantity: string }
+
+const ProductPicker = ({
+  choices,
+  value,
+  hint,
+  onChange,
+}: {
+  choices: { id: string; label: string }[]
+  value: string
+  hint: (id: string) => string
+  onChange: (id: string) => void
+}) => {
+  const selected = choices.find((c) => c.id === value)
+  const [text, setText] = useState(selected?.label ?? "")
+  const [open, setOpen] = useState(false)
+  useEffect(() => setText(selected?.label ?? ""), [selected?.label])
+  const matches = choices.filter((c) => matchesSearch(c.label, text)).slice(0, 30)
+  return (
+    <div className="relative min-w-0 flex-1">
+      <input
+        className={`${inputClass} w-full`}
+        placeholder="Rechercher un produit…"
+        value={text}
+        onFocus={() => setOpen(true)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        onChange={(e) => {
+          setText(e.target.value)
+          setOpen(true)
+          if (value) onChange("")
+        }}
+      />
+      {open && (
+        <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-ui-border-base bg-ui-bg-base shadow-elevation-flyout">
+          {matches.length ? (
+            matches.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  className="txt-compact-small flex w-full flex-col items-start px-3 py-2 text-left hover:bg-ui-bg-base-hover"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onChange(c.id)
+                    setText(c.label)
+                    setOpen(false)
+                  }}
+                >
+                  <span className="text-ui-fg-base">{c.label}</span>
+                  <span className="text-ui-fg-subtle">{hint(c.id)}</span>
+                </button>
+              </li>
+            ))
+          ) : (
+            <li className="txt-compact-small px-3 py-2 text-ui-fg-subtle">Aucun produit</li>
+          )}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 const MovementForm = ({
   mode,
@@ -28,6 +88,7 @@ const MovementForm = ({
   const [courierId, setCourierId] = useState(data.couriers[0]?.id ?? "")
   const [lines, setLines] = useState<Line[]>([{ inventory_item_id: "", quantity: "" }])
   const [note, setNote] = useState("")
+  const [resetKey, setResetKey] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -66,7 +127,14 @@ const MovementForm = ({
       <span className="txt-compact-small-plus text-ui-fg-base">
         {mode === "handover" ? "Remettre des produits au livreur" : mode === "return" ? "Le livreur rend des produits" : "Corriger après comptage (quantités réellement chez le livreur)"}
       </span>
-      <select className={inputClass} value={courierId} onChange={(e) => setCourierId(e.target.value)}>
+      <select className={inputClass} value={courierId} onChange={(e) => {
+          setCourierId(e.target.value)
+          if (mode === "return") {
+            setLines([{ inventory_item_id: "", quantity: "" }])
+            setResetKey((k) => k + 1)
+          }
+        }}
+      >
         {data.couriers.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
@@ -74,15 +142,8 @@ const MovementForm = ({
         ))}
       </select>
       {lines.map((line, index) => (
-        <div key={index} className="flex flex-wrap items-center gap-2">
-          <select className={`${inputClass} min-w-0 flex-1`} value={line.inventory_item_id} onChange={(e) => setLine(index, { inventory_item_id: e.target.value })}>
-            <option value="">Produit…</option>
-            {choices.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.label}
-              </option>
-            ))}
-          </select>
+        <div key={`${resetKey}-${index}`} className="flex flex-wrap items-center gap-2">
+          <ProductPicker choices={choices} value={line.inventory_item_id} hint={hint} onChange={(id) => setLine(index, { inventory_item_id: id })} />
           <input
             className={`${inputClass} max-w-[90px]`}
             inputMode="numeric"
@@ -112,11 +173,14 @@ const MovementForm = ({
 
 const History = ({ courierId, version }: { courierId: string; version: number }) => {
   const [movements, setMovements] = useState<CourierStockMovement[] | null>(null)
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
+    setFailed(false)
     api<{ movements: CourierStockMovement[] }>(`/admin/courier-stock/movements?courier_id=${encodeURIComponent(courierId)}`)
       .then((r) => setMovements(r.movements))
-      .catch(() => setMovements([]))
+      .catch(() => setFailed(true))
   }, [courierId, version])
+  if (failed) return <p className="txt-compact-small text-ui-fg-error">Historique indisponible.</p>
   if (movements === null) return <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>
   if (!movements.length) return <p className="txt-compact-small text-ui-fg-subtle">Aucun mouvement.</p>
   return (
@@ -143,16 +207,30 @@ export const CourierStockTab = () => {
   const [notice, setNotice] = useState<Notice>(null)
   const [historyOf, setHistoryOf] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const reload = useCallback(() => {
+    setLoadError(null)
     api<CourierStockOverview>("/admin/courier-stock")
       .then((r) => {
         setData(r)
         setVersion((v) => v + 1)
       })
-      .catch((e) => setNotice({ kind: "error", text: (e as Error).message }))
+      .catch((e) => {
+        const text = (e as Error).message || "Chargement impossible."
+        setLoadError(text)
+      })
   }, [])
   useEffect(reload, [reload])
 
+  if (!data && loadError)
+    return (
+      <div className="flex flex-col items-start gap-y-2">
+        <NoticeText notice={{ kind: "error", text: loadError }} />
+        <button type="button" className={secondaryButton} onClick={reload}>
+          Réessayer
+        </button>
+      </div>
+    )
   if (!data) return <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>
   if (!data.couriers.length) return <p className="txt-compact-small text-ui-fg-subtle">Ajoutez d'abord un livreur (onglet Livreurs).</p>
 
@@ -165,7 +243,7 @@ export const CourierStockTab = () => {
           </button>
         ))}
       </div>
-      <NoticeText notice={notice} />
+      <NoticeText notice={loadError ? { kind: "error", text: loadError } : notice} />
       {mode && (
         <MovementForm
           key={mode}
