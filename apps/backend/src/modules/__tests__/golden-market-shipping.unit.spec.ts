@@ -26,11 +26,11 @@ describe("GoldenMarketShippingService", () => {
     expect(price.calculated_amount).toBe(0)
   })
 
-  it("lecture des produits en échec : 1 500 F hors Ouagadougou, sans bloquer la commande", async () => {
+  it("lecture des produits en échec : 1 000 F hors Ouagadougou, sans bloquer la commande", async () => {
     const graph = jest.fn().mockRejectedValue(new Error("timeout"))
     const spy = jest.spyOn(console, "error").mockImplementation(() => {})
     const price = await serviceWith(graph).calculatePrice({}, {}, context("Kaya", ["p1"]))
-    expect(price.calculated_amount).toBe(1500)
+    expect(price.calculated_amount).toBe(1000)
     spy.mockRestore()
   })
 

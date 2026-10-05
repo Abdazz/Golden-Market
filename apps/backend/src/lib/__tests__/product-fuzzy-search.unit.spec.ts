@@ -80,7 +80,7 @@ describe("searchProductsFuzzy", () => {
     expect(result[1].variants[0].availability).toBe("out of stock")
     // Frais d'expédition : valeur des métadonnées sinon défaut, sans fuite des métadonnées
     expect(result[0].shipping_fee_xof).toBe(2500)
-    expect(result[1].shipping_fee_xof).toBe(1500)
+    expect(result[1].shipping_fee_xof).toBe(1000)
     expect(result[0]).not.toHaveProperty("metadata")
   })
 

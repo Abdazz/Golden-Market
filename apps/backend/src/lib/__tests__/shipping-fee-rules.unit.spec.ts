@@ -30,8 +30,12 @@ describe("computeShippingFee", () => {
     expect(computeShippingFee({ city: "Kaya", products: [balai, ventilo, petit] })).toBe(2500)
   })
 
-  it("hors Ouagadougou : un produit sans frais saisis compte pour 1 500 F", () => {
-    expect(computeShippingFee({ city: "Koudougou", products: [petit, { metadata: null }] })).toBe(1500)
+  it("hors Ouagadougou : un produit sans frais saisis compte pour 1 000 F", () => {
+    expect(computeShippingFee({ city: "Koudougou", products: [{ metadata: { frais_expedition_xof: 500 } }, { metadata: null }] })).toBe(1000)
+  })
+
+  it("frais par défaut : 1 000 F", () => {
+    expect(DEFAULT_SHIPPING_FEE_XOF).toBe(1000)
   })
 
   it("panier vide : 0 F", () => {

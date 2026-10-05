@@ -4,10 +4,10 @@ import { useState } from "react"
 
 // Frais d'expédition hors Ouagadougou du produit (spec 2026-10-04
 // frais-expedition-par-produit), stockés dans product.metadata.frais_expedition_xof.
-// Vide : 1 500 F par défaut. Toutes les autres métadonnées (video_url...) sont
+// Vide : 1 000 F par défaut. Toutes les autres métadonnées (video_url...) sont
 // renvoyées telles quelles. HTML natif (conflit de types React 18/19 avec @medusajs/ui).
 const KEY = "frais_expedition_xof"
-const DEFAULT_FEE = 1500
+const DEFAULT_FEE = 1000
 
 const ProductShippingFeeWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) => {
   const initial = product.metadata?.[KEY]

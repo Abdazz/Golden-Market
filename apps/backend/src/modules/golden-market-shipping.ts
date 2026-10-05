@@ -19,7 +19,7 @@ import { shippingFeeForProducts } from "../lib/shipping-fee-query"
  * Livraison Golden Market (spec 2026-10-04 frais-expedition-par-produit) :
  * option "calculée" - gratuite à Ouagadougou, ailleurs les frais d'expédition
  * les plus élevés des produits du panier (metadata.frais_expedition_xof,
- * 1 500 F par défaut). Aucun service externe : expédition gérée à la main,
+ * 1 000 F par défaut). Aucun service externe : expédition gérée à la main,
  * comme le fournisseur "manual" de Medusa.
  *
  * Le conteneur d'un fournisseur ne donne accès qu'au module fulfillment :

@@ -2,9 +2,9 @@ import { defaultTypeForCity } from "./delivery-rules"
 
 // Frais d'expédition (spec 2026-10-04 frais-expedition-par-produit) :
 // gratuits à Ouagadougou ; ailleurs, un seul colis -> les frais les plus
-// élevés des produits du panier, 1 500 F pour un produit sans frais saisis.
+// élevés des produits du panier, 1 000 F pour un produit sans frais saisis.
 
-export const DEFAULT_SHIPPING_FEE_XOF = 1500
+export const DEFAULT_SHIPPING_FEE_XOF = 1000
 export const SHIPPING_FEE_METADATA_KEY = "frais_expedition_xof"
 
 export const productShippingFee = (metadata: Record<string, unknown> | null | undefined): number => {
