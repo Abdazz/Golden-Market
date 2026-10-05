@@ -40,6 +40,13 @@ const monthLabel = (month: string) =>
 
 const Unavailable = () => <p className="txt-compact-small text-ui-fg-muted">Indisponible pour le moment.</p>
 
+const UnavailableFigure = ({ label }: { label: string }) => (
+  <div>
+    <p className="txt-compact-small text-ui-fg-subtle">{label}</p>
+    <p className="txt-compact-small text-ui-fg-muted">Indisponible</p>
+  </div>
+)
+
 // Ligne "À faire" : grisée quand il n'y a rien à faire.
 const TodoCard = ({ title, value, empty, href, children }: { title: string; value: string; empty: boolean; href: string; children?: React.ReactNode }) => (
   <a href={href} className={`${card} block transition-colors hover:bg-ui-bg-base-hover ${empty ? "opacity-60" : ""}`}>
@@ -114,34 +121,38 @@ const FiguresSection = ({ figures, month }: { figures: Dashboard["figures"]; mon
       <div className={card}>
         <h3 className="txt-compact-medium-plus text-ui-fg-base mb-3">Aujourd'hui</h3>
         <div className="grid grid-cols-2 gap-3">
-          {ordered.available ? <Figure label="Commandé" value={formatXof(ordered.today.amount)} sub={plural(ordered.today.count, "commande")} /> : <Unavailable />}
-          {collected.available ? <Figure label="Encaissé" value={formatXof(collected.today)} /> : <Unavailable />}
+          {ordered.available ? <Figure label="Commandé" value={formatXof(ordered.today.amount)} sub={plural(ordered.today.count, "commande")} /> : <UnavailableFigure label="Commandé" />}
+          {collected.available ? <Figure label="Encaissé" value={formatXof(collected.today)} /> : <UnavailableFigure label="Encaissé" />}
         </div>
       </div>
       <div className={card}>
         <h3 className="txt-compact-medium-plus text-ui-fg-base mb-3">Ce mois ({monthLabel(month)})</h3>
         <div className="grid grid-cols-2 gap-3">
-          {ordered.available ? <Figure label="Commandé" value={formatXof(ordered.month.amount)} sub={plural(ordered.month.count, "commande")} /> : <Unavailable />}
-          {collected.available ? <Figure label="Encaissé" value={formatXof(collected.month)} /> : <Unavailable />}
+          {ordered.available ? <Figure label="Commandé" value={formatXof(ordered.month.amount)} sub={plural(ordered.month.count, "commande")} /> : <UnavailableFigure label="Commandé" />}
+          {collected.available ? <Figure label="Encaissé" value={formatXof(collected.month)} /> : <UnavailableFigure label="Encaissé" />}
         </div>
       </div>
       <a href="/app/cash" className={`${card} block hover:bg-ui-bg-base-hover`}>
         <h3 className="txt-compact-medium-plus text-ui-fg-base mb-3">Caisse</h3>
         {cash.available ? (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Figure label="Solde" value={formatXof(cash.balance)} />
             <Figure label="Entrées du mois" value={formatXof(cash.month_in)} />
             <Figure label="Sorties du mois" value={formatXof(cash.month_out)} />
           </div>
         ) : (
-          <Unavailable />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <UnavailableFigure label="Solde" />
+            <UnavailableFigure label="Entrées du mois" />
+            <UnavailableFigure label="Sorties du mois" />
+          </div>
         )}
       </a>
       <a href="/app/procurement?tab=margins" className={`${card} block hover:bg-ui-bg-base-hover`}>
         <h3 className="txt-compact-medium-plus text-ui-fg-base mb-3">Marge brute du mois</h3>
         {margin.available ? (
           <>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Figure label="Marge" value={formatXof(margin.margin)} sub={plural(margin.orders, "commande encaissée")} />
               <Figure label="Ventes" value={formatXof(margin.revenue)} />
               <Figure label="Coût" value={formatXof(margin.cost)} />
@@ -153,7 +164,11 @@ const FiguresSection = ({ figures, month }: { figures: Dashboard["figures"]; mon
             )}
           </>
         ) : (
-          <Unavailable />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <UnavailableFigure label="Marge" />
+            <UnavailableFigure label="Ventes" />
+            <UnavailableFigure label="Coût" />
+          </div>
         )}
       </a>
       <a href="/app/deliveries?tab=stock" className={`${card} block hover:bg-ui-bg-base-hover`}>

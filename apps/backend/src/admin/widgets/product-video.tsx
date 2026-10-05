@@ -18,8 +18,9 @@ const VIDEO_SIZE_WARNING_MB = 50
 type UploadResponse = { files: Array<{ id: string; url: string }> }
 
 const ProductVideoWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) => {
+  const rawVideoUrl = product.metadata?.video_url
   const existingVideoUrl =
-    typeof product.metadata?.video_url === "string" ? product.metadata.video_url : null
+    typeof rawVideoUrl === "string" && rawVideoUrl.trim() !== "" ? rawVideoUrl : null
 
   const [videoUrl, setVideoUrl] = useState<string | null>(existingVideoUrl)
   const [status, setStatus] = useState<"idle" | "uploading" | "saving" | "error">("idle")
@@ -33,22 +34,36 @@ const ProductVideoWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
     if (newVideoUrl) {
       nextMetadata.video_url = newVideoUrl
     } else {
-      delete nextMetadata.video_url
+      // Medusa fusionne les métadonnées : une clé absente reste en place, une chaîne vide la supprime.
+      nextMetadata.video_url = ""
     }
 
-    const res = await fetch(`/admin/products/${product.id}`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metadata: nextMetadata }),
-    })
-
+    let res: Response
+    try {
+      res = await fetch(`/admin/products/${product.id}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: nextMetadata }),
+      })
+    } catch {
+      setStatus("error")
+      setErrorMessage("Service injoignable, réessayez.")
+      return
+    }
     if (!res.ok) {
       setStatus("error")
       setErrorMessage("Échec de l'enregistrement du produit.")
       return
     }
 
+    // Garder la fiche à jour pour un second enregistrement sans rechargement.
+    if (newVideoUrl) {
+      product.metadata = { ...(product.metadata ?? {}), video_url: newVideoUrl }
+    } else if (product.metadata) {
+      const { video_url: _removed, ...rest } = product.metadata
+      product.metadata = rest
+    }
     setVideoUrl(newVideoUrl)
     setStatus("idle")
   }
@@ -80,12 +95,18 @@ const ProductVideoWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
     const formData = new FormData()
     formData.append("files", file)
 
-    const uploadRes = await fetch("/admin/uploads", {
-      method: "POST",
-      credentials: "include",
-      body: formData,
-    })
-
+    let uploadRes: Response
+    try {
+      uploadRes = await fetch("/admin/uploads", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      })
+    } catch {
+      setStatus("error")
+      setErrorMessage("Service injoignable, réessayez.")
+      return
+    }
     if (!uploadRes.ok) {
       setStatus("error")
       setErrorMessage("Échec de l'upload de la vidéo.")

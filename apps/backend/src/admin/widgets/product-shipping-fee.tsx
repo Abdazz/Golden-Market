@@ -29,12 +29,19 @@ const ProductShippingFeeWidget = ({ data: product }: DetailWidgetProps<AdminProd
     // Medusa fusionne les métadonnées : une clé absente n'est pas supprimée, une
     // chaîne vide la supprime (comportement natif du module produit).
     metadata[KEY] = trimmed === "" ? "" : Number(trimmed)
-    const res = await fetch(`/admin/products/${product.id}`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metadata }),
-    })
+    let res: Response
+    try {
+      res = await fetch(`/admin/products/${product.id}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata }),
+      })
+    } catch {
+      setStatus("error")
+      setMessage("Service injoignable, réessayez.")
+      return
+    }
     if (!res.ok) {
       setStatus("error")
       setMessage("Échec de l'enregistrement du produit.")
