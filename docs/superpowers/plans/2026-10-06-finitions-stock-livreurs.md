@@ -18,7 +18,7 @@
 - Pas de composant `@medusajs/ui` dans les extensions admin.
 - Toute commande se lance depuis `apps/backend` ; gestionnaire de paquets : npm.
 - Ne jamais toucher à la production, au VPS ni à n8n (le contrôleur s'en charge).
-- Texte exact des messages : « Ce produit est saisi deux fois : gardez une seule ligne. » ; « Stock du livreur non mis à jour : faites une correction dans l'onglet Stock livreurs. » ; « Historique indisponible. » ; « Aucun produit ».
+- Texte exact des messages : « Ce produit est saisi deux fois : gardez une seule ligne. » ; « Stock du livreur non mis à jour : enregistrez un Retour des articles livrés dans l'onglet Stock livreurs. » ; « Historique indisponible. » ; « Aucun produit ».
 
 ## Review Focus
 
@@ -167,7 +167,7 @@ describe("combineWarnings", () => {
     expect(combineWarnings(null, undefined, "")).toBeNull()
   })
   it("texte de l'avertissement de stock", () => {
-    expect(STOCK_WARNING).toBe("Stock du livreur non mis à jour : faites une correction dans l'onglet Stock livreurs.")
+    expect(STOCK_WARNING).toBe("Stock du livreur non mis à jour : enregistrez un Retour des articles livrés dans l'onglet Stock livreurs.")
   })
 })
 ```
@@ -180,7 +180,7 @@ Expected: FAIL (exports absents).
 - [ ] **Step 3: Implement** dans `courier-stock-rules.ts`
 
 ```ts
-export const STOCK_WARNING = "Stock du livreur non mis à jour : faites une correction dans l'onglet Stock livreurs."
+export const STOCK_WARNING = "Stock du livreur non mis à jour : enregistrez un Retour des articles livrés dans l'onglet Stock livreurs."
 
 // Avertissements d'une livraison terminée (paiement, stock) : aucun n'écrase l'autre.
 export const combineWarnings = (...warnings: (string | null | undefined)[]) =>

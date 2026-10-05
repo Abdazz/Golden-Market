@@ -145,6 +145,6 @@ describe("combineWarnings", () => {
     expect(combineWarnings(null, undefined, "")).toBeNull()
   })
   it("texte de l'avertissement de stock", () => {
-    expect(STOCK_WARNING).toBe("Stock du livreur non mis à jour : faites une correction dans l'onglet Stock livreurs.")
+    expect(STOCK_WARNING).toBe("Stock du livreur non mis à jour : enregistrez un Retour des articles livrés dans l'onglet Stock livreurs.")
   })
 })

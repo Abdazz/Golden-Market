@@ -27,11 +27,17 @@ jamais perdre silencieusement un mouvement ou un déstockage.
 
 - Aujourd'hui l'échec de `takeDeliveryStockWorkflow` est seulement journalisé. Désormais la route
   `POST /admin/deliveries/:id/complete` renvoie aussi `stock_warning` (texte : « Stock du livreur
-  non mis à jour : faites une correction dans l'onglet Stock livreurs. ») et l'inscrit dans le
+  non mis à jour : enregistrez un Retour des articles livrés dans l'onglet Stock livreurs. » ; un
+  Retour corrige le solde du livreur sans toucher Medusa, alors qu'une correction retirerait une
+  seconde fois le stock Medusa déjà baissé par la livraison) et l'inscrit dans le
   champ existant `delivery.sync_warning` (concaténé à l'éventuel avertissement de paiement, séparés
   par un espace), affiché dans la tournée et l'encadré « Livraison » de la fiche commande.
 - La page Livraisons affiche l'avis en orange (`warning`) dès qu'un des deux avertissements existe.
 - La livraison reste terminée (jamais bloquant, comme aujourd'hui).
+- L'avertissement n'est posé que si le workflow de déstockage lui-même échoue : un échec de la
+  lecture des libellés des articles déstockés donne le libellé « Article » (journalisé, sans
+  avertissement). Un échec de l'inscription de l'avertissement dans la livraison est journalisé
+  sans renvoyer d'erreur ni sauter le journal de caisse.
 
 ### 3. Retour : changement de livreur
 

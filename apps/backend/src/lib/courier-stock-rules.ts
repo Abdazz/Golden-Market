@@ -135,7 +135,7 @@ export const itemLabel = (item: {
   return item.title || item.sku || "Article sans nom"
 }
 
-export const STOCK_WARNING = "Stock du livreur non mis à jour : faites une correction dans l'onglet Stock livreurs."
+export const STOCK_WARNING = "Stock du livreur non mis à jour : enregistrez un Retour des articles livrés dans l'onglet Stock livreurs."
 
 // Avertissements d'une livraison terminée (paiement, stock) : aucun n'écrase l'autre.
 export const combineWarnings = (...warnings: (string | null | undefined)[]) =>
