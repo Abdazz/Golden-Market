@@ -156,6 +156,26 @@ describe("buildPurchaseEvent - sources", () => {
     expect(event.user_data.fbp).toBe("fb.1")
   })
 
+  it("site : meta_browser non objet (texte, null) ignoré sans exception", () => {
+    for (const meta_browser of ["texte", null]) {
+      const event = buildPurchaseEvent({ ...base, metadata: { meta_browser } }, 1700000000, {})
+      expect(event.action_source).toBe("website")
+      expect(event.user_data).not.toHaveProperty("client_user_agent")
+      expect(event.user_data).not.toHaveProperty("client_ip_address")
+      expect(event.user_data).not.toHaveProperty("fbp")
+      expect(event.user_data).not.toHaveProperty("fbc")
+    }
+  })
+
+  it("site : slash final de l'URL et pays en majuscules normalisés", () => {
+    const event = buildPurchaseEvent(
+      { ...base, shipping_address: { phone: "70123456", country_code: "BF" } },
+      1700000000,
+      { storefrontUrl: "https://golden-market.co/" }
+    )
+    expect(event.event_source_url).toBe("https://golden-market.co/bf/order/order_1/confirmed")
+  })
+
   it("WhatsApp attribuée : business_messaging avec compte et ctwa_clid, sans champ web", () => {
     const event = buildPurchaseEvent({ ...base, metadata: { source: "whatsapp", ctwa_clid: "ARclid" } }, 1700000000, {
       storefrontUrl: "https://golden-market.co",

@@ -21,7 +21,33 @@ const setup = () => {
 }
 
 describe("POST .../media-messages", () => {
-  beforeEach(() => jest.clearAllMocks())
+  const originalPublicUrl = process.env.MEDUSA_BACKEND_PUBLIC_URL
+  beforeEach(() => {
+    jest.clearAllMocks()
+    process.env.MEDUSA_BACKEND_PUBLIC_URL = "https://golden-market.co"
+  })
+  afterAll(() => {
+    if (originalPublicUrl === undefined) delete process.env.MEDUSA_BACKEND_PUBLIC_URL
+    else process.env.MEDUSA_BACKEND_PUBLIC_URL = originalPublicUrl
+  })
+
+  it("URL d'un autre hôte : aucune suppression", async () => {
+    ;(runAdminAction as jest.Mock).mockResolvedValue({ kind: "whatsapp_error", message: "Refusé" })
+    const { req, res, deleteFiles } = setup()
+    req.body = { ...body, url: url.replace("golden-market.co", "autre.example") }
+    await POST(req, res)
+    expect(deleteFiles).not.toHaveBeenCalled()
+    expect(res.status).toHaveBeenCalledWith(502)
+  })
+
+  it("variable publique mal formée : aucune suppression", async () => {
+    process.env.MEDUSA_BACKEND_PUBLIC_URL = "pas une url"
+    ;(runAdminAction as jest.Mock).mockResolvedValue({ kind: "whatsapp_error", message: "Refusé" })
+    const { req, res, deleteFiles } = setup()
+    await POST(req, res)
+    expect(deleteFiles).not.toHaveBeenCalled()
+    expect(res.status).toHaveBeenCalledWith(502)
+  })
 
   it("envoi refusé par WhatsApp : fichier supprimé, erreur transmise", async () => {
     ;(runAdminAction as jest.Mock).mockResolvedValue({ kind: "whatsapp_error", message: "Refusé" })

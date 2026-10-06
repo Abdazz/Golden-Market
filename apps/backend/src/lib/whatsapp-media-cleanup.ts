@@ -11,12 +11,16 @@ export const isCertainSendFailure = (kind: string) => (CERTAIN_SEND_FAILURES as 
 // Nom donné par la route .../media (préfixé de l'horodatage par file-local).
 const WA_MEDIA_KEY = /^\d+-wa-media-[0-9a-f]{20}\.[a-z0-9]+$/
 
-export const orphanMediaFileKey = (url: string | null | undefined): string | null => {
+// allowedOrigin (ex. "https://golden-market.co") : quand il est fourni, une URL
+// d'une autre origine est refusée, pour ne jamais supprimer un fichier que
+// notre stockage n'a pas servi.
+export const orphanMediaFileKey = (url: string | null | undefined, allowedOrigin?: string | null): string | null => {
   if (!url) return null
   let pathname: string
   try {
     const parsed = new URL(url)
     if (parsed.search || parsed.hash) return null
+    if (allowedOrigin && parsed.origin !== allowedOrigin) return null
     pathname = parsed.pathname
   } catch {
     return null
