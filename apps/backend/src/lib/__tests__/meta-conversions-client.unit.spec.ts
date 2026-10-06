@@ -66,4 +66,30 @@ describe("sendConversionEvent", () => {
       sendConversionEvent(event, config, fetchMock as unknown as typeof fetch)
     ).rejects.toThrow(/401/)
   })
+
+  it("inclut le message d'erreur de Meta dans l'erreur levée", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { message: "Invalid parameter" } }),
+    })
+
+    await expect(
+      sendConversionEvent(event, config, fetchMock as unknown as typeof fetch)
+    ).rejects.toThrow("Meta Conversions API a répondu 400 : Invalid parameter")
+  })
+
+  it("se limite au statut quand le corps de la réponse n'est pas lisible", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => {
+        throw new Error("not json")
+      },
+    })
+
+    await expect(
+      sendConversionEvent(event, config, fetchMock as unknown as typeof fetch)
+    ).rejects.toThrow(/^Meta Conversions API a répondu 400$/)
+  })
 })

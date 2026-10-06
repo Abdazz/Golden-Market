@@ -133,4 +133,120 @@ describe("orderPlacedMetaConversionsApiHandler", () => {
       expect.any(Error)
     )
   })
+
+  const whatsappOrder = {
+    id: "order_wa",
+    currency_code: "xof",
+    total: 15000,
+    metadata: { source: "whatsapp", ctwa_clid: "clid_1" },
+    shipping_address: { phone: "70123456" },
+    items: [{ variant_id: "variant_1", quantity: 1 }],
+  }
+
+  it("envoie en business_messaging avec le jeton WhatsApp", async () => {
+    process.env.META_PIXEL_ID = "pixel_123"
+    process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"
+    process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID = "waba_1"
+    process.env.META_WHATSAPP_EVENTS_ACCESS_TOKEN = "wa_token"
+    graph.mockResolvedValue({ data: [whatsappOrder] })
+    const send = jest.spyOn(metaConversionsClient, "sendConversionEvent").mockResolvedValue(undefined)
+
+    await orderPlacedMetaConversionsApiHandler({
+      event: { name: "order.placed", data: { id: "order_wa" } } as any,
+      container: container as any,
+    })
+
+    expect(send).toHaveBeenCalledTimes(1)
+    const [sentEvent, config] = send.mock.calls[0]
+    expect(sentEvent.action_source).toBe("business_messaging")
+    expect(config).toEqual({ pixelId: "pixel_123", accessToken: "wa_token" })
+  })
+
+  it("renvoie en chat avec le jeton CAPI quand business_messaging est refusé", async () => {
+    process.env.META_PIXEL_ID = "pixel_123"
+    process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"
+    process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID = "waba_1"
+    process.env.META_WHATSAPP_EVENTS_ACCESS_TOKEN = "wa_token"
+    graph.mockResolvedValue({ data: [whatsappOrder] })
+    const send = jest
+      .spyOn(metaConversionsClient, "sendConversionEvent")
+      .mockRejectedValueOnce(new Error("refus"))
+      .mockResolvedValueOnce(undefined)
+
+    await orderPlacedMetaConversionsApiHandler({
+      event: { name: "order.placed", data: { id: "order_wa" } } as any,
+      container: container as any,
+    })
+
+    expect(send).toHaveBeenCalledTimes(2)
+    const [first, firstConfig] = send.mock.calls[0]
+    const [second, secondConfig] = send.mock.calls[1]
+    expect(first.action_source).toBe("business_messaging")
+    expect(firstConfig.accessToken).toBe("wa_token")
+    expect(second.action_source).toBe("chat")
+    expect(second.event_id).toBe(first.event_id)
+    expect(secondConfig).toEqual({ pixelId: "pixel_123", accessToken: "token_abc" })
+    expect(logger.error).toHaveBeenCalledTimes(1)
+  })
+
+  it("envoie en chat sans variables WhatsApp", async () => {
+    process.env.META_PIXEL_ID = "pixel_123"
+    process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"
+    delete process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID
+    delete process.env.META_WHATSAPP_EVENTS_ACCESS_TOKEN
+    graph.mockResolvedValue({ data: [whatsappOrder] })
+    const send = jest.spyOn(metaConversionsClient, "sendConversionEvent").mockResolvedValue(undefined)
+
+    await orderPlacedMetaConversionsApiHandler({
+      event: { name: "order.placed", data: { id: "order_wa" } } as any,
+      container: container as any,
+    })
+
+    expect(send).toHaveBeenCalledTimes(1)
+    const [sentEvent, config] = send.mock.calls[0]
+    expect(sentEvent.action_source).toBe("chat")
+    expect(config.accessToken).toBe("token_abc")
+  })
+
+  it("renseigne event_source_url pour une commande du site", async () => {
+    process.env.META_PIXEL_ID = "pixel_123"
+    process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"
+    process.env.STOREFRONT_URL = "https://golden-market.co"
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_web",
+          currency_code: "xof",
+          total: 1000,
+          shipping_address: { phone: "70123456", country_code: "bf" },
+          items: [{ variant_id: "variant_1", quantity: 1 }],
+        },
+      ],
+    })
+    const send = jest.spyOn(metaConversionsClient, "sendConversionEvent").mockResolvedValue(undefined)
+
+    await orderPlacedMetaConversionsApiHandler({
+      event: { name: "order.placed", data: { id: "order_web" } } as any,
+      container: container as any,
+    })
+
+    expect(send.mock.calls[0][0].event_source_url).toBe(
+      "https://golden-market.co/bf/order/order_web/confirmed"
+    )
+  })
+
+  it("demande metadata et le code pays de livraison", async () => {
+    process.env.META_PIXEL_ID = "pixel_123"
+    process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"
+    graph.mockResolvedValue({ data: [] })
+
+    await orderPlacedMetaConversionsApiHandler({
+      event: { name: "order.placed", data: { id: "order_x" } } as any,
+      container: container as any,
+    })
+
+    expect(graph.mock.calls[0][0].fields).toEqual(
+      expect.arrayContaining(["metadata", "shipping_address.country_code"])
+    )
+  })
 })

@@ -39,6 +39,14 @@ export async function sendConversionEvent(
   )
 
   if (!response.ok) {
-    throw new Error(`Meta Conversions API a répondu ${response.status}`)
+    // Message de Meta joint à l'erreur (jamais le jeton, qui n'est que dans l'URL)
+    let detail = ""
+    try {
+      const body = await response.json()
+      detail = body?.error?.message ? ` : ${body.error.message}` : ""
+    } catch {
+      detail = ""
+    }
+    throw new Error(`Meta Conversions API a répondu ${response.status}${detail}`)
   }
 }
