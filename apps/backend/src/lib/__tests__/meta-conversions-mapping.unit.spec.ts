@@ -35,13 +35,22 @@ describe("normalizePhoneForMeta", () => {
 })
 
 describe("actionSourceFor", () => {
-  it("commande saisie par téléphone : phone_call", () => {
-    expect(actionSourceFor({ source: "telephone" })).toBe("phone_call")
+  const off = { whatsappEventsConfigured: false }
+  const on = { whatsappEventsConfigured: true }
+  it("téléphone : phone_call", () => {
+    expect(actionSourceFor({ source: "telephone" }, off)).toBe("phone_call")
   })
-  it("site, agent WhatsApp ou métadonnées absentes : website", () => {
-    expect(actionSourceFor({ source: "whatsapp" })).toBe("website")
-    expect(actionSourceFor(null)).toBe("website")
-    expect(actionSourceFor(undefined)).toBe("website")
+  it("WhatsApp avec ctwa_clid et configuration : business_messaging", () => {
+    expect(actionSourceFor({ source: "whatsapp", ctwa_clid: "ARxx" }, on)).toBe("business_messaging")
+  })
+  it("WhatsApp sans ctwa_clid ou sans configuration : chat", () => {
+    expect(actionSourceFor({ source: "whatsapp" }, on)).toBe("chat")
+    expect(actionSourceFor({ source: "whatsapp", ctwa_clid: "ARxx" }, off)).toBe("chat")
+    expect(actionSourceFor({ source: "whatsapp", ctwa_clid: "" }, on)).toBe("chat")
+  })
+  it("site ou métadonnées absentes : website", () => {
+    expect(actionSourceFor({}, on)).toBe("website")
+    expect(actionSourceFor(null, on)).toBe("website")
   })
 })
 
@@ -113,5 +122,67 @@ describe("buildPurchaseEvent", () => {
   it("buildPurchaseEvent : action_source phone_call pour une commande par téléphone", () => {
     const event = buildPurchaseEvent({ ...order, metadata: { source: "telephone" } }, 1700000000)
     expect(event.action_source).toBe("phone_call")
+  })
+})
+
+describe("buildPurchaseEvent - sources", () => {
+  const base: OrderForMetaConversion = {
+    id: "order_1",
+    currency_code: "xof",
+    total: 9500,
+    shipping_address: { phone: "70123456", country_code: "bf" },
+    items: [{ variant_id: "variant_1", quantity: 1 }],
+  }
+
+  it("site : URL de la page de confirmation et données navigateur", () => {
+    const event = buildPurchaseEvent(
+      { ...base, metadata: { meta_browser: { user_agent: "Mozilla/5.0", client_ip: "102.1.2.3", fbp: "fb.1.1.1", fbc: "fb.1.1.abc" } } },
+      1700000000,
+      { storefrontUrl: "https://golden-market.co/" }
+    )
+    expect(event.action_source).toBe("website")
+    expect(event.event_source_url).toBe("https://golden-market.co/bf/order/order_1/confirmed")
+    expect(event.user_data).toEqual(
+      expect.objectContaining({ client_user_agent: "Mozilla/5.0", client_ip_address: "102.1.2.3", fbp: "fb.1.1.1", fbc: "fb.1.1.abc" })
+    )
+    expect(event.user_data.ph).toHaveLength(1)
+  })
+
+  it("site sans données navigateur ni URL de boutique : champs omis, jamais vides", () => {
+    const event = buildPurchaseEvent({ ...base, metadata: { meta_browser: { user_agent: "", fbp: "fb.1" } } }, 1700000000, {})
+    expect(event.event_source_url).toBeUndefined()
+    expect(event.user_data).not.toHaveProperty("client_user_agent")
+    expect(event.user_data).not.toHaveProperty("client_ip_address")
+    expect(event.user_data.fbp).toBe("fb.1")
+  })
+
+  it("WhatsApp attribuée : business_messaging avec compte et ctwa_clid, sans champ web", () => {
+    const event = buildPurchaseEvent({ ...base, metadata: { source: "whatsapp", ctwa_clid: "ARclid" } }, 1700000000, {
+      storefrontUrl: "https://golden-market.co",
+      whatsappBusinessAccountId: "waba_1",
+      whatsappEventsConfigured: true,
+    })
+    expect(event.action_source).toBe("business_messaging")
+    expect(event.messaging_channel).toBe("whatsapp")
+    expect(event.user_data).toEqual(expect.objectContaining({ whatsapp_business_account_id: "waba_1", ctwa_clid: "ARclid" }))
+    expect(event.event_source_url).toBeUndefined()
+  })
+
+  it("source forcée (renvoi après refus) : chat sans champ business_messaging", () => {
+    const event = buildPurchaseEvent({ ...base, metadata: { source: "whatsapp", ctwa_clid: "ARclid" } }, 1700000000, {
+      whatsappBusinessAccountId: "waba_1",
+      whatsappEventsConfigured: true,
+      forceActionSource: "chat",
+    })
+    expect(event.action_source).toBe("chat")
+    expect(event).not.toHaveProperty("messaging_channel")
+    expect(event.user_data).not.toHaveProperty("ctwa_clid")
+    expect(event.user_data).not.toHaveProperty("whatsapp_business_account_id")
+  })
+
+  it("téléphone : phone_call, pas d'URL de page", () => {
+    const event = buildPurchaseEvent({ ...base, metadata: { source: "telephone" } }, 1700000000, { storefrontUrl: "https://golden-market.co" })
+    expect(event.action_source).toBe("phone_call")
+    expect(event.event_source_url).toBeUndefined()
   })
 })
