@@ -135,7 +135,7 @@ cd apps/backend
 
 À lancer une fois par environnement **après** le déploiement du backend qui enregistre le fournisseur
 `golden-market-shipping` (`medusa-config.ts`). Frais : gratuits à Ouagadougou ; ailleurs, le
-maximum de `product.metadata.frais_expedition_xof` des produits du panier (1 500 F par défaut),
+maximum de `product.metadata.frais_expedition_xof` des produits du panier (1 000 F par défaut, `DEFAULT_SHIPPING_FEE_XOF`, depuis le 2026-10-06),
 saisi dans l'encadré « Frais d'expédition » de la fiche produit. Voir
 `docs/superpowers/specs/2026-10-04-frais-expedition-par-produit-design.md`.
 
@@ -178,6 +178,8 @@ puisque ce fichier prend le dessus sur celui du package.
 La page `/app/whatsapp-conversations` lit directement la base `golden_market` (propriété du dépôt `n8n_automation`) via `WHATSAPP_CHAT_DATABASE_URL` (rôle Postgres `medusa_whatsapp_reader`, **lecture seule** : Medusa n'écrit jamais dans cette base). Toute action (prendre/rendre la main, répondre, relancer) passe par le webhook n8n `Admin - actions conversation` (`N8N_ADMIN_ACTIONS_WEBHOOK_URL` + `N8N_ADMIN_ACTIONS_WEBHOOK_SECRET`, même secret côté n8n) : n8n reste le seul écrivain de la base et le seul détenteur du jeton WhatsApp. Ces variables n'existent qu'en production ; sans elles, la page affiche « indisponible ». Voir `docs/superpowers/specs/2026-09-27-whatsapp-reprise-manuelle-design.md`.
 
 **Médias dans le chat (2026-09-28)** : la zone de message envoie photos, vidéos, documents, notes vocales et emojis. Chaque fichier passe par `POST /admin/whatsapp-conversations/:phone/media` (multer en mémoire, 100 Mo, noms décodés en UTF-8 ; type détecté sur le contenu, `src/lib/whatsapp-media-types.ts` ; image -> JPEG avec sharp, vocal -> OGG/Opus avec **ffmpeg**, installé dans l'image Docker du backend, `src/lib/whatsapp-media-prepare.ts` ; stockage `wa-media-<aléatoire>`) puis `POST .../media-messages` -> action n8n `send_media` (envoi par lien, `https://` obligatoire : en local les fichiers servis en `http://` sont refusés, normal). Médias reçus des clients (vidéo, vocal, document) copiés par n8n (`client-media-*`) ; purge n8n à 90 jours pour `client-photo-*`, `client-media-*`, `wa-media-*` (jamais les fichiers de l'agent). Tester l'écran en local : créer une base de test depuis `n8n_automation/schema.sql` et lancer `npx medusa develop` (pas `npm run backend:dev` : turbo ne transmet pas `WHATSAPP_CHAT_DATABASE_URL`) avec cette variable. Spec `docs/superpowers/specs/2026-09-28-whatsapp-chat-medias-design.md`.
+
+Média refusé (2026-10-06) : quand n8n répond un échec certain (`invalid_request`, `not_found`, `window_expired`, `whatsapp_error`), la route `media-messages` supprime le fichier `wa-media` téléversé (`src/lib/whatsapp-media-cleanup.ts`, motif strict du nom), jamais sur `unavailable` (le message a pu partir). « Réessayer » téléverse un nouveau fichier.
 
 Messages non envoyés : Meta peut refuser un message après l'avoir accepté (accusé de statut `failed`, ex. 131047 = plus de 24 h depuis le dernier message du client). n8n l'inscrit dans `messages.delivery_status` / `delivery_error` ("code: raison") ; l'admin affiche « Non envoyé » (`src/lib/whatsapp-delivery-failure.ts`) et considère la fenêtre fermée après un refus 131047 postérieur au dernier message client (`computeReplyWindow`, 3e paramètre). Piège : les messages entrants simulés par webhook signé comptent comme des messages client et faussent le calcul de la fenêtre.
 
