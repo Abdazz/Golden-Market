@@ -189,6 +189,29 @@ describe("orderPlacedMetaConversionsApiHandler", () => {
     expect(logger.error).toHaveBeenCalledTimes(1)
   })
 
+  it("utilise META_WHATSAPP_DATASET_ID pour business_messaging et META_PIXEL_ID pour le renvoi chat", async () => {
+    process.env.META_PIXEL_ID = "pixel_123"
+    process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"
+    process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID = "waba_1"
+    process.env.META_WHATSAPP_EVENTS_ACCESS_TOKEN = "wa_token"
+    process.env.META_WHATSAPP_DATASET_ID = "dataset_wa"
+    graph.mockResolvedValue({ data: [whatsappOrder] })
+    const send = jest
+      .spyOn(metaConversionsClient, "sendConversionEvent")
+      .mockRejectedValueOnce(Object.assign(new Error("refus"), { status: 400 }))
+      .mockResolvedValueOnce(undefined)
+
+    await orderPlacedMetaConversionsApiHandler({
+      event: { name: "order.placed", data: { id: "order_wa" } } as any,
+      container: container as any,
+    })
+
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send.mock.calls[0][1]).toEqual({ pixelId: "dataset_wa", accessToken: "wa_token" })
+    expect(send.mock.calls[1][0].action_source).toBe("chat")
+    expect(send.mock.calls[1][1]).toEqual({ pixelId: "pixel_123", accessToken: "token_abc" })
+  })
+
   it("envoie en chat sans variables WhatsApp", async () => {
     process.env.META_PIXEL_ID = "pixel_123"
     process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"

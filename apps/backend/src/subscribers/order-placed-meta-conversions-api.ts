@@ -73,7 +73,13 @@ export default async function orderPlacedMetaConversionsApiHandler({
     let sentSource = purchaseEvent.action_source
     if (purchaseEvent.action_source === "business_messaging") {
       try {
-        await sendConversionEvent(purchaseEvent, { pixelId, accessToken: waToken as string })
+        // Jeu de données dédié aux événements WhatsApp s'il est configuré,
+        // sinon le pixel du site ; le renvoi en chat reste sur META_PIXEL_ID.
+        const whatsappDatasetId = process.env.META_WHATSAPP_DATASET_ID || pixelId
+        await sendConversionEvent(purchaseEvent, {
+          pixelId: whatsappDatasetId,
+          accessToken: waToken as string,
+        })
       } catch (error) {
         logger.error(
           `Commande ${event.data.id} placée — refus business_messaging, renvoi en chat`,
