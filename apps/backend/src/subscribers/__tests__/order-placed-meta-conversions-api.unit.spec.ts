@@ -170,7 +170,7 @@ describe("orderPlacedMetaConversionsApiHandler", () => {
     graph.mockResolvedValue({ data: [whatsappOrder] })
     const send = jest
       .spyOn(metaConversionsClient, "sendConversionEvent")
-      .mockRejectedValueOnce(new Error("refus"))
+      .mockRejectedValueOnce(Object.assign(new Error("Meta Conversions API a répondu 400"), { status: 400 }))
       .mockResolvedValueOnce(undefined)
 
     await orderPlacedMetaConversionsApiHandler({
@@ -187,6 +187,33 @@ describe("orderPlacedMetaConversionsApiHandler", () => {
     expect(second.event_id).toBe(first.event_id)
     expect(secondConfig).toEqual({ pixelId: "pixel_123", accessToken: "token_abc" })
     expect(logger.error).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ["une erreur 5xx", Object.assign(new Error("Meta Conversions API a répondu 500"), { status: 500 })],
+    ["une erreur réseau", new TypeError("fetch failed")],
+  ])("ne renvoie pas en chat après %s (Meta a pu recevoir l'envoi) et journalise", async (_label, failure) => {
+    process.env.META_PIXEL_ID = "pixel_123"
+    process.env.META_CONVERSIONS_API_ACCESS_TOKEN = "token_abc"
+    process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID = "waba_1"
+    process.env.META_WHATSAPP_EVENTS_ACCESS_TOKEN = "wa_token"
+    graph.mockResolvedValue({ data: [whatsappOrder] })
+    const send = jest
+      .spyOn(metaConversionsClient, "sendConversionEvent")
+      .mockRejectedValueOnce(failure)
+
+    await expect(
+      orderPlacedMetaConversionsApiHandler({
+        event: { name: "order.placed", data: { id: "order_wa" } } as any,
+        container: container as any,
+      })
+    ).resolves.toBeUndefined()
+
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0].action_source).toBe("business_messaging")
+    expect(logger.error).toHaveBeenCalledTimes(1)
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("order_wa"), failure)
+    expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining("envoyé à Meta"))
   })
 
   it("utilise META_WHATSAPP_DATASET_ID pour business_messaging et META_PIXEL_ID pour le renvoi chat", async () => {

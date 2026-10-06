@@ -5,6 +5,21 @@ export type MetaConversionsConfig = {
   accessToken: string
 }
 
+/**
+ * Réponse non OK de Meta : porte le statut HTTP pour que l'appelant distingue
+ * un refus (4xx) d'une panne (5xx). Les erreurs réseau ou de délai dépassé
+ * restent les erreurs d'origine, sans statut.
+ */
+export class MetaConversionsError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = "MetaConversionsError"
+    this.status = status
+  }
+}
+
 // v20.0 : même version que la synchro catalogue Meta (meta-catalog-client.ts)
 // et l'intégration WhatsApp Cloud API existante.
 const GRAPH_API_VERSION = "v20.0"
@@ -47,6 +62,9 @@ export async function sendConversionEvent(
     } catch {
       detail = ""
     }
-    throw new Error(`Meta Conversions API a répondu ${response.status}${detail}`)
+    throw new MetaConversionsError(
+      `Meta Conversions API a répondu ${response.status}${detail}`,
+      response.status
+    )
   }
 }

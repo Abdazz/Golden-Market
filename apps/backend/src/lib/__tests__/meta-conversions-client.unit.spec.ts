@@ -1,4 +1,4 @@
-import { sendConversionEvent } from "../meta-conversions-client"
+import { MetaConversionsError, sendConversionEvent } from "../meta-conversions-client"
 import type { MetaConversionEvent } from "../meta-conversions-mapping"
 
 describe("sendConversionEvent", () => {
@@ -65,6 +65,38 @@ describe("sendConversionEvent", () => {
     await expect(
       sendConversionEvent(event, config, fetchMock as unknown as typeof fetch)
     ).rejects.toThrow(/401/)
+  })
+
+  it("lève une MetaConversionsError portant le statut HTTP, message inchangé", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { message: "Invalid parameter" } }),
+    })
+
+    const error = await sendConversionEvent(
+      event,
+      config,
+      fetchMock as unknown as typeof fetch
+    ).catch((e) => e)
+
+    expect(error).toBeInstanceOf(MetaConversionsError)
+    expect(error).toBeInstanceOf(Error)
+    expect(error.status).toBe(400)
+    expect(error.message).toBe("Meta Conversions API a répondu 400 : Invalid parameter")
+  })
+
+  it("laisse passer une erreur réseau sans statut", async () => {
+    const fetchMock = jest.fn().mockRejectedValue(new TypeError("fetch failed"))
+
+    const error = await sendConversionEvent(
+      event,
+      config,
+      fetchMock as unknown as typeof fetch
+    ).catch((e) => e)
+
+    expect(error).toBeInstanceOf(TypeError)
+    expect(error.status).toBeUndefined()
   })
 
   it("inclut le message d'erreur de Meta dans l'erreur levée", async () => {

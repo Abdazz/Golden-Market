@@ -15,7 +15,8 @@ import { sendConversionEvent } from "../lib/meta-conversions-client"
  * (action_source "phone_call") et WhatsApp ("business_messaging" ou "chat")
  * sont envoyées sans pixel côté client. Une commande WhatsApp issue d'une pub
  * est d'abord envoyée en business_messaging avec le jeton WhatsApp ; si Meta la
- * refuse, elle est renvoyée en chat avec le jeton CAPI habituel.
+ * refuse (statut 4xx), elle est renvoyée en chat avec le jeton CAPI habituel.
+ * Erreur réseau, délai dépassé ou 5xx : journalisée, sans renvoi.
  * Voir meta-catalog-sync pour l'intégration Meta soeur (synchro catalogue) -
  * même pattern try/catch, jamais de throw, qu'order-placed-customer-whatsapp.ts.
  */
@@ -81,6 +82,19 @@ export default async function orderPlacedMetaConversionsApiHandler({
           accessToken: waToken as string,
         })
       } catch (error) {
+        // Renvoi en chat seulement si Meta a refusé l'événement (4xx). Erreur
+        // réseau, délai dépassé ou 5xx : Meta a pu recevoir le premier envoi,
+        // un renvoi risquerait de compter l'achat deux fois.
+        // Statut lu sur l'erreur (MetaConversionsError) sans instanceof, pour
+        // rester juste quand le client est simulé dans les tests.
+        const status = (error as { status?: unknown })?.status
+        if (typeof status !== "number" || status < 400 || status >= 500) {
+          logger.error(
+            `Commande ${event.data.id} placée — échec business_messaging sans refus de Meta, pas de renvoi en chat`,
+            error as Error
+          )
+          return
+        }
         logger.error(
           `Commande ${event.data.id} placée — refus business_messaging, renvoi en chat`,
           error as Error
