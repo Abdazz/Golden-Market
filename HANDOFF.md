@@ -16,6 +16,24 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-06 (journée) - **Commandes par téléphone, liste des commandes, événements d'achat Meta et restes des revues.**
+- Formulaire « Nouvelle commande » : prénom facultatif ; confirmation WhatsApp « Bonjour cher client »
+  à défaut de nom (vérifié sur la commande réelle 20261006001). Liste des commandes : numéro Golden
+  Market dans la colonne « Commande », numéro WhatsApp dans « Client » pour un client sans nom
+  (ajustement de la réponse de `GET /admin/orders`, `lib/order-list-customer.ts`).
+- Meta (spec `2026-10-06-meta-evenements-achat-design.md`) : achats du site avec `event_source_url`
+  et données navigateur ; commandes WhatsApp en `chat`, ou `business_messaging` (pub clic vers
+  WhatsApp) dès qu'un jeton `whatsapp_business_manage_events` sera configuré ; téléphone en
+  `phone_call`. **Défaut corrigé** : l'agent marquait la commande « whatsapp » après sa création, le
+  client recevait le modèle de confirmation du site ; désormais posé sur le panier (n8n
+  `place_order`), vérifié sur staging.
+- n8n : `conversations.ctwa_clid` / `ctwa_clid_at` (production + `schema.sql`), workflow principal et
+  `place_order` modifiés (sauvegardes `~/n8n-backups/20261006-175849` et suivantes sur le VPS).
+- Restes des revues : verrou du stock livreur par exécution, hôte vérifié avant suppression d'un
+  média, recherche avec ligatures (œ, æ), sélecteur accessible, historique et téléversement vidéo.
+- Serveur de documentation Medusa (MCP MedusaDocs) : autorisation faite mais réponse 402 (offre
+  Medusa Cloud payante requise) ; les 7 skills Medusa restent actifs.
+
 2026-10-06 (nuit) - **Session autonome (propriétaire endormi, carte blanche) : bouton « Nouvelle commande » et
 trois lots de finitions livrés.** Specs/plans du 2026-10-06 dans `docs/superpowers/` ; exécution par
 sous-agents, revue par tâche et revue finale (modèle le plus capable) pour chaque lot.

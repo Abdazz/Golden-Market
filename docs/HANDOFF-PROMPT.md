@@ -61,17 +61,15 @@ dans le code, sans trailer Co-Authored-By.
 
 ## Prochaines tâches proposées au propriétaire (à lui faire choisir)
 
-1. **Meta, événements du site** : l'API Conversions reçoit les achats du site sans
-   `event_source_url` (exigé par Meta pour `action_source: "website"`) ni données navigateur
-   (`fbp`, `fbc`, user agent) : les ajouter améliorerait la correspondance des événements.
-2. **Commandes de l'agent WhatsApp chez Meta** : `action_source: "business_messaging"` (+
-   `messaging_channel: "whatsapp"`) au lieu de `website`, après vérification de la configuration
-   côté Meta (non fait : un événement refusé serait perdu).
-3. **Petits restes des revues du 2026-10-06** (non bloquants) : `releaseLockStep` sans `ownerId`,
-   test d'intégration du verrou, sélecteur produit sans rôles aria, `normalizeSearch` perd les
-   ligatures (œ), `uploadRes.json()` hors `try` dans le widget vidéo, hôte non vérifié avant
-   suppression d'un `wa-media`, lettres non latines.
-4. **Entretien** : micro du chat non testé sur téléphone ; coches « remis / lu » (refusées, à
+1. **Ventes WhatsApp attribuées aux publicités** : tout est prêt côté code et n8n ; il manque un jeton
+   d'utilisateur système avec `whatsapp_business_manage_events` (Business Manager) et le jeu de
+   données relié au compte WhatsApp Business. Ensuite : `META_WHATSAPP_BUSINESS_ACCOUNT_ID`
+   (= `WHATSAPP_BUSINESS_ACCOUNT_ID` de n8n), `META_WHATSAPP_EVENTS_ACCESS_TOKEN` et, si le jeu de
+   données diffère du pixel, `META_WHATSAPP_DATASET_ID` dans l'environnement de production du backend.
+2. **Petits restes** (non bloquants) : navigation clavier dans le sélecteur produit, `fbc` reconstruit
+   depuis `fbclid` quand le cookie manque, `body?.files` dans le widget vidéo, test de route du
+   contrôle d'hôte des médias.
+3. **Entretien** : micro du chat non testé sur téléphone ; coches « remis / lu » (refusées, à
    reproposer seulement si demandé).
 
 ## À rappeler au propriétaire (actions de son côté)
@@ -80,6 +78,9 @@ dans le code, sans trailer Co-Authored-By.
   du stock existant (onglet Marges, sinon la marge du mois reste incomplète).
 - Saisir les frais d'expédition de chaque nouveau produit à sa création (sinon 1 000 F) ; vérifier
   ceux des produits volumineux (congélateur, vitrine, machines), réglés à 1 000 F comme les autres.
+- Valider l'envoi à Meta de l'adresse IP et du navigateur des acheteurs du site, y compris ceux qui
+  ont refusé le traçage (comme le téléphone haché déjà envoyé) ; sinon les limiter aux visiteurs
+  consentants (une ligne dans `setAddresses`).
 - Relire le bilan des décisions prises seul le 2026-10-06 (frais par défaut 1 000 F, conseil
   « Retour » dans l'avertissement de stock, libellés du formulaire) et dire s'il faut revenir dessus.
 - Valider les hypothèses des specs caisse / approvisionnement / prospects ; ajouter ses autres
