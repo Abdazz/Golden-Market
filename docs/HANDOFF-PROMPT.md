@@ -1,7 +1,7 @@
 # Prompt de reprise (nouvelle session Claude Code)
 
 Copier le bloc ci-dessous comme premier message d'une nouvelle session ouverte dans
-`medusa-golden-market/`. Mis à jour le 2026-10-05.
+`medusa-golden-market/`. Mis à jour le 2026-10-06.
 
 ---
 
@@ -23,7 +23,7 @@ dans le code, sans trailer Co-Authored-By.
 - Frais d'expédition par produit : option de livraison « Livraison » à prix calculé (fournisseur
   `golden-market-shipping`) : gratuite à Ouagadougou, ailleurs les frais les plus élevés du panier ;
   saisis dans l'encadré « Frais d'expédition » de la fiche produit (`metadata.frais_expedition_xof`,
-  1 500 F si vide). Saisis le 2026-10-05 : balai-éponge 1 500 F, les 38 autres produits 1 000 F.
+  1 000 F si vide depuis le 2026-10-06). Saisis le 2026-10-05 : balai-éponge 1 500 F, les 38 autres produits 1 000 F.
   Le site, l'agent WhatsApp (`place_order`) et les commandes par téléphone ajoutent ces frais au
   total ; l'agent les lit dans ses outils de recherche (`shipping_fee_xof`).
 - Chat WhatsApp de l'admin : médias, vocaux, reprise manuelle, « Non envoyé » (refus Meta),
@@ -33,11 +33,20 @@ dans le code, sans trailer Co-Authored-By.
   reçus Orange / Moov Money lus par la vision, frais de retrait ~1 % et transferts multiples
   acceptés, ne conteste jamais un paiement) ; médias client (vidéo par Gemini `gemini-3.6-flash`
   puis secours `gemini-3.5-flash`, photo par OpenAI, vocal par Whisper, escalade si tout échoue).
-- Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier lot :
-  2026-10-04, frais d'expédition et tableau de bord).
+- Commande par téléphone : bouton « Nouvelle commande » dans l'en-tête de la liste des commandes
+  (à gauche d'« Export », inséré par le widget `new-phone-order-button.tsx` car Medusa 2.18 rend les
+  widgets `order.list.before` sous le tableau) ; le formulaire affiche la livraison et le total frais
+  compris ; envoyée à Meta en `action_source: "phone_call"`.
+- Lots du 2026-10-06 (session autonome) : finitions du stock livreurs, du tableau de bord / frais /
+  commandes par téléphone, entretien des médias WhatsApp (voir `HANDOFF.md`).
+- Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier lot : 2026-10-06).
 
 ## À vérifier en début de session
 
+- Toujours rien de réel au 2026-10-06 (aucun message client depuis le 2026-10-03, aucune commande) :
+  les trois points ci-dessous restent à vérifier dès qu'un client écrit ou commande.
+- Retour du propriétaire sur les lots du 2026-10-06 (bouton « Nouvelle commande » à côté d'Export,
+  recherche produit du stock livreurs, livraison dans le total du formulaire).
 - Premières commandes hors Ouagadougou depuis le 2026-10-04 : total frais compris (site, WhatsApp,
   téléphone) et message de l'agent annonçant ce total. La commande par téléphone et `place_order`
   n'ont pas été testés en réel (calcul partagé vérifié par paniers API non validés).
@@ -52,30 +61,27 @@ dans le code, sans trailer Co-Authored-By.
 
 ## Prochaines tâches proposées au propriétaire (à lui faire choisir)
 
-1. **Finitions du stock livreurs** (mineurs de la revue finale) : recherche produit par nom dans les
-   formulaires ; avertissement visible si le déstockage échoue à « Livrée » (aujourd'hui seulement
-   journalisé) ; lignes réinitialisées au changement de livreur en mode Retour ; message d'erreur
-   au lieu de « Chargement… » sans fin ; refuser un produit saisi deux fois dans une correction ;
-   ignorer les variantes `manage_inventory = false` au déstockage ; verrou entre mouvements
-   manuels simultanés.
-2. **Finitions tableau de bord et frais d'expédition** (mineurs des revues du 2026-10-04/05) :
-   chiffres « Commandé » / « Encaissé » indisponibles sans libellé ; cartes à 3 montants serrées
-   sur téléphone ; livraisons de commandes annulées comptées « en cours » tant que la tournée n'est
-   pas ouverte ; encadré « Frais d'expédition » sans gestion d'échec réseau ; « Retirer » du widget
-   vidéo produit ne supprime pas `video_url` (fusion des métadonnées Medusa) ; route des commandes
-   par téléphone sans test unitaire ; défaut de 1 500 F à passer à 1 000 F si le propriétaire le
-   souhaite (constante `DEFAULT_SHIPPING_FEE_XOF`).
-3. **Suivi Meta des commandes par téléphone** (action_source « phone_call » dans l'API Conversions).
-4. **Entretien** : purger le fichier `wa-media` orphelin après un envoi échoué ; la purge nocturne
-   rescanne d'anciens messages ; coches « remis / lu » dans le chat (refusé pour l'instant, à
-   reproposer seulement si demandé) ; micro du chat non testé sur téléphone.
+1. **Meta, événements du site** : l'API Conversions reçoit les achats du site sans
+   `event_source_url` (exigé par Meta pour `action_source: "website"`) ni données navigateur
+   (`fbp`, `fbc`, user agent) : les ajouter améliorerait la correspondance des événements.
+2. **Commandes de l'agent WhatsApp chez Meta** : `action_source: "business_messaging"` (+
+   `messaging_channel: "whatsapp"`) au lieu de `website`, après vérification de la configuration
+   côté Meta (non fait : un événement refusé serait perdu).
+3. **Petits restes des revues du 2026-10-06** (non bloquants) : `releaseLockStep` sans `ownerId`,
+   test d'intégration du verrou, sélecteur produit sans rôles aria, `normalizeSearch` perd les
+   ligatures (œ), `uploadRes.json()` hors `try` dans le widget vidéo, hôte non vérifié avant
+   suppression d'un `wa-media`, lettres non latines.
+4. **Entretien** : micro du chat non testé sur téléphone ; coches « remis / lu » (refusées, à
+   reproposer seulement si demandé).
 
 ## À rappeler au propriétaire (actions de son côté)
 
 - Saisir le solde initial de caisse (la caisse affiche 0 F en production) et les coûts de revient
   du stock existant (onglet Marges, sinon la marge du mois reste incomplète).
-- Saisir les frais d'expédition de chaque nouveau produit à sa création (sinon 1 500 F) ; vérifier
+- Saisir les frais d'expédition de chaque nouveau produit à sa création (sinon 1 000 F) ; vérifier
   ceux des produits volumineux (congélateur, vitrine, machines), réglés à 1 000 F comme les autres.
+- Relire le bilan des décisions prises seul le 2026-10-06 (frais par défaut 1 000 F, conseil
+  « Retour » dans l'avertissement de stock, libellés du formulaire) et dire s'il faut revenir dessus.
 - Valider les hypothèses des specs caisse / approvisionnement / prospects ; ajouter ses autres
   livreurs puis le stock qu'il leur confie ; « Rendre la main » sur sa conversation de test
   (22677406101).
@@ -118,6 +124,18 @@ dans le code, sans trailer Co-Authored-By.
 - Ne jamais afficher ni committer de secret (.env) ; ne jamais utiliser son mot de passe réel.
 
 ## Pièges connus
+
+- Medusa 2.18 : les zones de widget `*.before` / `*.after` d'une page de liste sont rendues APRÈS le
+  contenu de Medusa (`getWidgetsForSections` ignore before/after) : vérifier visuellement tout widget
+  de liste après une mise à jour de Medusa.
+- `n8n export:workflow --output=<fichier>` n'écrase pas toujours un fichier existant et, avec
+  `>/dev/null`, l'échec passe inaperçu : exporter vers un nom unique (`/tmp/x-$(date +%s).json`),
+  vérifier, puis supprimer. La version active d'un workflow est dans `n8n.workflow_history`
+  (`activeVersionId`).
+- API GitHub sans jeton : 60 requêtes / heure ; une boucle de surveillance l'épuise vite. Surveiller
+  plutôt le déploiement sur le VPS (texte nouveau présent dans `public/admin/assets/*.js` du
+  conteneur, ou heure de démarrage du conteneur).
+- `n8n execute` : `-e N8N_RUNNERS_BROKER_PORT=5698` se passe à `docker exec`, pas à `n8n`.
 
 - `query.graph` sur `order` : demander `items.*`, `summary.*`, `shipping_methods.*` (sinon total 0
   et quantités vides) ; `payment_status` / `fulfillment_status` n'y sont pas calculés.

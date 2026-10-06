@@ -16,6 +16,31 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-06 (nuit) - **Session autonome (propriétaire endormi, carte blanche) : bouton « Nouvelle commande » et
+trois lots de finitions livrés.** Specs/plans du 2026-10-06 dans `docs/superpowers/` ; exécution par
+sous-agents, revue par tâche et revue finale (modèle le plus capable) pour chaque lot.
+- Bouton « Nouvelle commande » : invisible depuis Medusa 2.18 (les widgets `order.list.before` sont
+  rendus SOUS le tableau). Désormais inséré dans l'en-tête « Commandes / Export » (à gauche d'Export),
+  repli en bas de page si l'en-tête change. Production vérifiée (bundle).
+- Stock livreurs : recherche produit par nom (sans accents, mots dans le désordre), produit tapé mais
+  non choisi refusé, correction avec un produit en double refusée, lignes vidées au changement de
+  livreur (Retour), erreur + « Réessayer » au lieu de « Chargement… », succès conservé si le
+  rafraîchissement échoue, verrou `courier-stock` sur tous les mouvements, variantes sans suivi de
+  stock ignorées au déstockage, avertissement « enregistrez un Retour » (pas une correction, qui
+  retirerait deux fois le stock Medusa) inscrit dans `sync_warning` si le déstockage échoue.
+- Frais d'expédition par défaut 1 000 F (au lieu de 1 500 F ; replis n8n des trois outils de
+  recherche alignés). Formulaire « Nouvelle commande » : ligne « Livraison » et total frais compris
+  (route `GET /admin/phone-orders/shipping-fee`, `{ amount, free }`).
+- Livraisons confiées annulées dès l'annulation de la commande (abonné `order.canceled`).
+- Tableau de bord : chiffres indisponibles libellés, cartes à 3 montants empilées sur téléphone.
+  Widgets produit : coupure réseau gérée ; « Retirer » la vidéo supprime vraiment `video_url`.
+- Meta : commandes par téléphone envoyées avec `action_source: "phone_call"`.
+- Chat WhatsApp : fichier `wa-media` d'un envoi refusé supprimé ; purge nocturne limitée aux messages
+  ayant au moins un de nos fichiers (ne relit plus indéfiniment les autres).
+- Vérifications de début de session : aucun message client depuis le 2026-10-03, aucune commande
+  depuis (frais d'expédition, reçu de paiement et vidéo toujours non vérifiés en réel).
+- Reste à faire / proposé : voir `docs/HANDOFF-PROMPT.md`.
+
 2026-10-05 - **Tableau de bord de gestion livré en production** (`/app/dashboard`, entrée « Tableau de
 bord » du menu ; spec `docs/superpowers/specs/2026-10-04-tableau-de-bord-design.md`). « À faire
 aujourd'hui » (commandes à confier, livraisons en cours et en retard d'après la date de tournée
