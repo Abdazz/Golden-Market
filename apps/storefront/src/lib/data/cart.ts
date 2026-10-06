@@ -335,13 +335,44 @@ export async function submitPromotionForm(
   }
 }
 
+/**
+ * Données du navigateur attendues par l'API Conversions de Meta pour un achat
+ * du site : user agent (exigé par Meta), IP, cookies _fbp / _fbc (présents
+ * seulement si le visiteur a accepté le traçage). Champs vides omis. Non
+ * exportée : reste côté serveur (next/headers), jamais action serveur.
+ */
+async function readMetaBrowser(): Promise<Record<string, string>> {
+  try {
+    const requestHeaders = await nextHeaders()
+    const cookieStore = await cookies()
+    const forwardedFor = requestHeaders
+      .get("x-forwarded-for")
+      ?.split(",")[0]
+      ?.trim()
+    const entries: Record<string, string | undefined> = {
+      user_agent: requestHeaders.get("user-agent") ?? undefined,
+      client_ip: forwardedFor || requestHeaders.get("x-real-ip") || undefined,
+      fbp: cookieStore.get("_fbp")?.value,
+      fbc: cookieStore.get("_fbc")?.value,
+    }
+    return Object.fromEntries(
+      Object.entries(entries).filter(
+        (entry): entry is [string, string] => !!entry[1]
+      )
+    )
+  } catch (error) {
+    console.error("[readMetaBrowser] lecture impossible :", error)
+    return {}
+  }
+}
+
 // TODO: Pass a POJO instead of a form entity here
 export async function setAddresses(currentState: unknown, formData: FormData) {
   try {
     if (!formData) {
       throw new Error("No form data found when setting addresses")
     }
-    const cartId = getCartId()
+    const cartId = await getCartId()
     if (!cartId) {
       throw new Error("No existing cart found when setting addresses")
     }
@@ -378,6 +409,35 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
     // pour l'affichage des détails de carte - voir payment-button).
     data.billing_address = data.shipping_address
 
+    // Données du navigateur pour l'API Conversions de Meta (spec 2026-10-06
+    // meta-evenements-achat), recopiées par Medusa du panier vers la commande.
+    // Enregistrées ici, à l'étape adresse, et non juste avant cart.complete :
+    // toute mise à jour du panier le fait recalculer par Medusa et, si le
+    // total change, supprime les sessions de paiement (la validation
+    // échouerait). Ici aucune session de paiement n'existe encore, et on
+    // profite de l'unique updateCart existant (pas d'appel supplémentaire).
+    // Lecture des métadonnées en échec : jamais bloquant, adresse envoyée
+    // sans les données Meta.
+    const metaBrowser = await readMetaBrowser()
+    if (Object.keys(metaBrowser).length) {
+      try {
+        const { cart: current } = await sdk.store.cart.retrieve(
+          cartId,
+          { fields: "id,metadata" },
+          { ...(await getAuthHeaders()) }
+        )
+        data.metadata = {
+          ...(current?.metadata ?? {}),
+          meta_browser: metaBrowser,
+        }
+      } catch (error) {
+        console.error(
+          "[setAddresses] données navigateur Meta non enregistrées :",
+          error
+        )
+      }
+    }
+
     await updateCart(data)
   } catch (e: any) {
     return e.message
@@ -402,42 +462,6 @@ export async function placeOrder(cartId?: string) {
 
   const headers = {
     ...(await getAuthHeaders()),
-  }
-
-  // Données du navigateur pour l'API Conversions de Meta (spec 2026-10-06
-  // meta-evenements-achat) : Meta exige le navigateur (user agent) pour un
-  // achat du site. _fbp / _fbc n'existent que si le visiteur a accepté le
-  // traçage. Recopiées par Medusa du panier vers la commande. Jamais bloquant.
-  try {
-    const requestHeaders = await nextHeaders()
-    const cookieStore = await cookies()
-    const forwardedFor = requestHeaders
-      .get("x-forwarded-for")
-      ?.split(",")[0]
-      ?.trim()
-    const metaBrowser = Object.fromEntries(
-      Object.entries({
-        user_agent: requestHeaders.get("user-agent") ?? undefined,
-        client_ip: forwardedFor || requestHeaders.get("x-real-ip") || undefined,
-        fbp: cookieStore.get("_fbp")?.value,
-        fbc: cookieStore.get("_fbc")?.value,
-      }).filter(([, value]) => !!value)
-    )
-    if (Object.keys(metaBrowser).length) {
-      const { cart: current } = await sdk.store.cart.retrieve(
-        id,
-        { fields: "id,metadata" },
-        headers
-      )
-      await sdk.store.cart.update(
-        id,
-        { metadata: { ...(current?.metadata ?? {}), meta_browser: metaBrowser } },
-        {},
-        headers
-      )
-    }
-  } catch (error) {
-    console.error("[placeOrder] données navigateur Meta non enregistrées :", error)
   }
 
   const cartRes = await sdk.store.cart
