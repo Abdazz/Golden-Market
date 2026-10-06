@@ -58,7 +58,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   if (!customerId) {
     const { result } = await createCustomersWorkflow(req.scope).run({
       input: {
-        customersData: [{ first_name: input.first_name, last_name: input.last_name ?? "", phone: input.phone }],
+        customersData: [{ first_name: input.first_name || "", last_name: input.last_name ?? "", phone: input.phone }],
       },
     })
     customerId = result[0].id

@@ -228,6 +228,37 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     expect(graph).toHaveBeenCalledWith(expect.objectContaining({ fields: expect.arrayContaining(["custom_display_id"]) }))
   })
 
+  it.each([
+    [{ first_name: "", last_name: "Ouédraogo" }, "Ouédraogo"],
+    [{ first_name: "", last_name: "" }, "cher client"],
+    [{}, "cher client"],
+  ])("commande sans prénom %j : salutation de repli (jamais de paramètre vide, refusé par Meta)", async (names, expected) => {
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_30",
+          display_id: 30,
+          currency_code: "xof",
+          total: 6500,
+          metadata: { source: "telephone", payment_method: "orange-money" },
+          shipping_address: { ...names, phone: "+22670000000" },
+          items: [{ product_title: "Balai-éponge à essorage automatique" }],
+          payment_collections: [{ amount: 6500, payments: [] }],
+        },
+      ],
+    })
+    fetchMock.mockResolvedValue({ ok: true })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_30" } } as any,
+      container: container as any,
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.params[0]).toBe(expected)
+  })
+
   it("commande par téléphone : affiche le moyen de paiement convenu (metadata.payment_method)", async () => {
     process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
 

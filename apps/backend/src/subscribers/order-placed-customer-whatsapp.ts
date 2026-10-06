@@ -11,7 +11,7 @@ type OrderConfirmationData = {
   currency_code: string
   total: number
   metadata?: Record<string, unknown> | null
-  shipping_address?: { first_name?: string; phone?: string }
+  shipping_address?: { first_name?: string; last_name?: string; phone?: string }
   items?: Array<{ product_title?: string; unit_price?: number; quantity?: number }>
   shipping_methods?: Array<{ amount?: number }>
   payment_collections?: Array<{
@@ -90,6 +90,7 @@ export default async function orderPlacedCustomerWhatsappHandler({
         "total",
         "metadata",
         "shipping_address.first_name",
+        "shipping_address.last_name",
         "shipping_address.phone",
         // Articles et livraison chargés en entier : avec items.quantity demandé
         // seul, query.graph ne renvoie pas la quantité et le montant recalculé
@@ -105,7 +106,10 @@ export default async function orderPlacedCustomerWhatsappHandler({
 
     const typedOrder = order as unknown as OrderConfirmationData
     const phone = typedOrder.shipping_address?.phone
-    const firstName = typedOrder.shipping_address?.first_name
+    // Prénom facultatif pour une commande par téléphone : nom de famille, sinon
+    // formule neutre (Meta refuse un paramètre de modèle vide, erreur 131008).
+    const greetingName =
+      typedOrder.shipping_address?.first_name?.trim() || typedOrder.shipping_address?.last_name?.trim() || "cher client"
 
     if (!phone) {
       logger.info(
@@ -164,7 +168,7 @@ export default async function orderPlacedCustomerWhatsappHandler({
       : "order_confirmation_from_website"
     const params = isWhatsappOrder
       ? [productSummary, total, displayId, paymentMethod]
-      : [firstName || "", productSummary, total, displayId, paymentMethod]
+      : [greetingName, productSummary, total, displayId, paymentMethod]
 
     const response = await fetch(webhookUrl, {
       method: "POST",

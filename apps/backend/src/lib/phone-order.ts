@@ -28,7 +28,8 @@ export type PhoneOrderInput = {
 
 const Body = z.object({
   phone: z.string({ message: "Numéro WhatsApp obligatoire." }),
-  first_name: z.string().trim().min(1, "Le prénom du client est obligatoire."),
+  // Prénom facultatif (2026-10-06) : le client reste identifié par son numéro.
+  first_name: z.string().trim().optional().default(""),
   last_name: z.string().trim().optional(),
   city: z.string().trim().min(1, "La ville est obligatoire.").default("Ouagadougou"),
   address: z.string().trim().min(1, "L'adresse de livraison (quartier, repère) est obligatoire."),

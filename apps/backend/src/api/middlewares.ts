@@ -9,6 +9,7 @@ import { supplierOrderMiddlewares } from "./admin/supplier-orders/middlewares"
 import multer from "multer"
 import { MAX_UPLOAD_BYTES } from "../lib/whatsapp-media-types"
 import { checkRateLimit } from "./middlewares/rate-limiter"
+import { withPhoneAsCustomerName } from "../lib/order-list-customer"
 
 // Observabilité backend (GlitchTip self-hosted) : capture chaque erreur avant de
 // déléguer au comportement par défaut de Medusa - ne remplace rien de l'existant,
@@ -226,6 +227,14 @@ export async function whatsappOtpConfirmRateLimitMiddleware(
   next()
 }
 
+// Liste des commandes de l'admin : numéro WhatsApp affiché dans la colonne
+// "Client" quand le client n'a ni prénom ni nom (voir lib/order-list-customer.ts).
+export function orderListCustomerNameMiddleware(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
+  const json = res.json.bind(res)
+  res.json = ((body: unknown) => json(withPhoneAsCustomerName(body))) as typeof res.json
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
     {
@@ -262,6 +271,11 @@ export default defineMiddlewares({
     // fichier gardé en mémoire (comme /admin/uploads natif), 100 Mo maximum.
     // Noms de fichiers décodés en UTF-8 (latin1 par défaut dans multer :
     // "Facture n°12 été.pdf" arrivait en "Facture nÂ°12 Ã©tÃ©.pdf").
+    {
+      matcher: "/admin/orders",
+      methods: ["GET"],
+      middlewares: [orderListCustomerNameMiddleware],
+    },
     {
       matcher: "/admin/whatsapp-conversations/:phone/media",
       methods: ["POST"],

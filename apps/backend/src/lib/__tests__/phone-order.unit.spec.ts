@@ -25,6 +25,14 @@ describe("parsePhoneOrderInput", () => {
     expect(parsePhoneOrderInput(withoutLastName).ok).toBe(true)
   })
 
+  it("prénom facultatif : absent ou vide, la commande est acceptée", () => {
+    const { first_name, ...withoutFirstName } = validBody
+    const absent = parsePhoneOrderInput(withoutFirstName)
+    const empty = parsePhoneOrderInput({ ...validBody, first_name: "  " })
+    expect(absent.ok && absent.input.first_name).toBe("")
+    expect(empty.ok && empty.input.first_name).toBe("")
+  })
+
   it("refuse un numéro invalide avec un message clair", () => {
     expect(parsePhoneOrderInput({ ...validBody, phone: "1234" })).toEqual({
       ok: false,
@@ -35,7 +43,6 @@ describe("parsePhoneOrderInput", () => {
   it.each([
     [{ items: [] }, "au moins un article"],
     [{ address: "  " }, "adresse"],
-    [{ first_name: "" }, "prénom"],
     [{ payment_method: "carte" }, "moyen de paiement"],
     [{ items: [{ variant_id: "variant_1", quantity: 0 }] }, "quantité"],
   ])("refuse un formulaire incomplet %j", (patch, expected) => {

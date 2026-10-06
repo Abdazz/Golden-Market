@@ -323,3 +323,16 @@ describe("whatsappOtpConfirmRateLimitMiddleware", () => {
     expect(next).toHaveBeenCalled()
   })
 })
+
+describe("orderListCustomerNameMiddleware", () => {
+  it("remplace le nom vide d'un client par son numéro dans la réponse de la liste des commandes", () => {
+    const { orderListCustomerNameMiddleware } = require("../middlewares")
+    const sent: unknown[] = []
+    const res: any = { json: jest.fn((body: unknown) => sent.push(body)) }
+    const next = jest.fn()
+    orderListCustomerNameMiddleware({} as any, res, next)
+    expect(next).toHaveBeenCalled()
+    res.json({ orders: [{ customer: { first_name: "", last_name: "", phone: "+22670000000" } }], count: 1 })
+    expect(sent[0]).toEqual({ orders: [{ customer: { first_name: "+22670000000", last_name: "", phone: "+22670000000" } }], count: 1 })
+  })
+})

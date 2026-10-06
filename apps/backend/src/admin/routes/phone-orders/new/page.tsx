@@ -189,7 +189,7 @@ const NewPhoneOrderPage = () => {
           )}
         </label>
         <label className="flex flex-col gap-y-1">
-          <span className={labelClass}>Prénom *</span>
+          <span className={labelClass}>Prénom</span>
           <input className={inputClass} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         </label>
         <label className="flex flex-col gap-y-1">
