@@ -135,13 +135,13 @@ const FiguresSection = ({ figures, month }: { figures: Dashboard["figures"]; mon
       <a href="/app/cash" className={`${card} block hover:bg-ui-bg-base-hover`}>
         <h3 className="txt-compact-medium-plus text-ui-fg-base mb-3">Caisse</h3>
         {cash.available ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
             <Figure label="Solde" value={formatXof(cash.balance)} />
             <Figure label="Entrées du mois" value={formatXof(cash.month_in)} />
             <Figure label="Sorties du mois" value={formatXof(cash.month_out)} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
             <UnavailableFigure label="Solde" />
             <UnavailableFigure label="Entrées du mois" />
             <UnavailableFigure label="Sorties du mois" />
@@ -152,7 +152,7 @@ const FiguresSection = ({ figures, month }: { figures: Dashboard["figures"]; mon
         <h3 className="txt-compact-medium-plus text-ui-fg-base mb-3">Marge brute du mois</h3>
         {margin.available ? (
           <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
               <Figure label="Marge" value={formatXof(margin.margin)} sub={plural(margin.orders, "commande encaissée")} />
               <Figure label="Ventes" value={formatXof(margin.revenue)} />
               <Figure label="Coût" value={formatXof(margin.cost)} />
@@ -164,7 +164,7 @@ const FiguresSection = ({ figures, month }: { figures: Dashboard["figures"]; mon
             )}
           </>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
             <UnavailableFigure label="Marge" />
             <UnavailableFigure label="Ventes" />
             <UnavailableFigure label="Coût" />

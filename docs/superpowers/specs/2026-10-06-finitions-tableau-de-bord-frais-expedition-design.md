@@ -59,11 +59,12 @@ Aucun produit existant ne change (tous ont des frais saisis).
 ### 8. Formulaire « Nouvelle commande » : frais d'expédition dans le total
 
 - Nouvelle route `GET /admin/phone-orders/shipping-fee?city=<ville>&variant_ids=<id1,id2>` ->
-  `{ amount }`, calculée par `shippingFeeForVariants` (même calcul que la création de la commande).
+  `{ amount, free }` (free = ville gratuite), calculée par `shippingFeeForVariants` (même calcul que la création de la commande).
 - Le formulaire affiche, sous les articles : « Livraison : Gratuite (Ouagadougou) » ou
   « Livraison : 1 000 F », puis « Total : <articles + livraison> ». Recalcul à chaque changement de
   ville ou d'articles (attente de 300 ms) ; pendant le calcul « Livraison : calcul… » ; en cas d'échec
-  « Livraison : calculée à la validation » et le total affiché reste celui des articles.
+  « Livraison : calculée à la validation » et le total affiché reste celui des articles. Quand la ville
+  est vide, le formulaire affiche « Livraison : saisissez la ville ».
 
 ### 9. Suivi Meta des commandes par téléphone
 
@@ -79,7 +80,7 @@ WhatsApp côté Meta non vérifiée : hors périmètre). Règle pure `actionSour
 
 Unitaires (TDD) : `deliveriesToCancel`, route des commandes par téléphone, route `shipping-fee`
 (paramètres manquants -> 0 / 400 selon le cas : `variant_ids` vide -> `{ amount: 0 }`, `city`
-absente -> calcul hors Ouagadougou comme `shippingFeeForVariants`), `DEFAULT_SHIPPING_FEE_XOF = 1000`
+absente -> `{ amount: 0, free: true }` car `defaultTypeForCity("")` retourne "express"), `DEFAULT_SHIPPING_FEE_XOF = 1000`
 (tests existants des frais mis à jour). Local : tableau de bord bureau et téléphone, formulaire
 « Nouvelle commande » (Kaya / Ouagadougou), encadré frais et widget vidéo réseau coupé, annulation
 d'une commande confiée. Staging puis production.
