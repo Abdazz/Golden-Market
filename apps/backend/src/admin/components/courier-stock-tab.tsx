@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useId, useState } from "react"
 import { parseFormLines, readableError } from "../lib/courier-stock-form"
 import type { FormLine } from "../lib/courier-stock-form"
 import { matchesSearch } from "../lib/product-search"
@@ -35,6 +35,7 @@ const ProductPicker = ({
   const selected = choices.find((c) => c.id === value)
   const [text, setText] = useState(selected?.label ?? "")
   const [open, setOpen] = useState(false)
+  const listId = useId()
   useEffect(() => {
     if (selected) setText(selected.label)
   }, [selected?.label])
@@ -44,6 +45,10 @@ const ProductPicker = ({
     <div className="relative min-w-0 flex-1">
       <input
         className={`${inputClass} w-full`}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-autocomplete="list"
         placeholder="Rechercher un produit…"
         value={text}
         onFocus={() => setOpen(true)}
@@ -56,11 +61,11 @@ const ProductPicker = ({
         }}
       />
       {open && (
-        <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-ui-border-base bg-ui-bg-base shadow-elevation-flyout">
+        <ul id={listId} role="listbox" className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-ui-border-base bg-ui-bg-base shadow-elevation-flyout">
           {matches.length ? (
             <>
               {matches.map((c) => (
-                <li key={c.id}>
+                <li key={c.id} role="option" aria-selected={c.id === value}>
                   <button
                     type="button"
                     className="txt-compact-small flex w-full flex-col items-start px-3 py-2 text-left hover:bg-ui-bg-base-hover"
@@ -77,10 +82,10 @@ const ProductPicker = ({
                   </button>
                 </li>
               ))}
-              {allMatches.length > MAX_MATCHES && <li className="txt-compact-small px-3 py-2 text-ui-fg-muted">Affinez la recherche…</li>}
+              {allMatches.length > MAX_MATCHES && <li role="presentation" className="txt-compact-small px-3 py-2 text-ui-fg-muted">Affinez la recherche…</li>}
             </>
           ) : (
-            <li className="txt-compact-small px-3 py-2 text-ui-fg-subtle">Aucun produit</li>
+            <li role="presentation" className="txt-compact-small px-3 py-2 text-ui-fg-subtle">Aucun produit</li>
           )}
         </ul>
       )}
@@ -197,11 +202,23 @@ const MovementForm = ({
 const History = ({ courierId, version }: { courierId: string; version: number }) => {
   const [movements, setMovements] = useState<CourierStockMovement[] | null>(null)
   const [failed, setFailed] = useState(false)
+  // Changement de livreur : on vide la liste avant la requête, jamais les mouvements du précédent.
   useEffect(() => {
+    setMovements(null)
+  }, [courierId])
+  useEffect(() => {
+    let cancelled = false
     setFailed(false)
     api<{ movements: CourierStockMovement[] }>(`/admin/courier-stock/movements?courier_id=${encodeURIComponent(courierId)}`)
-      .then((r) => setMovements(r.movements))
-      .catch(() => setFailed(true))
+      .then((r) => {
+        if (!cancelled) setMovements(r.movements)
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [courierId, version])
   if (failed) return <p className="txt-compact-small text-ui-fg-error">Historique indisponible.</p>
   if (movements === null) return <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>

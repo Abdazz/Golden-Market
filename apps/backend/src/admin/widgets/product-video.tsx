@@ -113,8 +113,15 @@ const ProductVideoWidget = ({ data: product }: DetailWidgetProps<AdminProduct>) 
       return
     }
 
-    const { files }: UploadResponse = await uploadRes.json()
-    const uploadedUrl = files[0]?.url
+    let body: UploadResponse
+    try {
+      body = (await uploadRes.json()) as UploadResponse
+    } catch {
+      setStatus("error")
+      setErrorMessage("Réponse inattendue du serveur, réessayez.")
+      return
+    }
+    const uploadedUrl = body.files?.[0]?.url
     if (!uploadedUrl) {
       setStatus("error")
       setErrorMessage("Réponse d'upload inattendue.")
