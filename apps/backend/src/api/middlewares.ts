@@ -9,7 +9,7 @@ import { supplierOrderMiddlewares } from "./admin/supplier-orders/middlewares"
 import multer from "multer"
 import { MAX_UPLOAD_BYTES } from "../lib/whatsapp-media-types"
 import { checkRateLimit } from "./middlewares/rate-limiter"
-import { withPhoneAsCustomerName } from "../lib/order-list-customer"
+import { withGoldenMarketOrderNumber, withPhoneAsCustomerName } from "../lib/order-list-customer"
 
 // Observabilité backend (GlitchTip self-hosted) : capture chaque erreur avant de
 // déléguer au comportement par défaut de Medusa - ne remplace rien de l'existant,
@@ -227,11 +227,12 @@ export async function whatsappOtpConfirmRateLimitMiddleware(
   next()
 }
 
-// Liste des commandes de l'admin : numéro WhatsApp affiché dans la colonne
-// "Client" quand le client n'a ni prénom ni nom (voir lib/order-list-customer.ts).
+// Liste des commandes de l'admin (voir lib/order-list-customer.ts) : numéro
+// Golden Market dans la colonne "Commande", numéro WhatsApp dans la colonne
+// "Client" quand le client n'a ni prénom ni nom.
 export function orderListCustomerNameMiddleware(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
   const json = res.json.bind(res)
-  res.json = ((body: unknown) => json(withPhoneAsCustomerName(body))) as typeof res.json
+  res.json = ((body: unknown) => json(withPhoneAsCustomerName(withGoldenMarketOrderNumber(body)))) as typeof res.json
   next()
 }
 

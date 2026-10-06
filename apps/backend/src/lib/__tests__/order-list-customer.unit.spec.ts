@@ -29,3 +29,18 @@ describe("withPhoneAsCustomerName", () => {
     expect(withPhoneAsCustomerName(null)).toBeNull()
   })
 })
+
+describe("withGoldenMarketOrderNumber", () => {
+  const { withGoldenMarketOrderNumber } = require("../order-list-customer")
+  it("la colonne Commande affiche le numéro Golden Market à la place du numéro natif", () => {
+    const body = { orders: [{ id: "o1", display_id: 13, custom_display_id: "20261006001" }] }
+    expect(withGoldenMarketOrderNumber(body).orders[0].display_id).toBe("20261006001")
+  })
+  it("commande sans numéro Golden Market (non demandé ou absent) : numéro natif conservé", () => {
+    const body = { orders: [{ id: "o1", display_id: 3 }, { id: "o2", display_id: 4, custom_display_id: null }] }
+    expect(withGoldenMarketOrderNumber(body).orders.map((o: any) => o.display_id)).toEqual([3, 4])
+  })
+  it("corps sans liste : inchangé", () => {
+    expect(withGoldenMarketOrderNumber({ order: { display_id: 1 } })).toEqual({ order: { display_id: 1 } })
+  })
+})

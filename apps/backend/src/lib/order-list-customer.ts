@@ -17,3 +17,15 @@ export const withPhoneAsCustomerName = (body: any) => {
   }
   return body
 }
+
+// Colonne "Commande" : la cellule de Medusa affiche display_id (compteur natif,
+// "#13"). Dans la réponse de la liste, il est remplacé par le numéro Golden
+// Market (custom_display_id, AAAAMMJJ + compteur du jour, déjà demandé par la
+// liste) : "#20261006001". Le tri et la recherche ne changent pas (côté serveur).
+export const withGoldenMarketOrderNumber = (body: any) => {
+  if (!body || !Array.isArray(body.orders)) return body
+  for (const order of body.orders as { display_id?: unknown; custom_display_id?: string | null }[]) {
+    if (order.custom_display_id) order.display_id = order.custom_display_id
+  }
+  return body
+}

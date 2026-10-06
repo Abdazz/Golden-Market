@@ -332,7 +332,10 @@ describe("orderListCustomerNameMiddleware", () => {
     const next = jest.fn()
     orderListCustomerNameMiddleware({} as any, res, next)
     expect(next).toHaveBeenCalled()
-    res.json({ orders: [{ customer: { first_name: "", last_name: "", phone: "+22670000000" } }], count: 1 })
-    expect(sent[0]).toEqual({ orders: [{ customer: { first_name: "+22670000000", last_name: "", phone: "+22670000000" } }], count: 1 })
+    res.json({ orders: [{ display_id: 13, custom_display_id: "20261006001", customer: { first_name: "", last_name: "", phone: "+22670000000" } }], count: 1 })
+    expect(sent[0]).toEqual({
+      orders: [{ display_id: "20261006001", custom_display_id: "20261006001", customer: { first_name: "+22670000000", last_name: "", phone: "+22670000000" } }],
+      count: 1,
+    })
   })
 })
