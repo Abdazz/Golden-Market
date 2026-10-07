@@ -96,9 +96,11 @@ const ToAssignTab = () => {
     const edited: Record<string, number> = {}
     for (const id of selected) {
       if (amounts[id] === undefined) continue
-      const raw = amounts[id].replace(/\s/g, "")
+      // Espaces, points et virgules acceptés comme séparateurs de milliers
+      // ("7 000", "7.000", "7,000" = 7 000 F) : seuls les chiffres comptent.
+      const raw = amounts[id].replace(/[\s.,]/g, "")
       const value = Number(raw)
-      if (raw === "" || !Number.isInteger(value) || value < 0) {
+      if (!/^\d+$/.test(raw) || value > 10_000_000) {
         const number = orders?.find((o) => o.id === id)?.order_number ?? ""
         setNotice({ kind: "error", text: `Montant à encaisser invalide pour la commande ${number} : nombre entier en F CFA (0 si rien).` })
         return
@@ -124,7 +126,9 @@ const ToAssignTab = () => {
       result.errors.forEach((e) => parts.push(e.message))
       setNotice({ kind: result.errors.length || failedMessages ? "warning" : "success", text: parts.join(" ") })
       setSelected([])
-      setAmounts({})
+      // Montants saisis conservés pour les commandes refusées (elles restent à confier).
+      const refused = new Set(result.errors.map((e) => e.order_id))
+      setAmounts((current) => Object.fromEntries(Object.entries(current).filter(([id]) => refused.has(id))))
       load()
     } catch (error) {
       setNotice({ kind: "error", text: (error as Error).message })
@@ -203,7 +207,7 @@ const ToAssignTab = () => {
                   </a>
                   {o.redeliver && <Badge className={STATUS_BADGE.failed}>À relivrer</Badge>}
                   <Badge className={o.paid ? STATUS_BADGE.delivered : "bg-ui-tag-orange-bg text-ui-tag-orange-text"}>
-                    {o.paid ? "Payée" : `À encaisser ${formatXof(o.total)}`}
+                    {o.paid ? "Payée" : `Reste à payer ${formatXof(o.amount_to_collect.express)}`}
                   </Badge>
                 </div>
                 <span className="txt-compact-small text-ui-fg-base">
@@ -224,6 +228,11 @@ const ToAssignTab = () => {
                   onChange={(e) => setAmounts((current) => ({ ...current, [o.id]: e.target.value }))}
                 />
                 <span className="txt-compact-small text-ui-fg-subtle">F CFA</span>
+                {effectiveType(o) === "expedition" && amountValue(o).replace(/[\s.,]/g, "") !== "0" && (
+                  <span className="txt-compact-small text-ui-tag-orange-text">
+                    Expédition : le livreur n'encaisse normalement rien (paiement avant envoi).
+                  </span>
+                )}
                 {amounts[o.id] !== undefined && amounts[o.id] !== String(o.amount_to_collect[effectiveType(o)]) && (
                   <button
                     type="button"

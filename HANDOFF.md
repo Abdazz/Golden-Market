@@ -16,6 +16,14 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-07 (suite) - **Montant à encaisser modifiable au moment de confier une commande** (demande du
+propriétaire). Onglet « À confier » : champ par commande cochée, prérempli (reste dû en express, 0 en
+expédition) et qui suit le type choisi tant qu'il n'est pas modifié ; « 7 000 », « 7.000 » et « 7,000 »
+valent 7 000 F ; avertissement si une expédition porte un montant ; valeur enregistrée dans
+`delivery.amount_to_collect` (tournée, versement, message au livreur). Limite connue (existante) : à
+« Livrée », Medusa marque la commande payée pour son total même si le montant encaissé est inférieur
+(remise) ; le journal de caisse, lui, inscrit le montant réellement encaissé.
+
 2026-10-07 - **Ventes WhatsApp attribuées aux publicités : activé en production ; staging coupé de Meta.**
 - Jeton d'utilisateur système fourni par le propriétaire (droit `whatsapp_business_manage_events`,
   accès au compte WhatsApp Golden Market, vérifié). Jeu de données Meta relié au compte WhatsApp

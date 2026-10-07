@@ -77,9 +77,6 @@ dans le code, sans trailer Co-Authored-By.
   du stock existant (onglet Marges, sinon la marge du mois reste incomplète).
 - Saisir les frais d'expédition de chaque nouveau produit à sa création (sinon 1 000 F) ; vérifier
   ceux des produits volumineux (congélateur, vitrine, machines), réglés à 1 000 F comme les autres.
-- Valider l'envoi à Meta de l'adresse IP et du navigateur des acheteurs du site, y compris ceux qui
-  ont refusé le traçage (comme le téléphone haché déjà envoyé) ; sinon les limiter aux visiteurs
-  consentants (une ligne dans `setAddresses`).
 - Relire le bilan des décisions prises seul le 2026-10-06 (frais par défaut 1 000 F, conseil
   « Retour » dans l'avertissement de stock, libellés du formulaire) et dire s'il faut revenir dessus.
 - Valider les hypothèses des specs caisse / approvisionnement / prospects ; ajouter ses autres
@@ -124,6 +121,9 @@ dans le code, sans trailer Co-Authored-By.
 - Ne jamais afficher ni committer de secret (.env) ; ne jamais utiliser son mot de passe réel.
 
 ## Pièges connus
+
+- Envoi à Meta de l'IP et du navigateur de tous les acheteurs du site : validé par le propriétaire le
+  2026-10-07 (ne pas le limiter aux visiteurs consentants sans sa demande).
 
 - Staging n'envoie plus rien à Meta depuis le 2026-10-07 (réglages commentés dans les `.env` du VPS) :
   ne pas les remettre, sinon les commandes de test comptent dans les statistiques de production.
