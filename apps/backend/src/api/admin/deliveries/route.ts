@@ -1,5 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { computeAmountToCollect, defaultTypeForCity } from "../../../lib/delivery-rules"
+import { amountForAssignment, computeAmountToCollect, defaultTypeForCity } from "../../../lib/delivery-rules"
 import { isPaid, loadOrders, notifyCourier, outstandingOf } from "../../../lib/delivery-service-helpers"
 import { orderNumberOf } from "../../../lib/order-number"
 import { assignDeliveryWorkflow } from "../../../workflows/assign-delivery"
@@ -30,11 +30,14 @@ export async function POST(req: AuthenticatedMedusaRequest<AssignDeliveriesSchem
           transport_company: type === "expedition" ? body.transport_company ?? null : null,
           destination_city:
             type === "expedition" ? body.destination_city ?? order.shipping_address?.city ?? null : null,
-          amount_to_collect: computeAmountToCollect({
-            type,
-            paymentStatus: isPaid(order) ? "captured" : "not_paid",
-            outstanding: outstandingOf(order),
-          }),
+          amount_to_collect: amountForAssignment(
+            computeAmountToCollect({
+              type,
+              paymentStatus: isPaid(order) ? "captured" : "not_paid",
+              outstanding: outstandingOf(order),
+            }),
+            body.amounts?.[orderId]
+          ),
           order_canceled: order.status === "canceled",
         },
       })

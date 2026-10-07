@@ -30,6 +30,8 @@ export const AssignDeliveriesSchema = z.object({
   address: z.string().nullish(),
   transport_company: z.string().nullish(),
   destination_city: z.string().nullish(),
+  // Montant à encaisser saisi par commande (sinon calculé).
+  amounts: z.record(z.string(), amount.max(10_000_000, "Montant trop grand : vérifiez la saisie.")).optional(),
 })
 export type AssignDeliveriesSchema = z.infer<typeof AssignDeliveriesSchema>
 

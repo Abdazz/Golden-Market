@@ -71,6 +71,12 @@ const ToAssignTab = () => {
   const [destination, setDestination] = useState("")
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<Notice>(null)
+  // Montants à encaisser modifiés à la main (par commande) ; les autres suivent
+  // le montant proposé pour le type choisi.
+  const [amounts, setAmounts] = useState<Record<string, string>>({})
+
+  const effectiveType = (o: OrderToAssign): DeliveryType => (type === "auto" ? o.default_type : type)
+  const amountValue = (o: OrderToAssign) => amounts[o.id] ?? String(o.amount_to_collect[effectiveType(o)])
 
   const load = useCallback(() => {
     api<{ orders: OrderToAssign[] }>("/admin/deliveries/to-assign")
@@ -87,6 +93,18 @@ const ToAssignTab = () => {
       setNotice({ kind: "error", text: "Choisissez un livreur et au moins une commande." })
       return
     }
+    const edited: Record<string, number> = {}
+    for (const id of selected) {
+      if (amounts[id] === undefined) continue
+      const raw = amounts[id].replace(/\s/g, "")
+      const value = Number(raw)
+      if (raw === "" || !Number.isInteger(value) || value < 0) {
+        const number = orders?.find((o) => o.id === id)?.order_number ?? ""
+        setNotice({ kind: "error", text: `Montant à encaisser invalide pour la commande ${number} : nombre entier en F CFA (0 si rien).` })
+        return
+      }
+      edited[id] = value
+    }
     setBusy(true)
     setNotice(null)
     try {
@@ -95,6 +113,7 @@ const ToAssignTab = () => {
         body: {
           order_ids: selected,
           courier_id: courierId,
+          ...(Object.keys(edited).length ? { amounts: edited } : {}),
           ...(type === "auto" ? {} : { type }),
           ...(type === "expedition" ? { transport_company: company || null, destination_city: destination || null } : {}),
         },
@@ -105,6 +124,7 @@ const ToAssignTab = () => {
       result.errors.forEach((e) => parts.push(e.message))
       setNotice({ kind: result.errors.length || failedMessages ? "warning" : "success", text: parts.join(" ") })
       setSelected([])
+      setAmounts({})
       load()
     } catch (error) {
       setNotice({ kind: "error", text: (error as Error).message })
@@ -173,26 +193,54 @@ const ToAssignTab = () => {
         <p className="txt-compact-small text-ui-fg-subtle">Aucune commande à confier.</p>
       ) : (
         orders.map((o) => (
-          <label key={o.id} className={`${card} flex cursor-pointer items-start gap-x-3 px-4 py-3`}>
-            <input type="checkbox" className="mt-1" checked={selected.includes(o.id)} onChange={() => toggle(o.id)} />
-            <div className="flex flex-1 flex-col gap-y-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <a href={`/app/orders/${o.id}`} className="txt-compact-small-plus text-ui-fg-interactive">
-                  {o.order_number}
-                </a>
-                {o.redeliver && <Badge className={STATUS_BADGE.failed}>À relivrer</Badge>}
-                <Badge className={o.paid ? STATUS_BADGE.delivered : "bg-ui-tag-orange-bg text-ui-tag-orange-text"}>
-                  {o.paid ? "Payée" : `À encaisser ${formatXof(o.total)}`}
-                </Badge>
+          <div key={o.id} className={`${card} flex flex-col gap-y-2 px-4 py-3`}>
+            <label className="flex cursor-pointer items-start gap-x-3">
+              <input type="checkbox" className="mt-1" checked={selected.includes(o.id)} onChange={() => toggle(o.id)} />
+              <div className="flex flex-1 flex-col gap-y-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <a href={`/app/orders/${o.id}`} className="txt-compact-small-plus text-ui-fg-interactive">
+                    {o.order_number}
+                  </a>
+                  {o.redeliver && <Badge className={STATUS_BADGE.failed}>À relivrer</Badge>}
+                  <Badge className={o.paid ? STATUS_BADGE.delivered : "bg-ui-tag-orange-bg text-ui-tag-orange-text"}>
+                    {o.paid ? "Payée" : `À encaisser ${formatXof(o.total)}`}
+                  </Badge>
+                </div>
+                <span className="txt-compact-small text-ui-fg-base">
+                  {o.customer_name} · {o.customer_phone}
+                </span>
+                <span className="txt-compact-small text-ui-fg-subtle">
+                  {[o.address, o.city].filter(Boolean).join(", ") || "Adresse non renseignée"}
+                </span>
               </div>
-              <span className="txt-compact-small text-ui-fg-base">
-                {o.customer_name} · {o.customer_phone}
-              </span>
-              <span className="txt-compact-small text-ui-fg-subtle">
-                {[o.address, o.city].filter(Boolean).join(", ") || "Adresse non renseignée"}
-              </span>
-            </div>
-          </label>
+            </label>
+            {selected.includes(o.id) && (
+              <label className="ml-7 flex flex-wrap items-center gap-2">
+                <span className="txt-compact-small text-ui-fg-subtle">Montant à encaisser</span>
+                <input
+                  className={`${inputClass} max-w-[140px]`}
+                  inputMode="numeric"
+                  value={amountValue(o)}
+                  onChange={(e) => setAmounts((current) => ({ ...current, [o.id]: e.target.value }))}
+                />
+                <span className="txt-compact-small text-ui-fg-subtle">F CFA</span>
+                {amounts[o.id] !== undefined && amounts[o.id] !== String(o.amount_to_collect[effectiveType(o)]) && (
+                  <button
+                    type="button"
+                    className="txt-compact-small text-ui-fg-interactive"
+                    onClick={() =>
+                      setAmounts((current) => {
+                        const { [o.id]: _removed, ...rest } = current
+                        return rest
+                      })
+                    }
+                  >
+                    Revenir à {formatXof(o.amount_to_collect[effectiveType(o)])}
+                  </button>
+                )}
+              </label>
+            )}
+          </div>
         ))
       )}
     </div>

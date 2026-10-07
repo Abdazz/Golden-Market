@@ -1,5 +1,6 @@
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { ORDER_FIELDS, customerName, isPaid, isShippedOrDelivered } from "./delivery-service-helpers"
+import { amountsByType, defaultTypeForCity } from "./delivery-rules"
+import { ORDER_FIELDS, customerName, isPaid, isShippedOrDelivered, outstandingOf } from "./delivery-service-helpers"
 import { orderNumberOf } from "./order-number"
 
 // Commandes à confier : non annulées, pas encore livrées ni expédiées, sans
@@ -39,6 +40,9 @@ export async function loadOrdersToAssign(scope: { resolve: (key: string) => any 
         total: o.total,
         paid: isPaid(o),
         redeliver: Boolean(last && last.status === "failed" && last.redeliver),
+        // Montant à encaisser proposé (modifiable avant de confier la commande).
+        default_type: defaultTypeForCity(o.shipping_address?.city),
+        amount_to_collect: amountsByType({ paid: isPaid(o), outstanding: outstandingOf(o) }),
         last_failure: last && last.status === "failed" ? last.status : null,
       }
     })

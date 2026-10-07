@@ -1,4 +1,6 @@
 import {
+  amountForAssignment,
+  amountsByType,
   canAssign,
   computeAmountToCollect,
   computeSettlement,
@@ -46,6 +48,26 @@ describe("computeAmountToCollect", () => {
   })
   it("n'encaisse jamais rien pour une expédition", () => {
     expect(computeAmountToCollect({ type: "expedition", paymentStatus: "not_paid", outstanding: 9500 })).toBe(0)
+  })
+})
+
+describe("amountsByType", () => {
+  it("montant proposé par type : reste dû en express, rien en expédition", () => {
+    expect(amountsByType({ paid: false, outstanding: 9500 })).toEqual({ express: 9500, expedition: 0 })
+  })
+  it("commande payée : rien à encaisser", () => {
+    expect(amountsByType({ paid: true, outstanding: 0 })).toEqual({ express: 0, expedition: 0 })
+  })
+})
+
+describe("amountForAssignment", () => {
+  it("montant saisi à l'affectation : il remplace le montant calculé", () => {
+    expect(amountForAssignment(9500, 7000)).toBe(7000)
+    expect(amountForAssignment(9500, 0)).toBe(0)
+  })
+  it("aucun montant saisi : montant calculé", () => {
+    expect(amountForAssignment(9500, undefined)).toBe(9500)
+    expect(amountForAssignment(9500, null)).toBe(9500)
   })
 })
 

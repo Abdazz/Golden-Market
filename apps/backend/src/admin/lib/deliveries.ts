@@ -63,6 +63,9 @@ export type OrderToAssign = {
   total: number
   paid: boolean
   redeliver: boolean
+  default_type: DeliveryType
+  // Montant à encaisser proposé selon le type de livraison.
+  amount_to_collect: Record<DeliveryType, number>
 }
 
 export type UnpaidExpedition = {

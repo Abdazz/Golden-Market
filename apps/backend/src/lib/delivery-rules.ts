@@ -40,6 +40,21 @@ export const computeAmountToCollect = (input: {
   return Math.max(0, Math.round(input.outstanding))
 }
 
+// Montant proposé à l'affectation pour chaque type de livraison (onglet « À
+// confier » : le champ suit le type choisi tant qu'il n'est pas modifié).
+export const amountsByType = (input: { paid: boolean; outstanding: number }) => {
+  const paymentStatus = input.paid ? "captured" : "not_paid"
+  return {
+    express: computeAmountToCollect({ type: "express", paymentStatus, outstanding: input.outstanding }),
+    expedition: computeAmountToCollect({ type: "expedition", paymentStatus, outstanding: input.outstanding }),
+  }
+}
+
+// Montant saisi à l'affectation (cas particulier : remise, acompte déjà reçu...)
+// prioritaire sur le montant calculé.
+export const amountForAssignment = (computed: number, override: number | null | undefined): number =>
+  typeof override === "number" && Number.isInteger(override) && override >= 0 ? override : computed
+
 // Une seule tentative en cours par commande.
 export const canAssign = (existing: { status: DeliveryStatus }[]): boolean =>
   !existing.some((d) => d.status === "assigned")
