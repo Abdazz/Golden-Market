@@ -61,11 +61,10 @@ dans le code, sans trailer Co-Authored-By.
 
 ## Prochaines tâches proposées au propriétaire (à lui faire choisir)
 
-1. **Ventes WhatsApp attribuées aux publicités** : tout est prêt côté code et n8n ; il manque un jeton
-   d'utilisateur système avec `whatsapp_business_manage_events` (Business Manager) et le jeu de
-   données relié au compte WhatsApp Business. Ensuite : `META_WHATSAPP_BUSINESS_ACCOUNT_ID`
-   (= `WHATSAPP_BUSINESS_ACCOUNT_ID` de n8n), `META_WHATSAPP_EVENTS_ACCESS_TOKEN` et, si le jeu de
-   données diffère du pixel, `META_WHATSAPP_DATASET_ID` dans l'environnement de production du backend.
+1. **Ventes WhatsApp attribuées aux publicités** : activé le 2026-10-07 (jeton, jeu de données
+   1118894260615655 relié au compte WhatsApp, variables de production). À vérifier à la première
+   commande d'un client venu d'une pub clic vers WhatsApp : journal « événement Purchase
+   (business_messaging) envoyé à Meta » (sinon « refus business_messaging, renvoi en chat »).
 2. **Petits restes** (non bloquants) : navigation clavier dans le sélecteur produit, `fbc` reconstruit
    depuis `fbclid` quand le cookie manque, `body?.files` dans le widget vidéo, test de route du
    contrôle d'hôte des médias.
@@ -125,6 +124,9 @@ dans le code, sans trailer Co-Authored-By.
 - Ne jamais afficher ni committer de secret (.env) ; ne jamais utiliser son mot de passe réel.
 
 ## Pièges connus
+
+- Staging n'envoie plus rien à Meta depuis le 2026-10-07 (réglages commentés dans les `.env` du VPS) :
+  ne pas les remettre, sinon les commandes de test comptent dans les statistiques de production.
 
 - Medusa 2.18 : les zones de widget `*.before` / `*.after` d'une page de liste sont rendues APRÈS le
   contenu de Medusa (`getWidgetsForSections` ignore before/after) : vérifier visuellement tout widget

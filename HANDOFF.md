@@ -16,6 +16,20 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-07 - **Ventes WhatsApp attribuées aux publicités : activé en production ; staging coupé de Meta.**
+- Jeton d'utilisateur système fourni par le propriétaire (droit `whatsapp_business_manage_events`,
+  accès au compte WhatsApp Golden Market, vérifié). Jeu de données Meta relié au compte WhatsApp
+  créé par l'API (`POST /{waba}/dataset`, id 1118894260615655). Événement de test accepté sur la forme
+  (seul un `ctwa_clid` fictif est refusé, comme attendu).
+- Production (`/opt/golden-market/production/apps/backend/.env`, sauvegarde `.env.bak-*`) :
+  `META_WHATSAPP_BUSINESS_ACCOUNT_ID`, `META_WHATSAPP_EVENTS_ACCESS_TOKEN`, `META_WHATSAPP_DATASET_ID`,
+  backend recréé. Une commande WhatsApp venue d'une pub clic vers WhatsApp part désormais en
+  `business_messaging` ; les autres en `chat`.
+- Staging ne nourrit plus le pixel de production : `NEXT_PUBLIC_META_PIXEL_ID` vidé
+  (`/opt/golden-market/staging/.env.deploy`) et `META_PIXEL_ID` / `META_CONVERSIONS_API_ACCESS_TOKEN`
+  commentés (`apps/backend/.env`), sauvegardes `*.bak-20261007-171956` ; site staging reconstruit
+  (aucune trace du pixel dans le code compilé), backend recréé. Réglages du VPS, hors dépôt.
+
 2026-10-06 (journée) - **Commandes par téléphone, liste des commandes, événements d'achat Meta et restes des revues.**
 - Formulaire « Nouvelle commande » : prénom facultatif ; confirmation WhatsApp « Bonjour cher client »
   à défaut de nom (vérifié sur la commande réelle 20261006001). Liste des commandes : numéro Golden
