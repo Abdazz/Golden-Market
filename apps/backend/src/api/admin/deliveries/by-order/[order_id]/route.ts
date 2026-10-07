@@ -1,6 +1,7 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { DELIVERY_FIELDS, loadOrders, toTourLine } from "../../../../../lib/delivery-service-helpers"
+import { amountsByType } from "../../../../../lib/delivery-rules"
+import { DELIVERY_FIELDS, isPaid, loadOrders, outstandingOf, toTourLine } from "../../../../../lib/delivery-service-helpers"
 
 // Tentatives de livraison d'une commande (encadré "Livraison" de la fiche
 // commande), la plus récente d'abord.
@@ -17,7 +18,14 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   res.json({
     deliveries,
     order: order
-      ? { id: order.id, status: order.status, city: order.shipping_address?.city ?? null, address: order.shipping_address?.address_1 ?? null }
+      ? {
+          id: order.id,
+          status: order.status,
+          city: order.shipping_address?.city ?? null,
+          address: order.shipping_address?.address_1 ?? null,
+          // Montant à encaisser proposé selon le type (modifiable avant de confier).
+          amount_to_collect: amountsByType({ paid: isPaid(order), outstanding: outstandingOf(order) }),
+        }
       : null,
   })
 }

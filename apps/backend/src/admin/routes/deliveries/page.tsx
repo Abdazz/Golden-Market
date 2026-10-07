@@ -14,6 +14,7 @@ import {
   TRANSPORT_COMPANIES,
   TYPE_LABELS,
 } from "../../lib/deliveries"
+import { parseAmountInput } from "../../lib/delivery-amount"
 import type {
   AssignResult,
   Courier,
@@ -96,11 +97,8 @@ const ToAssignTab = () => {
     const edited: Record<string, number> = {}
     for (const id of selected) {
       if (amounts[id] === undefined) continue
-      // Espaces, points et virgules acceptés comme séparateurs de milliers
-      // ("7 000", "7.000", "7,000" = 7 000 F) : seuls les chiffres comptent.
-      const raw = amounts[id].replace(/[\s.,]/g, "")
-      const value = Number(raw)
-      if (!/^\d+$/.test(raw) || value > 10_000_000) {
+      const value = parseAmountInput(amounts[id])
+      if (value === null) {
         const number = orders?.find((o) => o.id === id)?.order_number ?? ""
         setNotice({ kind: "error", text: `Montant à encaisser invalide pour la commande ${number} : nombre entier en F CFA (0 si rien).` })
         return
@@ -228,7 +226,7 @@ const ToAssignTab = () => {
                   onChange={(e) => setAmounts((current) => ({ ...current, [o.id]: e.target.value }))}
                 />
                 <span className="txt-compact-small text-ui-fg-subtle">F CFA</span>
-                {effectiveType(o) === "expedition" && amountValue(o).replace(/[\s.,]/g, "") !== "0" && (
+                {effectiveType(o) === "expedition" && parseAmountInput(amountValue(o)) !== 0 && (
                   <span className="txt-compact-small text-ui-tag-orange-text">
                     Expédition : le livreur n'encaisse normalement rien (paiement avant envoi).
                   </span>

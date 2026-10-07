@@ -10,6 +10,7 @@ import {
   TRANSPORT_COMPANIES,
   TYPE_LABELS,
 } from "../lib/deliveries"
+import { parseAmountInput } from "../lib/delivery-amount"
 import type { AssignResult, Courier, DeliveryType, TourLine } from "../lib/deliveries"
 
 // Encadré "Livraison" de la fiche commande (spec 2026-09-28
@@ -20,7 +21,13 @@ type Props = { data: { id: string } }
 
 type ByOrder = {
   deliveries: TourLine[]
-  order: { id: string; status: string; city: string | null; address: string | null } | null
+  order: {
+    id: string
+    status: string
+    city: string | null
+    address: string | null
+    amount_to_collect: Record<DeliveryType, number>
+  } | null
 }
 
 const inputClass =
@@ -39,6 +46,8 @@ const OrderDeliveryWidget = ({ data }: Props) => {
   const [address, setAddress] = useState("")
   const [company, setCompany] = useState("")
   const [destination, setDestination] = useState("")
+  // Montant à encaisser modifié à la main ; sinon celui proposé pour le type choisi.
+  const [amount, setAmount] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: "error" | "warning" | "success"; text: string } | null>(null)
 
@@ -86,9 +95,17 @@ const OrderDeliveryWidget = ({ data }: Props) => {
   const done = info.deliveries.find((d) => d.status === "delivered" || d.status === "shipped")
   const canAssign = !current && !done && info.order?.status !== "canceled"
 
+  const proposedAmount = info.order?.amount_to_collect?.[type] ?? 0
+  const amountText = amount ?? String(proposedAmount)
+
   const assign = async () => {
     if (!courierId) {
       setMessage({ kind: "error", text: "Choisissez un livreur." })
+      return
+    }
+    const editedAmount = amount === null ? null : parseAmountInput(amount)
+    if (amount !== null && editedAmount === null) {
+      setMessage({ kind: "error", text: "Montant à encaisser invalide : nombre entier en F CFA (0 si rien)." })
       return
     }
     setBusy(true)
@@ -103,8 +120,10 @@ const OrderDeliveryWidget = ({ data }: Props) => {
           address: type === "express" ? address : null,
           transport_company: type === "expedition" ? company : null,
           destination_city: type === "expedition" ? destination : null,
+          ...(editedAmount !== null ? { amounts: { [data.id]: editedAmount } } : {}),
         },
       })
+      if (!result.errors.length) setAmount(null)
       if (result.errors.length) {
         setMessage({ kind: "error", text: result.errors[0].message })
       } else if (result.deliveries[0]?.whatsapp_status === "failed") {
@@ -240,6 +259,20 @@ const OrderDeliveryWidget = ({ data }: Props) => {
               </label>
             </>
           )}
+          <label className="flex flex-col gap-y-1">
+            <span className="txt-compact-small text-ui-fg-subtle">Montant à encaisser (F CFA)</span>
+            <input className={inputClass} inputMode="numeric" value={amountText} onChange={(e) => setAmount(e.target.value)} />
+            {amount !== null && parseAmountInput(amount) !== proposedAmount && (
+              <button type="button" className="txt-compact-small self-start text-ui-fg-interactive" onClick={() => setAmount(null)}>
+                Revenir à {formatXof(proposedAmount)}
+              </button>
+            )}
+            {type === "expedition" && parseAmountInput(amountText) !== 0 && (
+              <span className="txt-compact-small text-ui-tag-orange-text">
+                Expédition : le livreur n'encaisse normalement rien (paiement avant envoi).
+              </span>
+            )}
+          </label>
           <button type="button" className={`${primaryButton} self-start`} disabled={busy} onClick={assign}>
             {busy ? "Envoi…" : "Confier au livreur"}
           </button>
