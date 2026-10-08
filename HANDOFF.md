@@ -16,6 +16,13 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-08 - **Message au livreur au nouveau format** (demande du propriétaire) : une ligne par
+information avec émojis (« 🛵 NOUVELLE COMMANDE — Golden Market », client, téléphone sans « + »,
+destination, produit, quantité, montant à encaisser en F CFA). Deux modèles Meta : `livraison_livreur_ouaga`
+(id 999985113121589) et `livraison_livreur_expedition` (id 1417680009779771 : ville, compagnie, sans
+montant ; ligne finale « Merci 🙏 » ajoutée car Meta refuse un modèle qui finit par une variable).
+Plusieurs articles : « Balai (x1), Seau (x2) » et quantité totale. Ils remplacent `livraison_livreur`.
+
 2026-10-07 (suite) - **Montant à encaisser modifiable au moment de confier une commande** (demande du
 propriétaire). Onglet « À confier » : champ par commande cochée, prérempli (reste dû en express, 0 en
 expédition) et qui suit le type choisi tant qu'il n'est pas modifié ; « 7 000 », « 7.000 » et « 7,000 »

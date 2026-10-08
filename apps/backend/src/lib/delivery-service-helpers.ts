@@ -1,5 +1,5 @@
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { buildCourierMessageParams, sendCourierMessage } from "./delivery-message"
+import { buildCourierMessage, sendCourierMessage } from "./delivery-message"
 import { orderNumberOf } from "./order-number"
 import { updateDeliveryWorkflow } from "../workflows/update-delivery"
 
@@ -130,8 +130,7 @@ export async function notifyCourier(scope: any, deliveryId: string) {
     const order = (await loadOrders(scope, [delivery.order_id])).get(delivery.order_id)
     result = await sendCourierMessage({
       phone: courier.phone,
-      params: buildCourierMessageParams({
-        orderNumber: order ? orderNumberOf(order) : delivery.order_id,
+      ...buildCourierMessage({
         customerName: customerName(order),
         customerPhone: order?.shipping_address?.phone ?? "",
         type: delivery.type,

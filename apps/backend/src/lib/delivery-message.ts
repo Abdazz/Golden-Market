@@ -1,17 +1,19 @@
 import type { DeliveryType } from "./delivery-rules"
 import { sendTemplateMessage } from "./whatsapp-template-sender"
 
-// Message WhatsApp au livreur quand une commande lui est confiée : modèle Meta
-// "livraison_livreur" (5 variables, une information par ligne ; remplace
-// "nouvelle_livraison", tout sur une ligne, jugé illisible le 2026-09-27)
-// envoyé par le webhook n8n générique order-confirmation (template_name +
-// params), déjà utilisé pour les confirmations de commande. Les paramètres de modèle Meta refusent les
-// retours à la ligne et les tabulations : espaces simples uniquement.
+// Message WhatsApp au livreur quand une commande lui est confiée : modèles Meta
+// au format demandé par le propriétaire le 2026-10-08 (une ligne par
+// information, émojis) - "livraison_livreur_ouaga" (livraison en ville, avec le
+// montant à encaisser) et "livraison_livreur_expedition" (compagnie et ville ;
+// se termine par « Merci 🙏 » car Meta refuse un modèle qui finit par une
+// variable). Ils remplacent "livraison_livreur". Envoyés par le webhook n8n
+// générique order-confirmation (template_name + params). Les paramètres de
+// modèle Meta refusent les retours à la ligne et les tabulations : espaces
+// simples uniquement.
 const clean = (text: string) => text.replace(/\s+/g, " ").trim()
-const formatXof = (amount: number) => `${new Intl.NumberFormat("fr-FR").format(amount).replace(/ | /g, " ")} F`
+const formatAmount = (amount: number) => new Intl.NumberFormat("fr-FR").format(amount).replace(/[\u00a0\u202f]/g, " ")
 
-export const buildCourierMessageParams = (input: {
-  orderNumber: string
+export const buildCourierMessage = (input: {
   customerName: string
   customerPhone: string
   type: DeliveryType
@@ -20,21 +22,28 @@ export const buildCourierMessageParams = (input: {
   destinationCity: string | null
   items: { title: string; quantity: number }[]
   amountToCollect: number
-}): string[] => [
-  clean(input.orderNumber),
-  clean(`${input.customerName}, ${input.customerPhone}`),
-  clean(
-    input.type === "expedition"
-      ? `Expédition ${input.transportCompany ?? ""} vers ${input.destinationCity ?? ""}`
-      : input.address ?? ""
-  ),
-  clean(input.items.map((i) => `${i.quantity} x ${i.title}`).join(", ")),
-  input.amountToCollect > 0 ? `À encaisser : ${formatXof(input.amountToCollect)}` : "Rien à encaisser",
-]
+}): { template_name: string; params: string[] } => {
+  // Un seul article : son nom ; plusieurs : quantité de chacun après le nom.
+  const product =
+    input.items.length === 1
+      ? input.items[0].title
+      : input.items.map((i) => `${i.title} (x${i.quantity})`).join(", ")
+  const quantity = String(input.items.reduce((sum, i) => sum + i.quantity, 0))
+  const client = [clean(input.customerName), clean(input.customerPhone.replace(/^\+/, ""))]
+  return input.type === "expedition"
+    ? {
+        template_name: "livraison_livreur_expedition",
+        params: [...client, clean(input.destinationCity ?? ""), clean(input.transportCompany ?? ""), clean(product), quantity],
+      }
+    : {
+        template_name: "livraison_livreur_ouaga",
+        params: [...client, clean(input.address ?? ""), clean(product), quantity, formatAmount(input.amountToCollect)],
+      }
+}
 
 export async function sendCourierMessage(
-  input: { phone: string; params: string[] },
+  input: { phone: string; template_name: string; params: string[] },
   deps: { url?: string; secret?: string; fetchImpl?: typeof fetch } = {}
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  return sendTemplateMessage({ phone: input.phone, template_name: "livraison_livreur", params: input.params }, deps)
+  return sendTemplateMessage(input, deps)
 }
