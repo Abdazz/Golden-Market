@@ -39,9 +39,20 @@ dans le code, sans trailer Co-Authored-By.
   compris ; envoyée à Meta en `action_source: "phone_call"`.
 - Lots du 2026-10-06 (session autonome) : finitions du stock livreurs, du tableau de bord / frais /
   commandes par téléphone, entretien des médias WhatsApp (voir `HANDOFF.md`).
-- Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier lot : 2026-10-06).
+- Lot du 2026-10-10 (trois demandes du propriétaire) : l'agent WhatsApp reconnaît les livreurs par leur
+  numéro Medusa (nœud `Identify Courier`, note interne, section « Livreurs » du prompt, vision « Reçu
+  d'expédition », tool `report_courier_receipt` = alerte au propriétaire sans vérifier les montants,
+  guide n8n § 2.12) ; badge « Livreur · Nom » dans le chat admin ; bouton « Copier le message livreur »
+  dans l'encadré Livraison de la fiche commande (même texte que les modèles Meta) ; variante du produit
+  (« - Avec seau ») dans la confirmation WhatsApp au client (`lib/order-item-label.ts`).
+- Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier lot : 2026-10-10).
 
 ## À vérifier en début de session
+
+- Lot du 2026-10-10 : premier vrai reçu d'expédition envoyé par Gildas (ou un autre livreur actif) à
+  l'agent : alerte « Reçu d'expédition de … » reçue par le propriétaire, réponse brève de l'agent, aucun
+  commentaire sur les montants ; conversation de test `22600000099` (« Test Claude », livreur désactivé
+  après les tests) visible dans l'admin, à ignorer ou supprimer.
 
 - Toujours rien de réel au 2026-10-06 (aucun message client depuis le 2026-10-03, aucune commande) :
   les trois points ci-dessous restent à vérifier dès qu'un client écrit ou commande.

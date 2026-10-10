@@ -16,6 +16,26 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-10 - **Livreurs reconnus par l'agent WhatsApp, copie du message livreur, variante dans la
+confirmation client** (trois demandes du propriétaire le même jour ; spec et plan
+`docs/superpowers/{specs,plans}/2026-10-10-agent-livreurs-et-copie-message-livreur*`).
+- n8n (production, sauvegardes `~/n8n-backups/2026-10-10/`) : nœud `Identify Courier` (lit
+  `GET /admin/couriers` de Medusa à chaque message, 8 derniers chiffres, livreurs actifs ; erreur =
+  client), note interne à l'IA + section « Livreurs de Golden Market » du prompt (jamais de vente ni
+  de `mark_payment_reported`, ton collègue, jamais de vérification des montants), vision « Reçu
+  d'expédition : … » pour un livreur, tool `report_courier_receipt` (`CourierReceipt7Qx` : alerte
+  `escalation_alert` « Reçu d'expédition de NOM (livreur) : … », courriel de secours, statut de la
+  conversation inchangé). Testé en réel avec le livreur « Test Claude » (`22600000099`, désactivé) :
+  texte et faux ticket Rahimo -> alerte reçue, réponse « Bien reçu, merci 🙏 ». Guide n8n § 2.12.
+  « Déposée à la gare » reste manuel (décision prise seul : pas d'écriture Medusa depuis une lecture IA).
+- Admin : badge « Livreur · Nom » dans l'en-tête et la liste des conversations (`courier-match.ts`) ;
+  bouton « Copier le message livreur » dans l'encadré Livraison (avant attribution depuis le
+  formulaire, puis depuis la livraison en cours ; rendu local des corps exacts des modèles Meta,
+  `lib/courier-message-text.ts`, importé par l'admin) ; route `by-order` enrichie (client, articles,
+  adresse / compagnie / ville).
+- Confirmation WhatsApp au client : « Balai-éponge à essorage automatique - Avec seau » (variante
+  nommée ajoutée, règle unique `lib/order-item-label.ts` partagée avec le message au livreur).
+
 2026-10-08 - **Message au livreur au nouveau format** (demande du propriétaire) : une ligne par
 information avec émojis (« 🛵 NOUVELLE COMMANDE — Golden Market », client, téléphone sans « + »,
 destination, produit, quantité, montant à encaisser en F CFA). Deux modèles Meta : `livraison_livreur_ouaga`
