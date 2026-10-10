@@ -35,6 +35,9 @@ confirmation client** (trois demandes du propriétaire le même jour ; spec et p
   adresse / compagnie / ville).
 - Confirmation WhatsApp au client : « Balai-éponge à essorage automatique - Avec seau » (variante
   nommée ajoutée, règle unique `lib/order-item-label.ts` partagée avec le message au livreur).
+- Soir : l'en-tête natif de la fiche commande (et le titre de l'onglet) affiche le numéro Golden
+  Market (« #20261010012 ») : `GET /admin/orders/:id` passe par le même middleware que la liste
+  (`display_id` = `custom_display_id`) ; encadré latéral « N° de commande » retiré (redondant).
 
 2026-10-08 - **Message au livreur au nouveau format** (demande du propriétaire) : une ligne par
 information avec émojis (« 🛵 NOUVELLE COMMANDE — Golden Market », client, téléphone sans « + »,
