@@ -11,6 +11,8 @@ import {
   TYPE_LABELS,
 } from "../lib/deliveries"
 import { parseAmountInput } from "../lib/delivery-amount"
+import { CopyCourierMessage } from "../components/copy-courier-message"
+import { courierMessageText } from "../../lib/courier-message-text"
 import type { AssignResult, Courier, DeliveryType, TourLine } from "../lib/deliveries"
 
 // Encadré "Livraison" de la fiche commande (spec 2026-09-28
@@ -27,6 +29,9 @@ type ByOrder = {
     city: string | null
     address: string | null
     amount_to_collect: Record<DeliveryType, number>
+    customer_name: string
+    customer_phone: string
+    items: { title: string; quantity: number }[]
   } | null
 }
 
@@ -97,6 +102,19 @@ const OrderDeliveryWidget = ({ data }: Props) => {
 
   const proposedAmount = info.order?.amount_to_collect?.[type] ?? 0
   const amountText = amount ?? String(proposedAmount)
+
+  const formMessageText = info.order
+    ? courierMessageText({
+        customerName: info.order.customer_name,
+        customerPhone: info.order.customer_phone,
+        type,
+        address: type === "express" ? address : null,
+        transportCompany: type === "expedition" ? company : null,
+        destinationCity: type === "expedition" ? destination : null,
+        items: info.order.items,
+        amountToCollect: parseAmountInput(amountText) ?? proposedAmount,
+      })
+    : null
 
   const assign = async () => {
     if (!courierId) {
@@ -200,6 +218,18 @@ const OrderDeliveryWidget = ({ data }: Props) => {
               {current.whatsapp_status === "sent" ? "Message WhatsApp envoyé au livreur" : "Message WhatsApp en attente"}
             </span>
           )}
+          <CopyCourierMessage
+            text={courierMessageText({
+              customerName: current.customer_name,
+              customerPhone: current.customer_phone,
+              type: current.type,
+              address: current.address,
+              transportCompany: current.transport_company,
+              destinationCity: current.destination_city,
+              items: current.items,
+              amountToCollect: current.amount_to_collect,
+            })}
+          />
           <a href="/app/deliveries?tab=tour" className="txt-compact-small text-ui-fg-interactive">
             Marquer livrée / échec depuis la tournée du jour
           </a>
@@ -276,6 +306,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
           <button type="button" className={`${primaryButton} self-start`} disabled={busy} onClick={assign}>
             {busy ? "Envoi…" : "Confier au livreur"}
           </button>
+          {formMessageText && <CopyCourierMessage text={formMessageText} />}
         </div>
       )}
 
