@@ -17,6 +17,9 @@ export type TourLine = {
   customer_name: string
   customer_phone: string
   place: string
+  address: string | null
+  transport_company: string | null
+  destination_city: string | null
   items: { title: string; quantity: number }[]
   type: DeliveryType
   status: DeliveryStatus
