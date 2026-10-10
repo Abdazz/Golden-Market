@@ -40,7 +40,13 @@ describe("withGoldenMarketOrderNumber", () => {
     const body = { orders: [{ id: "o1", display_id: 3 }, { id: "o2", display_id: 4, custom_display_id: null }] }
     expect(withGoldenMarketOrderNumber(body).orders.map((o: any) => o.display_id)).toEqual([3, 4])
   })
-  it("corps sans liste : inchangé", () => {
+  it("fiche commande : l'en-tête affiche le numéro Golden Market à la place du numéro natif", () => {
+    const body = { order: { id: "o1", display_id: 25, custom_display_id: "20261010012" } }
+    expect(withGoldenMarketOrderNumber(body).order.display_id).toBe("20261010012")
+  })
+  it("fiche sans numéro Golden Market, ou corps sans commande : inchangé", () => {
     expect(withGoldenMarketOrderNumber({ order: { display_id: 1 } })).toEqual({ order: { display_id: 1 } })
+    expect(withGoldenMarketOrderNumber({ message: "erreur" })).toEqual({ message: "erreur" })
+    expect(withGoldenMarketOrderNumber(null)).toBeNull()
   })
 })

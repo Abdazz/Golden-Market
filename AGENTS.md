@@ -191,7 +191,7 @@ Livreur dans le chat (2026-10-10) : badge « Livreur · Nom » dans l'en-tête e
 
 ### Numéro de commande Golden Market
 
-Format `AAAAMMJJ` + compteur du jour sur 3 chiffres (ex. `20260927001`), stocké dans le champ natif `order.custom_display_id` (recherchable dans la liste des commandes). Généré par l'option `generateCustomDisplayId` du module order (`medusa-config.ts`, `src/lib/order-number.ts`) avec la table `order_daily_counter`. Rattrapage idempotent des commandes sans numéro (commandes créées entre la migration et le redémarrage du serveur) : `docker exec <backend> npx medusa exec ./src/migration-scripts/create-order-daily-counter.js`. Toujours afficher le numéro via `orderNumberOf(order)`.
+Format `AAAAMMJJ` + compteur du jour sur 3 chiffres (ex. `20260927001`), stocké dans le champ natif `order.custom_display_id` (recherchable dans la liste des commandes). Généré par l'option `generateCustomDisplayId` du module order (`medusa-config.ts`, `src/lib/order-number.ts`) avec la table `order_daily_counter`. Rattrapage idempotent des commandes sans numéro (commandes créées entre la migration et le redémarrage du serveur) : `docker exec <backend> npx medusa exec ./src/migration-scripts/create-order-daily-counter.js`. Toujours afficher le numéro via `orderNumberOf(order)`. Dans l'admin natif (liste des commandes, en-tête de la fiche, titre de l'onglet), les réponses de `GET /admin/orders` et `GET /admin/orders/:id` portent ce numéro dans `display_id` (`lib/order-list-customer.ts`, middleware `orderListCustomerNameMiddleware`) : l'en-tête affiche « #20261010012 », pas le compteur Medusa.
 
 ### Livreurs et livraisons (module `delivery`)
 

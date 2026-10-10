@@ -229,7 +229,8 @@ export async function whatsappOtpConfirmRateLimitMiddleware(
 
 // Liste des commandes de l'admin (voir lib/order-list-customer.ts) : numéro
 // Golden Market dans la colonne "Commande", numéro WhatsApp dans la colonne
-// "Client" quand le client n'a ni prénom ni nom.
+// "Client" quand le client n'a ni prénom ni nom. Fiche commande : numéro
+// Golden Market dans l'en-tête natif (et le titre de l'onglet).
 export function orderListCustomerNameMiddleware(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
   const json = res.json.bind(res)
   res.json = ((body: unknown) => json(withPhoneAsCustomerName(withGoldenMarketOrderNumber(body)))) as typeof res.json
@@ -274,6 +275,11 @@ export default defineMiddlewares({
     // "Facture n°12 été.pdf" arrivait en "Facture nÂ°12 Ã©tÃ©.pdf").
     {
       matcher: "/admin/orders",
+      methods: ["GET"],
+      middlewares: [orderListCustomerNameMiddleware],
+    },
+    {
+      matcher: "/admin/orders/:id",
       methods: ["GET"],
       middlewares: [orderListCustomerNameMiddleware],
     },

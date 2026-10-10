@@ -18,14 +18,23 @@ export const withPhoneAsCustomerName = (body: any) => {
   return body
 }
 
-// Colonne "Commande" : la cellule de Medusa affiche display_id (compteur natif,
-// "#13"). Dans la réponse de la liste, il est remplacé par le numéro Golden
-// Market (custom_display_id, AAAAMMJJ + compteur du jour, déjà demandé par la
-// liste) : "#20261006001". Le tri et la recherche ne changent pas (côté serveur).
+// Colonne "Commande" de la liste et en-tête de la fiche : Medusa affiche
+// display_id (compteur natif, "#13"). Dans la réponse de GET /admin/orders
+// (liste) et de GET /admin/orders/:id (fiche, titre de l'onglet), il est
+// remplacé par le numéro Golden Market (custom_display_id, AAAAMMJJ + compteur
+// du jour) : "#20261006001". Le tri et la recherche ne changent pas (côté
+// serveur). Une commande sans numéro garde le compteur natif.
+type NumberedOrder = { display_id?: unknown; custom_display_id?: string | null }
+
+const useGoldenMarketNumber = (order: NumberedOrder) => {
+  if (order.custom_display_id) order.display_id = order.custom_display_id
+}
+
 export const withGoldenMarketOrderNumber = (body: any) => {
-  if (!body || !Array.isArray(body.orders)) return body
-  for (const order of body.orders as { display_id?: unknown; custom_display_id?: string | null }[]) {
-    if (order.custom_display_id) order.display_id = order.custom_display_id
+  if (!body) return body
+  if (Array.isArray(body.orders)) {
+    for (const order of body.orders as NumberedOrder[]) useGoldenMarketNumber(order)
   }
+  if (body.order && typeof body.order === "object") useGoldenMarketNumber(body.order as NumberedOrder)
   return body
 }
