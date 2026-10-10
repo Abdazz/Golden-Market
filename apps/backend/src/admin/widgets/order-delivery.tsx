@@ -103,7 +103,9 @@ const OrderDeliveryWidget = ({ data }: Props) => {
   const proposedAmount = info.order?.amount_to_collect?.[type] ?? 0
   const amountText = amount ?? String(proposedAmount)
 
-  const formMessageText = info.order
+  // Montant saisi mais invalide : pas de texte à copier (on ne retombe pas sur le montant proposé).
+  const amountInvalid = amount !== null && parseAmountInput(amount) === null
+  const formMessageText = info.order && !amountInvalid
     ? courierMessageText({
         customerName: info.order.customer_name,
         customerPhone: info.order.customer_phone,
@@ -112,7 +114,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
         transportCompany: type === "expedition" ? company : null,
         destinationCity: type === "expedition" ? destination : null,
         items: info.order.items,
-        amountToCollect: parseAmountInput(amountText) ?? proposedAmount,
+        amountToCollect: amount === null ? proposedAmount : parseAmountInput(amount) ?? proposedAmount,
       })
     : null
 
@@ -218,6 +220,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
               {current.whatsapp_status === "sent" ? "Message WhatsApp envoyé au livreur" : "Message WhatsApp en attente"}
             </span>
           )}
+          {/* Texte reconstruit depuis la commande telle qu'elle est maintenant : il peut différer du message envoyé si la commande a été modifiée après l'assignation. */}
           <CopyCourierMessage
             text={courierMessageText({
               customerName: current.customer_name,
@@ -306,7 +309,13 @@ const OrderDeliveryWidget = ({ data }: Props) => {
           <button type="button" className={`${primaryButton} self-start`} disabled={busy} onClick={assign}>
             {busy ? "Envoi…" : "Confier au livreur"}
           </button>
-          {formMessageText && <CopyCourierMessage text={formMessageText} />}
+          {amountInvalid ? (
+            <span className="txt-compact-small text-ui-fg-error">
+              Montant à encaisser invalide : nombre entier en F CFA (0 si rien).
+            </span>
+          ) : (
+            formMessageText && <CopyCourierMessage text={formMessageText} />
+          )}
         </div>
       )}
 

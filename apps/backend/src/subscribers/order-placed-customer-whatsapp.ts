@@ -121,7 +121,8 @@ export default async function orderPlacedCustomerWhatsappHandler({
 
     const productSummary =
       typedOrder.items && typedOrder.items.length === 1
-        ? orderItemLabel(typedOrder.items[0])
+        // Meta refuse retours à la ligne et suites d'espaces dans un paramètre de modèle.
+        ? orderItemLabel(typedOrder.items[0]).replace(/\s+/g, " ").trim()
         : `${typedOrder.items?.length ?? 0} articles`
 
     const collection = typedOrder.payment_collections?.[0]

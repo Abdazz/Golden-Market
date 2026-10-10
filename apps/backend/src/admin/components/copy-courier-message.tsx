@@ -55,7 +55,7 @@ export const CopyCourierMessage = ({ text }: { text: string }) => {
           <textarea
             ref={areaRef}
             readOnly
-            rows={8}
+            rows={10}
             value={text}
             onFocus={(e) => e.currentTarget.select()}
           className="txt-compact-small w-full rounded-md border border-ui-border-base bg-ui-bg-field p-2 text-ui-fg-base"

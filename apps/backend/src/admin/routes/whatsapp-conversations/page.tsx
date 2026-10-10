@@ -179,7 +179,7 @@ const ConversationRow = ({
       <span className="flex min-w-0 flex-1 flex-col gap-y-0.5">
         <span className="flex items-center justify-between gap-x-2">
           <span className="truncate text-ui-fg-base txt-compact-small-plus">
-            {conversation.customerName ?? (courier ? `${courier.name} · Livreur` : conversation.phoneNumber)}
+            {conversation.customerName || (courier ? `${courier.name} · Livreur` : conversation.phoneNumber)}
           </span>
           <span className="shrink-0 text-ui-fg-subtle txt-compact-xsmall">
             {formatListTimestamp(conversation.lastMessageAt)}

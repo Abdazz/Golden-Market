@@ -12,7 +12,7 @@ export const useCouriers = (): Courier[] => {
     let cancelled = false
     api<{ couriers: Courier[] }>("/admin/couriers")
       .then((r) => {
-        if (!cancelled) setCouriers(r.couriers)
+        if (!cancelled) setCouriers(Array.isArray(r.couriers) ? r.couriers : [])
       })
       .catch(() => {})
     return () => {
