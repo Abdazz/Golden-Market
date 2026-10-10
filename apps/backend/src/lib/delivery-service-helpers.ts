@@ -1,6 +1,7 @@
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { buildCourierMessage, sendCourierMessage } from "./delivery-message"
 import { orderNumberOf } from "./order-number"
+import { orderItemLabel } from "./order-item-label"
 import { updateDeliveryWorkflow } from "../workflows/update-delivery"
 
 // Lectures partagées par les routes admin des livraisons (commande, lignes de
@@ -76,10 +77,7 @@ export const customerName = (o: any): string =>
 
 export const itemsOf = (o: any): { title: string; quantity: number }[] =>
   (o?.items ?? []).map((i: any) => ({
-    title:
-      i.variant_title && i.variant_title !== "Default Title" && i.variant_title !== i.product_title
-        ? `${i.product_title} - ${i.variant_title}`
-        : i.product_title,
+    title: orderItemLabel(i),
     quantity: Number(i.quantity),
   }))
 

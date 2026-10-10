@@ -2,6 +2,7 @@ import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { formatAmount } from "../modules/resend/templates"
 import { orderNumberOf } from "../lib/order-number"
+import { orderItemLabel } from "../lib/order-item-label"
 import { PHONE_ORDER_PAYMENT_METHODS, PhoneOrderPaymentMethod } from "../lib/phone-order"
 
 type OrderConfirmationData = {
@@ -12,7 +13,7 @@ type OrderConfirmationData = {
   total: number
   metadata?: Record<string, unknown> | null
   shipping_address?: { first_name?: string; last_name?: string; phone?: string }
-  items?: Array<{ product_title?: string; unit_price?: number; quantity?: number }>
+  items?: Array<{ product_title?: string; variant_title?: string | null; unit_price?: number; quantity?: number }>
   shipping_methods?: Array<{ amount?: number }>
   payment_collections?: Array<{
     amount?: number
@@ -120,7 +121,7 @@ export default async function orderPlacedCustomerWhatsappHandler({
 
     const productSummary =
       typedOrder.items && typedOrder.items.length === 1
-        ? typedOrder.items[0].product_title
+        ? orderItemLabel(typedOrder.items[0])
         : `${typedOrder.items?.length ?? 0} articles`
 
     const collection = typedOrder.payment_collections?.[0]
