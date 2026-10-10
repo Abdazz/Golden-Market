@@ -5,6 +5,9 @@ import { WhatsappAttachment } from "../../components/whatsapp-attachment"
 import type { ChatAttachment } from "../../components/whatsapp-attachment"
 import { WhatsappComposer } from "../../components/whatsapp-composer"
 import { WhatsappProspect } from "../../components/whatsapp-prospect"
+import { useCouriers, WhatsappCourierBadge } from "../../components/whatsapp-courier"
+import { courierFor } from "../../lib/courier-match"
+import type { Courier } from "../../lib/deliveries"
 
 // Conversations WhatsApp de l'agent IA (base golden_market, propriété de
 // n8n_automation) : lecture + reprise manuelle (prendre la main, répondre,
@@ -140,63 +143,70 @@ const postAction = async (phoneNumber: string, path: string, body?: unknown): Pr
 const ConversationRow = ({
   conversation,
   active,
+  couriers,
   onSelect,
 }: {
   conversation: ConversationSummary
   active: boolean
+  couriers: Courier[]
   onSelect: () => void
-}) => (
-  <button
-    type="button"
-    onClick={onSelect}
-    className={`flex w-full items-start gap-x-3 border-b border-ui-border-base px-4 py-3 text-left hover:bg-ui-bg-subtle ${
-      active ? "bg-ui-bg-subtle" : ""
-    }`}
-  >
-    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ui-tag-neutral-bg text-ui-fg-base txt-compact-small-plus">
-      {conversation.customerName ? (
-        conversation.customerName.slice(0, 1).toUpperCase()
-      ) : (
-        // Pas de nom client enregistré : l'initiale du numéro de téléphone
-        // n'a aucun sens (tous les numéros BF commencent par le même
-        // indicatif) - icône générique plutôt qu'une lettre trompeuse.
-        <GenericAvatarIcon />
-      )}
-      {conversation.awaitingReply && (
-        <span
-          title="En attente de votre réponse"
-          className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-ui-bg-base bg-ui-tag-red-icon"
-        />
-      )}
-    </span>
-    <span className="flex min-w-0 flex-1 flex-col gap-y-0.5">
-      <span className="flex items-center justify-between gap-x-2">
-        <span className="truncate text-ui-fg-base txt-compact-small-plus">
-          {conversation.customerName ?? conversation.phoneNumber}
-        </span>
-        <span className="shrink-0 text-ui-fg-subtle txt-compact-xsmall">
-          {formatListTimestamp(conversation.lastMessageAt)}
-        </span>
-      </span>
-      <span className="truncate text-ui-fg-subtle txt-compact-small">
-        {conversation.lastMessagePreview ?? "—"}
-      </span>
-      <span className="flex items-center gap-x-2 text-ui-fg-muted txt-compact-xsmall">
-        {conversation.messageCount} message{conversation.messageCount > 1 ? "s" : ""}
-        {conversation.status === "escalated" && (
-          <span className="rounded-full bg-ui-tag-orange-bg px-2 text-ui-tag-orange-text">Vous avez la main</span>
+}) => {
+  const courier = conversation.customerName ? null : courierFor(couriers, conversation.phoneNumber)
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex w-full items-start gap-x-3 border-b border-ui-border-base px-4 py-3 text-left hover:bg-ui-bg-subtle ${
+        active ? "bg-ui-bg-subtle" : ""
+      }`}
+    >
+      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ui-tag-neutral-bg text-ui-fg-base txt-compact-small-plus">
+        {conversation.customerName ? (
+          conversation.customerName.slice(0, 1).toUpperCase()
+        ) : (
+          // Pas de nom client enregistré : l'initiale du numéro de téléphone
+          // n'a aucun sens (tous les numéros BF commencent par le même
+          // indicatif) - icône générique plutôt qu'une lettre trompeuse.
+          <GenericAvatarIcon />
+        )}
+        {conversation.awaitingReply && (
+          <span
+            title="En attente de votre réponse"
+            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-ui-bg-base bg-ui-tag-red-icon"
+          />
         )}
       </span>
-    </span>
-  </button>
-)
+      <span className="flex min-w-0 flex-1 flex-col gap-y-0.5">
+        <span className="flex items-center justify-between gap-x-2">
+          <span className="truncate text-ui-fg-base txt-compact-small-plus">
+            {conversation.customerName ?? (courier ? `${courier.name} · Livreur` : conversation.phoneNumber)}
+          </span>
+          <span className="shrink-0 text-ui-fg-subtle txt-compact-xsmall">
+            {formatListTimestamp(conversation.lastMessageAt)}
+          </span>
+        </span>
+        <span className="truncate text-ui-fg-subtle txt-compact-small">
+          {conversation.lastMessagePreview ?? "—"}
+        </span>
+        <span className="flex items-center gap-x-2 text-ui-fg-muted txt-compact-xsmall">
+          {conversation.messageCount} message{conversation.messageCount > 1 ? "s" : ""}
+          {conversation.status === "escalated" && (
+            <span className="rounded-full bg-ui-tag-orange-bg px-2 text-ui-tag-orange-text">Vous avez la main</span>
+          )}
+        </span>
+      </span>
+    </button>
+  )
+}
 
 const ConversationListPanel = ({
   selectedPhone,
+  couriers,
   onSelect,
   refreshKey,
 }: {
   selectedPhone: string | null
+  couriers: Courier[]
   onSelect: (phoneNumber: string) => void
   refreshKey: number
 }) => {
@@ -254,6 +264,7 @@ const ConversationListPanel = ({
               key={conversation.phoneNumber}
               conversation={conversation}
               active={conversation.phoneNumber === selectedPhone}
+              couriers={couriers}
               onSelect={() => onSelect(conversation.phoneNumber)}
             />
           ))}
@@ -324,10 +335,12 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
 
 const ConversationThreadPanel = ({
   phoneNumber,
+  couriers,
   onBack,
   onChanged,
 }: {
   phoneNumber: string | null
+  couriers: Courier[]
   onBack: () => void
   onChanged: () => void
 }) => {
@@ -455,6 +468,7 @@ const ConversationThreadPanel = ({
           </button>
         )}
         {conversation && <WhatsappProspect phoneNumber={conversation.phoneNumber} customerName={conversation.customerName} />}
+        {conversation && <WhatsappCourierBadge couriers={couriers} phoneNumber={conversation.phoneNumber} />}
       </div>
 
       {notice && <p className="txt-compact-small border-b border-ui-border-base px-4 py-2 text-ui-fg-error">{notice}</p>}
@@ -498,6 +512,7 @@ const readPhoneFromUrl = () => new URLSearchParams(window.location.search).get("
 const WhatsappConversationsPage = () => {
   const [selectedPhone, setSelectedPhone] = useState<string | null>(readPhoneFromUrl)
   const [listRefreshKey, setListRefreshKey] = useState(0)
+  const couriers = useCouriers()
 
   const select = useCallback((phoneNumber: string | null) => {
     setSelectedPhone(phoneNumber)
@@ -512,9 +527,10 @@ const WhatsappConversationsPage = () => {
 
   return (
     <div className="bg-ui-bg-base shadow-elevation-card-rest flex h-[calc(100vh-120px)] overflow-hidden rounded-lg">
-      <ConversationListPanel selectedPhone={selectedPhone} onSelect={select} refreshKey={listRefreshKey} />
+      <ConversationListPanel selectedPhone={selectedPhone} couriers={couriers} onSelect={select} refreshKey={listRefreshKey} />
       <ConversationThreadPanel
         phoneNumber={selectedPhone}
+        couriers={couriers}
         onBack={() => select(null)}
         onChanged={() => setListRefreshKey((key) => key + 1)}
       />
