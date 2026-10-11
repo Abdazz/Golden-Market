@@ -268,8 +268,11 @@ export const finalPaymentEntries = (input: {
 }
 
 // Pré-remplissage du formulaire : frais déjà saisis sur la livraison (course
-// du livreur, compagnie de transport) ; à défaut, pour une expédition, les
+// du livreur, compagnie de transport). À défaut : course au tarif unique
+// (1 000 F, fixé par le propriétaire le 2026-10-11) et, pour une expédition,
 // frais d'expédition des produits de la commande.
+export const DEFAULT_COURIER_FEE_XOF = 1000
+
 export const expectedFees = (input: {
   type: "express" | "expedition"
   courierFee: number | null
@@ -277,5 +280,5 @@ export const expectedFees = (input: {
   productShippingFee: number
 }): number => {
   const transport = input.transportFee ?? (input.type === "expedition" ? input.productShippingFee : 0)
-  return (input.courierFee ?? 0) + transport
+  return (input.courierFee ?? DEFAULT_COURIER_FEE_XOF) + transport
 }

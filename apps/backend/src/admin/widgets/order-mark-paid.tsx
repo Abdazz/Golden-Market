@@ -71,14 +71,20 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
     }
   }
 
+  // Origine du montant pré-rempli (même règle que expectedFees côté serveur).
   const feesHint = defaults
-    ? defaults.courier_fee !== null || defaults.transport_fee !== null
-      ? `Saisis sur la livraison : course ${formatXof(defaults.courier_fee ?? 0)}${
-          defaults.type === "expedition" ? ` + compagnie ${formatXof(defaults.transport_fee ?? 0)}` : ""
-        }.`
-      : defaults.type === "expedition"
-      ? "Frais d'expédition des produits (la course du livreur n'est pas encore saisie)."
-      : "Aucun frais saisi sur la livraison."
+    ? [
+        defaults.courier_fee !== null
+          ? `course ${formatXof(defaults.courier_fee)} (saisie sur la livraison)`
+          : `course ${formatXof(1000)} (tarif habituel)`,
+        defaults.type === "expedition"
+          ? defaults.transport_fee !== null
+            ? `compagnie ${formatXof(defaults.transport_fee)} (saisie sur la livraison)`
+            : `compagnie ${formatXof(defaults.fees - (defaults.courier_fee ?? 1000))} (frais d'expédition des produits)`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" + ")
     : ""
 
   return (
@@ -98,7 +104,7 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
               <span className="txt-compact-small-plus text-ui-fg-base">Frais du livreur (F CFA)</span>
               <input className={inputClass} inputMode="numeric" value={fees} onChange={(e) => setFees(e.target.value)} />
               <span className="txt-compact-small text-ui-fg-subtle">
-                Course du livreur + frais payés à la compagnie de transport. {feesHint}
+                Course du livreur + frais payés à la compagnie de transport. Pré-rempli : {feesHint}.
               </span>
             </label>
             {parsedAmount !== null && parsedFees !== null && (

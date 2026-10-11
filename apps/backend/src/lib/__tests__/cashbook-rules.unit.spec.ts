@@ -152,11 +152,12 @@ describe("formulaire Marquer comme payée", () => {
     expect(entries).toHaveLength(1)
   })
 
-  it("pré-remplissage des frais : ceux de la livraison, sinon les frais d'expédition des produits", () => {
-    expect(expectedFees({ type: "expedition", courierFee: 1000, transportFee: 2000, productShippingFee: 1500 })).toBe(3000)
-    expect(expectedFees({ type: "expedition", courierFee: null, transportFee: null, productShippingFee: 1500 })).toBe(1500)
-    expect(expectedFees({ type: "expedition", courierFee: 1000, transportFee: null, productShippingFee: 1500 })).toBe(2500)
-    expect(expectedFees({ type: "express", courierFee: 1000, transportFee: null, productShippingFee: 1500 })).toBe(1000)
-    expect(expectedFees({ type: "express", courierFee: null, transportFee: null, productShippingFee: 0 })).toBe(0)
+  it("pré-remplissage des frais : ceux de la livraison, sinon course à 1 000 F + frais d'expédition des produits", () => {
+    expect(expectedFees({ type: "expedition", courierFee: 1500, transportFee: 2000, productShippingFee: 1500 })).toBe(3500)
+    expect(expectedFees({ type: "expedition", courierFee: null, transportFee: null, productShippingFee: 1500 })).toBe(2500)
+    expect(expectedFees({ type: "expedition", courierFee: 500, transportFee: null, productShippingFee: 1500 })).toBe(2000)
+    expect(expectedFees({ type: "express", courierFee: 1500, transportFee: null, productShippingFee: 1500 })).toBe(1500)
+    expect(expectedFees({ type: "express", courierFee: null, transportFee: null, productShippingFee: 0 })).toBe(1000)
+    expect(expectedFees({ type: "express", courierFee: 0, transportFee: null, productShippingFee: 0 })).toBe(0)
   })
 })
