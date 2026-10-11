@@ -112,6 +112,16 @@ export default async function orderPlacedCustomerWhatsappHandler({
     const greetingName =
       typedOrder.shipping_address?.first_name?.trim() || typedOrder.shipping_address?.last_name?.trim() || "cher client"
 
+    // Commandes saisies dans l'admin (bouton "Nouvelle commande") : envoi
+    // automatique suspendu pour le moment (2026-10-11), l'équipe prévient le
+    // client elle-même. Réactivable avec PHONE_ORDER_CUSTOMER_WHATSAPP_ENABLED=true.
+    if (typedOrder.metadata?.source === "telephone" && process.env.PHONE_ORDER_CUSTOMER_WHATSAPP_ENABLED !== "true") {
+      logger.info(
+        `Commande ${typedOrder.id} placée — commande saisie dans l'admin, confirmation WhatsApp automatique désactivée`
+      )
+      return
+    }
+
     if (!phone) {
       logger.info(
         `Commande ${typedOrder.id} placée — pas de téléphone sur l'adresse de livraison, confirmation WhatsApp ignorée`

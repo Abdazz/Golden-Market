@@ -41,7 +41,13 @@ export async function POST(req: AuthenticatedMedusaRequest<AssignDeliveriesSchem
           order_canceled: order.status === "canceled",
         },
       })
-      const sent = await notifyCourier(req.scope, result.id)
+      // Envoi automatique au livreur suspendu pour le moment (2026-10-11) : la
+      // livraison reste "en attente", l'équipe copie le message ou l'envoie
+      // depuis l'admin. Réactivable avec COURIER_WHATSAPP_ON_ASSIGN_ENABLED=true.
+      const sent =
+        process.env.COURIER_WHATSAPP_ON_ASSIGN_ENABLED === "true"
+          ? await notifyCourier(req.scope, result.id)
+          : { whatsapp_status: "pending", whatsapp_error: null }
       deliveries.push({ id: result.id, order_id: orderId, ...sent })
     } catch (error) {
       errors.push({ order_id: orderId, message: `Commande ${orderNumberOf(order)} : ${(error as Error).message}` })

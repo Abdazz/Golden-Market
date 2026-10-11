@@ -383,7 +383,7 @@ const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boo
       })
       onChanged(
         r.whatsapp_status === "sent"
-          ? { kind: "success", text: `Message renvoyé pour la commande ${line.order_number}.` }
+          ? { kind: "success", text: `Message envoyé pour la commande ${line.order_number}.` }
           : { kind: "warning", text: `Message non envoyé : ${r.whatsapp_error ?? ""}` }
       )
     } finally {
@@ -433,6 +433,14 @@ const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boo
           <span className="txt-compact-small text-ui-fg-error">Message WhatsApp non envoyé : {line.whatsapp_error}</span>
           <button type="button" className={secondaryButton} disabled={busy} onClick={resend}>
             Renvoyer le message
+          </button>
+        </div>
+      )}
+      {line.whatsapp_status === "pending" && line.status === "assigned" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="txt-compact-small text-ui-fg-subtle">Message WhatsApp pas encore envoyé au livreur</span>
+          <button type="button" className={secondaryButton} disabled={busy} onClick={resend}>
+            Envoyer le message
           </button>
         </div>
       )}

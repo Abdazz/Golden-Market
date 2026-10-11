@@ -151,8 +151,10 @@ const OrderDeliveryWidget = ({ data }: Props) => {
           kind: "warning",
           text: `Commande confiée, mais le message WhatsApp n'est pas parti : ${result.deliveries[0].whatsapp_error ?? ""}`,
         })
-      } else {
+      } else if (result.deliveries[0]?.whatsapp_status === "sent") {
         setMessage({ kind: "success", text: "Commande confiée, le livreur a reçu le détail sur WhatsApp." })
+      } else {
+        setMessage({ kind: "success", text: "Commande confiée. Copiez le message pour le livreur ou envoyez-le sur WhatsApp." })
       }
       await load()
     } catch (error) {
@@ -172,7 +174,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
       )
       setMessage(
         result.whatsapp_status === "sent"
-          ? { kind: "success", text: "Message renvoyé au livreur." }
+          ? { kind: "success", text: "Message envoyé au livreur." }
           : { kind: "warning", text: `Message non envoyé : ${result.whatsapp_error ?? ""}` }
       )
       await load()
@@ -215,10 +217,15 @@ const OrderDeliveryWidget = ({ data }: Props) => {
                 Renvoyer le message
               </button>
             </div>
+          ) : current.whatsapp_status === "sent" ? (
+            <span className="txt-compact-small text-ui-fg-subtle">Message WhatsApp envoyé au livreur</span>
           ) : (
-            <span className="txt-compact-small text-ui-fg-subtle">
-              {current.whatsapp_status === "sent" ? "Message WhatsApp envoyé au livreur" : "Message WhatsApp en attente"}
-            </span>
+            <div className="flex flex-col gap-y-1">
+              <span className="txt-compact-small text-ui-fg-subtle">Message WhatsApp pas encore envoyé au livreur</span>
+              <button type="button" className={`${secondaryButton} self-start`} disabled={busy} onClick={() => resend(current.id)}>
+                Envoyer le message
+              </button>
+            </div>
           )}
           {/* Texte reconstruit depuis la commande telle qu'elle est maintenant : il peut différer du message envoyé si la commande a été modifiée après l'assignation. */}
           <CopyCourierMessage

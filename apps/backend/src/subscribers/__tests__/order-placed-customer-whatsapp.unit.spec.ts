@@ -19,6 +19,9 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
 
   beforeEach(() => {
     global.fetch = fetchMock as any
+    // Les cas "commande par téléphone" ci-dessous vérifient le contenu du message,
+    // envoyé seulement quand l'interrupteur est activé.
+    process.env.PHONE_ORDER_CUSTOMER_WHATSAPP_ENABLED = "true"
   })
 
   afterEach(() => {
@@ -532,6 +535,31 @@ describe("orderPlacedCustomerWhatsappHandler", () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(body.template_name).toBe("order_confirmation_from_website")
     expect(body.params[0]).toBe("Aminata")
+  })
+
+  it("commande saisie dans l'admin : pas d'envoi automatique tant que l'interrupteur n'est pas activé", async () => {
+    process.env.N8N_ORDER_CONFIRMATION_WEBHOOK_URL = "https://n8n.example.com/webhook/order-confirmation"
+    delete process.env.PHONE_ORDER_CUSTOMER_WHATSAPP_ENABLED
+    graph.mockResolvedValue({
+      data: [
+        {
+          id: "order_tel",
+          display_id: 7,
+          currency_code: "xof",
+          total: 5000,
+          metadata: { source: "telephone", payment_method: "cash-on-delivery" },
+          shipping_address: { first_name: "Awa", phone: "+22670000000" },
+          items: [{ product_title: "Lampe", unit_price: 5000, quantity: 1 }],
+        },
+      ],
+    })
+
+    await orderPlacedCustomerWhatsappHandler({
+      event: { data: { id: "order_tel" } } as any,
+      container: container as any,
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it("skips sending when the order has no phone", async () => {
