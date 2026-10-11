@@ -60,7 +60,9 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
 
   const parsedAmount = parseAmountInput(amount)
   const parsedCourierFee = readFee(courierFee)
-  const parsedTransportFee = readFee(transportFee)
+  // Livraison Ouaga : pas de compagnie de transport, champ masqué et frais à 0.
+  const isExpedition = defaults?.type === "expedition"
+  const parsedTransportFee = isExpedition ? readFee(transportFee) : 0
 
   const submit = async () => {
     if (!parsedAmount) return setError("Montant encaissé invalide : nombre entier positif en F CFA.")
@@ -85,9 +87,7 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
   const courierHint = defaults?.courier_fee_saved ? "Saisie sur la livraison." : "Tarif habituel de la course."
   const transportHint = defaults?.transport_fee_saved
     ? "Saisis sur la livraison."
-    : defaults?.type === "expedition"
-    ? "Frais d'expédition des produits."
-    : "Livraison Ouaga : pas de compagnie de transport."
+    : "Frais d'expédition payés par le client, reversés à la compagnie."
   const totalFees = (parsedCourierFee ?? 0) + (parsedTransportFee ?? 0)
 
   return (
@@ -108,11 +108,13 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
               <input className={inputClass} inputMode="numeric" value={courierFee} onChange={(e) => setCourierFee(e.target.value)} />
               <span className="txt-compact-small text-ui-fg-subtle">{courierHint}</span>
             </label>
-            <label className="flex flex-col gap-y-1">
-              <span className="txt-compact-small-plus text-ui-fg-base">Frais compagnie de transport (F CFA)</span>
-              <input className={inputClass} inputMode="numeric" value={transportFee} onChange={(e) => setTransportFee(e.target.value)} />
-              <span className="txt-compact-small text-ui-fg-subtle">{transportHint}</span>
-            </label>
+            {isExpedition && (
+              <label className="flex flex-col gap-y-1">
+                <span className="txt-compact-small-plus text-ui-fg-base">Frais compagnie de transport (F CFA)</span>
+                <input className={inputClass} inputMode="numeric" value={transportFee} onChange={(e) => setTransportFee(e.target.value)} />
+                <span className="txt-compact-small text-ui-fg-subtle">{transportHint}</span>
+              </label>
+            )}
             {parsedAmount !== null && parsedCourierFee !== null && parsedTransportFee !== null && (
               <span className="txt-compact-small text-ui-fg-base">
                 Caisse : entrée {formatXof(parsedAmount)}

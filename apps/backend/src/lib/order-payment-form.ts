@@ -51,12 +51,19 @@ export async function paymentFormDefaults(scope: any, orderId: string) {
   if (!order) return null
   const delivery = await latestDelivery(scope, orderId)
   const type: DeliveryType = delivery?.type ?? defaultTypeForCity(order.shipping_address?.city)
-  // Un seul colis : les frais d'expédition les plus élevés des produits (même
-  // règle qu'au panier, lib/shipping-fee-rules.ts), selon le type de la
-  // livraison plutôt que la ville seule.
+  // Frais de la compagnie = frais d'expédition payés par le client sur la
+  // commande (livraison de la commande, calculée par produit au panier). Si la
+  // commande n'en porte pas (adresse à Ouaga mais colis finalement expédié) :
+  // même règle qu'au panier, les frais les plus élevés des produits
+  // (lib/shipping-fee-rules.ts).
   const items = order.items ?? []
+  const shippingPaid = (order.shipping_methods ?? []).reduce((sum: number, m: any) => sum + Number(m.amount ?? 0), 0)
   const productShippingFee =
-    type === "expedition" && items.length
+    type !== "expedition"
+      ? 0
+      : shippingPaid > 0
+      ? Math.round(shippingPaid)
+      : items.length
       ? Math.max(...items.map((i: any) => feeOfProduct(i.variant?.product?.metadata ?? null)))
       : 0
   const collection = (order.payment_collections ?? [])[0]
@@ -94,6 +101,10 @@ const markOrderPaid = async (scope: any, order: any) => {
 export async function submitPaymentForm(scope: any, orderId: string, values: PaymentFormValues) {
   const order = await loadOrder(scope, orderId)
   if (!order) throw new Error("Commande introuvable.")
+  // Livraison Ouaga : pas de compagnie de transport (champ masqué dans le formulaire).
+  const delivery = await latestDelivery(scope, orderId)
+  const type: DeliveryType = delivery?.type ?? defaultTypeForCity(order.shipping_address?.city)
+  if (type !== "expedition") values = { ...values, transport_fee: 0 }
   // La caisse d'abord : une capture inscrite par l'abonné payment.captured
   // juste après est ignorée (écritures du formulaire déjà présentes).
   await replaceOrderEntriesWorkflow(scope).run({
