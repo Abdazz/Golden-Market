@@ -1,7 +1,7 @@
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { capturePaymentWorkflow, markPaymentCollectionAsPaid } from "@medusajs/medusa/core-flows"
 import { CASHBOOK_MODULE } from "../modules/cashbook"
-import { expectedFees, finalPaymentEntries, finalReferences } from "./cashbook-rules"
+import { expectedFees, finalPaymentEntries, finalReferences, type PaymentFormValues } from "./cashbook-rules"
 import { defaultTypeForCity, type DeliveryType } from "./delivery-rules"
 import { ORDER_FIELDS, outstandingOf } from "./delivery-service-helpers"
 import { orderNumberOf } from "./order-number"
@@ -65,14 +65,15 @@ export async function paymentFormDefaults(scope: any, orderId: string) {
     order_number: orderNumberOf(order),
     type,
     amount: Math.round(outstanding),
-    fees: expectedFees({
+    ...expectedFees({
       type,
       courierFee: delivery?.courier_fee ?? null,
       transportFee: delivery?.transport_fee ?? null,
       productShippingFee,
     }),
-    courier_fee: delivery?.courier_fee ?? null,
-    transport_fee: delivery?.transport_fee ?? null,
+    // Origine des frais pré-remplis : saisis sur la livraison ou valeur par défaut.
+    courier_fee_saved: delivery?.courier_fee !== null && delivery?.courier_fee !== undefined,
+    transport_fee_saved: delivery?.transport_fee !== null && delivery?.transport_fee !== undefined,
   }
 }
 
@@ -90,7 +91,7 @@ const markOrderPaid = async (scope: any, order: any) => {
   }
 }
 
-export async function submitPaymentForm(scope: any, orderId: string, values: { amount: number; fees: number }) {
+export async function submitPaymentForm(scope: any, orderId: string, values: PaymentFormValues) {
   const order = await loadOrder(scope, orderId)
   if (!order) throw new Error("Commande introuvable.")
   // La caisse d'abord : une capture inscrite par l'abonné payment.captured
@@ -98,13 +99,7 @@ export async function submitPaymentForm(scope: any, orderId: string, values: { a
   await replaceOrderEntriesWorkflow(scope).run({
     input: {
       order_id: orderId,
-      entries: finalPaymentEntries({
-        orderId,
-        orderNumber: orderNumberOf(order),
-        amount: values.amount,
-        fees: values.fees,
-        date: new Date(),
-      }),
+      entries: finalPaymentEntries({ ...values, orderId, orderNumber: orderNumberOf(order), date: new Date() }),
     },
   })
   await markOrderPaid(scope, order)

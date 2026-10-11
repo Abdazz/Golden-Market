@@ -13,8 +13,9 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
 }
 
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
-  const parsed = parsePaymentForm((req.body ?? {}) as { amount?: unknown; fees?: unknown })
+  const parsed = parsePaymentForm((req.body ?? {}) as Record<string, unknown>)
   if (!parsed.ok) throw new MedusaError(MedusaError.Types.INVALID_DATA, parsed.message)
-  await submitPaymentForm(req.scope, req.params.order_id, { amount: parsed.amount, fees: parsed.fees })
+  const { amount, courier_fee, transport_fee } = parsed
+  await submitPaymentForm(req.scope, req.params.order_id, { amount, courier_fee, transport_fee })
   res.json({ ok: true })
 }

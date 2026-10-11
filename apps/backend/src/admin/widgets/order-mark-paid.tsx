@@ -8,7 +8,7 @@ import { inputClass, NoticeText, primaryButton, secondaryButton } from "../compo
 // par le propriétaire). Le bouton natif "Mark as paid" de Medusa est modifié
 // par scripts/patch-dashboard.mjs : au lieu de sa simple confirmation, il
 // envoie l'événement MARK_PAID_EVENT, qui ouvre ce formulaire. Montant
-// encaissé et frais engagés par le livreur (course + compagnie de transport),
+// encaissé, course du livreur et frais payés à la compagnie de transport,
 // pré-remplis et modifiables : seuls ces montants comptent pour la caisse.
 // Pas de composant @medusajs/ui (conflit de types React 18/19, voir
 // widgets/analytics-summary.tsx).
@@ -19,16 +19,20 @@ type Defaults = {
   order_number: string
   type: "express" | "expedition"
   amount: number
-  fees: number
-  courier_fee: number | null
-  transport_fee: number | null
+  courier_fee: number
+  transport_fee: number
+  courier_fee_saved: boolean
+  transport_fee_saved: boolean
 }
+
+const readFee = (text: string) => (text.trim() === "" ? 0 : parseAmountInput(text))
 
 const OrderMarkPaidWidget = ({ data }: Props) => {
   const [open, setOpen] = useState(false)
   const [defaults, setDefaults] = useState<Defaults | null>(null)
   const [amount, setAmount] = useState("")
-  const [fees, setFees] = useState("")
+  const [courierFee, setCourierFee] = useState("")
+  const [transportFee, setTransportFee] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,7 +47,8 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
         .then((d) => {
           setDefaults(d)
           setAmount(String(d.amount))
-          setFees(String(d.fees))
+          setCourierFee(String(d.courier_fee))
+          setTransportFee(String(d.transport_fee))
         })
         .catch((e) => setError((e as Error).message))
     }
@@ -54,15 +59,20 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
   if (!open) return null
 
   const parsedAmount = parseAmountInput(amount)
-  const parsedFees = fees.trim() === "" ? 0 : parseAmountInput(fees)
+  const parsedCourierFee = readFee(courierFee)
+  const parsedTransportFee = readFee(transportFee)
 
   const submit = async () => {
     if (!parsedAmount) return setError("Montant encaissé invalide : nombre entier positif en F CFA.")
-    if (parsedFees === null) return setError("Frais invalides : nombre entier en F CFA (0 si aucun).")
+    if (parsedCourierFee === null) return setError("Course du livreur invalide : nombre entier en F CFA (0 si aucune).")
+    if (parsedTransportFee === null) return setError("Frais de la compagnie invalides : nombre entier en F CFA (0 si aucun).")
     setBusy(true)
     setError(null)
     try {
-      await api(`/admin/order-payments/${data.id}`, { method: "POST", body: { amount: parsedAmount, fees: parsedFees } })
+      await api(`/admin/order-payments/${data.id}`, {
+        method: "POST",
+        body: { amount: parsedAmount, courier_fee: parsedCourierFee, transport_fee: parsedTransportFee },
+      })
       // Rechargement : la fiche native (statut de paiement, activité) se met à jour.
       window.location.reload()
     } catch (e) {
@@ -71,21 +81,14 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
     }
   }
 
-  // Origine du montant pré-rempli (même règle que expectedFees côté serveur).
-  const feesHint = defaults
-    ? [
-        defaults.courier_fee !== null
-          ? `course ${formatXof(defaults.courier_fee)} (saisie sur la livraison)`
-          : `course ${formatXof(1000)} (tarif habituel)`,
-        defaults.type === "expedition"
-          ? defaults.transport_fee !== null
-            ? `compagnie ${formatXof(defaults.transport_fee)} (saisie sur la livraison)`
-            : `compagnie ${formatXof(defaults.fees - (defaults.courier_fee ?? 1000))} (frais d'expédition des produits)`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" + ")
-    : ""
+  // Origine des valeurs pré-remplies (même règle que expectedFees côté serveur).
+  const courierHint = defaults?.courier_fee_saved ? "Saisie sur la livraison." : "Tarif habituel de la course."
+  const transportHint = defaults?.transport_fee_saved
+    ? "Saisis sur la livraison."
+    : defaults?.type === "expedition"
+    ? "Frais d'expédition des produits."
+    : "Livraison Ouaga : pas de compagnie de transport."
+  const totalFees = (parsedCourierFee ?? 0) + (parsedTransportFee ?? 0)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
@@ -101,16 +104,19 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
               <input className={inputClass} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </label>
             <label className="flex flex-col gap-y-1">
-              <span className="txt-compact-small-plus text-ui-fg-base">Frais du livreur (F CFA)</span>
-              <input className={inputClass} inputMode="numeric" value={fees} onChange={(e) => setFees(e.target.value)} />
-              <span className="txt-compact-small text-ui-fg-subtle">
-                Course du livreur + frais payés à la compagnie de transport. Pré-rempli : {feesHint}.
-              </span>
+              <span className="txt-compact-small-plus text-ui-fg-base">Course du livreur (F CFA)</span>
+              <input className={inputClass} inputMode="numeric" value={courierFee} onChange={(e) => setCourierFee(e.target.value)} />
+              <span className="txt-compact-small text-ui-fg-subtle">{courierHint}</span>
             </label>
-            {parsedAmount !== null && parsedFees !== null && (
+            <label className="flex flex-col gap-y-1">
+              <span className="txt-compact-small-plus text-ui-fg-base">Frais compagnie de transport (F CFA)</span>
+              <input className={inputClass} inputMode="numeric" value={transportFee} onChange={(e) => setTransportFee(e.target.value)} />
+              <span className="txt-compact-small text-ui-fg-subtle">{transportHint}</span>
+            </label>
+            {parsedAmount !== null && parsedCourierFee !== null && parsedTransportFee !== null && (
               <span className="txt-compact-small text-ui-fg-base">
                 Caisse : entrée {formatXof(parsedAmount)}
-                {parsedFees > 0 ? `, sortie ${formatXof(parsedFees)} = net ${formatXof(parsedAmount - parsedFees)}` : ""}
+                {totalFees > 0 ? `, sorties ${formatXof(totalFees)} = net ${formatXof(parsedAmount - totalFees)}` : ""}
               </span>
             )}
           </>
