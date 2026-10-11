@@ -2,24 +2,33 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { defaultTypeForCity, type DeliveryType } from "./delivery-rules"
 
 // Liste des commandes de l'admin : la colonne "Canal de vente" de Medusa (un
-// seul canal chez Golden Market, donc sans intérêt) affiche le type de
-// livraison à la place (2026-10-11, demandé par le propriétaire). Celui de la
-// dernière livraison non annulée quand la commande est confiée, sinon celui
-// prévu d'après la ville de livraison (même règle qu'à l'attribution).
+// seul canal chez Golden Market, donc sans intérêt) devient la colonne
+// "Livraison" (2026-10-11, demandé par le propriétaire) : type de livraison et
+// livreur, "Livraison Ouaga · Moussa". Ceux de la dernière livraison non
+// annulée quand la commande est confiée ; sinon le type prévu d'après la ville
+// de livraison (même règle qu'à l'attribution), sans livreur. La liste native
+// ne permet pas d'ajouter une colonne : le livreur partage celle-ci.
 
 export const DELIVERY_TYPE_COLUMN_LABELS: Record<DeliveryType, string> = {
   express: "Livraison Ouaga",
   expedition: "Expédition",
 }
 
-type DeliveryRow = { order_id: string; type: DeliveryType; status: string; assigned_at: string | Date }
+type DeliveryRow = {
+  order_id: string
+  courier_id: string
+  type: DeliveryType
+  status: string
+  assigned_at: string | Date
+}
 type OrderCity = { id: string; shipping_address?: { city?: string | null } | null }
+export type OrderDeliveryInfo = { type: DeliveryType; courierId: string | null }
 
-export const deliveryTypeByOrder = (
+export const deliveryInfoByOrder = (
   orderIds: string[],
   deliveries: DeliveryRow[],
   orders: OrderCity[]
-): Map<string, DeliveryType> => {
+): Map<string, OrderDeliveryInfo> => {
   const latest = new Map<string, DeliveryRow>()
   for (const delivery of deliveries) {
     if (delivery.status === "canceled") continue
@@ -28,31 +37,52 @@ export const deliveryTypeByOrder = (
   }
   const cities = new Map(orders.map((order) => [order.id, order.shipping_address?.city]))
   return new Map(
-    orderIds.map((id) => [id, latest.get(id)?.type ?? defaultTypeForCity(cities.get(id))] as const)
+    orderIds.map((id) => {
+      const delivery = latest.get(id)
+      const info: OrderDeliveryInfo = delivery
+        ? { type: delivery.type, courierId: delivery.courier_id }
+        : { type: defaultTypeForCity(cities.get(id)), courierId: null }
+      return [id, info] as const
+    })
   )
 }
 
-export const withDeliveryTypeAsSalesChannel = (body: any, types: Map<string, DeliveryType>) => {
+export const deliveryColumnLabel = (info: OrderDeliveryInfo, courierNames: Map<string, string>) => {
+  const courier = info.courierId ? courierNames.get(info.courierId) : undefined
+  return [DELIVERY_TYPE_COLUMN_LABELS[info.type], courier].filter(Boolean).join(" · ")
+}
+
+export const withDeliveryAsSalesChannel = (
+  body: any,
+  infos: Map<string, OrderDeliveryInfo>,
+  courierNames: Map<string, string>
+) => {
   if (!body || !Array.isArray(body.orders)) return body
   for (const order of body.orders as { id: string; sales_channel?: Record<string, unknown> | null }[]) {
-    const type = types.get(order.id)
-    if (!type) continue
-    order.sales_channel = { ...(order.sales_channel ?? {}), name: DELIVERY_TYPE_COLUMN_LABELS[type] }
+    const info = infos.get(order.id)
+    if (!info) continue
+    order.sales_channel = { ...(order.sales_channel ?? {}), name: deliveryColumnLabel(info, courierNames) }
   }
   return body
 }
 
-export const addDeliveryTypes = async (scope: any, body: any) => {
+export const addDeliveryColumn = async (scope: any, body: any) => {
   if (!body || !Array.isArray(body.orders) || !body.orders.length) return body
   const orderIds = body.orders.map((order: { id: string }) => order.id)
   const query = scope.resolve(ContainerRegistrationKeys.QUERY)
   const [{ data: deliveries }, { data: orders }] = await Promise.all([
     query.graph({
       entity: "delivery",
-      fields: ["order_id", "type", "status", "assigned_at"],
+      fields: ["order_id", "courier_id", "type", "status", "assigned_at"],
       filters: { order_id: orderIds },
     }),
     query.graph({ entity: "order", fields: ["id", "shipping_address.city"], filters: { id: orderIds } }),
   ])
-  return withDeliveryTypeAsSalesChannel(body, deliveryTypeByOrder(orderIds, deliveries, orders))
+  const infos = deliveryInfoByOrder(orderIds, deliveries, orders)
+  const courierIds = [...new Set([...infos.values()].map((info) => info.courierId).filter(Boolean))] as string[]
+  const { data: couriers } = courierIds.length
+    ? await query.graph({ entity: "courier", fields: ["id", "name"], filters: { id: courierIds } })
+    : { data: [] }
+  const courierNames = new Map<string, string>(couriers.map((c: { id: string; name: string }) => [c.id, c.name]))
+  return withDeliveryAsSalesChannel(body, infos, courierNames)
 }
