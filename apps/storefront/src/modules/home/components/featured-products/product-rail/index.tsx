@@ -1,4 +1,5 @@
 import { listProducts } from "@lib/data/products"
+import { isProductAvailable } from "@lib/util/product"
 import { HttpTypes } from "@medusajs/types"
 import { Heading } from "@modules/common/components/ui"
 
@@ -35,12 +36,25 @@ export default async function ProductRail({
       // (33 en local) - trier après une pagination déjà tronquée dans un
       // ordre arbitraire n'aurait pas garanti les vrais plus récents.
       order: "-created_at",
+      // Assez large pour trouver 12 produits en stock dans la collection
+      // avant de remplir avec ceux en rupture (voir RAIL_SIZE plus bas).
+      limit: 100,
     },
   })
 
   if (!pricedProducts) {
     return null
   }
+
+  // Produits en stock d'abord (2026-10-11, demandé par le propriétaire : des
+  // produits en rupture s'affichaient dans "Vente express"), du plus récent au
+  // plus ancien dans chaque groupe ; ceux en rupture ne complètent le rail que
+  // s'il n'y a pas assez de produits en stock.
+  const RAIL_SIZE = 12
+  const railProducts = [
+    ...pricedProducts.filter(isProductAvailable),
+    ...pricedProducts.filter((product) => !isProductAvailable(product)),
+  ].slice(0, RAIL_SIZE)
 
   return (
     <div className="py-10 small:py-16">
@@ -57,12 +71,11 @@ export default async function ProductRail({
           </LocalizedClientLink>
         </div>
         <ul className="grid grid-cols-2 small:grid-cols-3 medium:grid-cols-4 gap-4">
-          {pricedProducts &&
-            pricedProducts.map((product) => (
-              <li key={product.id}>
-                <ProductPreview product={product} region={region} />
-              </li>
-            ))}
+          {railProducts.map((product) => (
+            <li key={product.id}>
+              <ProductPreview product={product} region={region} />
+            </li>
+          ))}
         </ul>
       </div>
     </div>

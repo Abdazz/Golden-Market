@@ -1,6 +1,7 @@
 import { HttpTypes } from "@medusajs/types"
 import { getFreeShippingBadgeLabel } from "@lib/util/free-shipping"
 import { Badge, Heading } from "@modules/common/components/ui"
+import ShareProduct from "@modules/products/components/share-product"
 
 type ProductInfoProps = {
   product: HttpTypes.StoreProduct
@@ -23,6 +24,7 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
       >
         {product.title}
       </Heading>
+      <ShareProduct title={product.title} />
     </div>
   )
 }
