@@ -10,6 +10,7 @@ import multer from "multer"
 import { MAX_UPLOAD_BYTES } from "../lib/whatsapp-media-types"
 import { checkRateLimit } from "./middlewares/rate-limiter"
 import { withGoldenMarketOrderNumber, withPhoneAsCustomerName } from "../lib/order-list-customer"
+import { addDeliveryTypes } from "../lib/order-list-delivery"
 
 // Observabilité backend (GlitchTip self-hosted) : capture chaque erreur avant de
 // déléguer au comportement par défaut de Medusa - ne remplace rien de l'existant,
@@ -237,6 +238,19 @@ export function orderListCustomerNameMiddleware(req: MedusaRequest, res: MedusaR
   next()
 }
 
+// Liste des commandes : type de livraison dans la colonne "Canal de vente"
+// (voir lib/order-list-delivery.ts). En cas d'erreur, la liste part sans lui.
+export function orderListDeliveryTypeMiddleware(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
+  const json = res.json.bind(res)
+  res.json = ((body: unknown) => {
+    addDeliveryTypes(req.scope, body)
+      .catch(() => body)
+      .then((result) => json(result))
+    return res
+  }) as typeof res.json
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
     {
@@ -276,7 +290,7 @@ export default defineMiddlewares({
     {
       matcher: "/admin/orders",
       methods: ["GET"],
-      middlewares: [orderListCustomerNameMiddleware],
+      middlewares: [orderListCustomerNameMiddleware, orderListDeliveryTypeMiddleware],
     },
     {
       matcher: "/admin/orders/:id",
