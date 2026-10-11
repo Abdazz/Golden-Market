@@ -91,3 +91,32 @@ export const deleteManualEntryStep = createStep(
     if (id) await cashbook(container).restoreCashEntries(id)
   }
 )
+
+// "Marquer comme payée" avec le formulaire de la fiche commande (2026-10-11) :
+// les montants saisis sont les seuls retenus par la caisse pour la commande.
+// Les écritures automatiques de la commande (vente, frais livreur, frais
+// compagnie) et un éventuel formulaire précédent sont mis de côté (suppression
+// réversible), puis les écritures du formulaire sont créées.
+export const REPLACEABLE_CATEGORIES: Category[] = ["sale", "courier_fee", "transport_fee"]
+
+export const replaceOrderEntriesStep = createStep(
+  "replace-order-entries",
+  async (input: { order_id: string; entries: NewEntry[] }, { container }) => {
+    const svc = cashbook(container)
+    const previous = await svc.listCashEntries({
+      order_id: input.order_id,
+      source: "auto",
+      category: REPLACEABLE_CATEGORIES,
+    })
+    const previousIds = previous.map((e) => e.id)
+    if (previousIds.length) await svc.softDeleteCashEntries(previousIds)
+    const created = input.entries.length ? await svc.createCashEntries(input.entries) : []
+    return new StepResponse(created, { created: created.map((e) => e.id), previous: previousIds })
+  },
+  async (state, { container }) => {
+    if (!state) return
+    const svc = cashbook(container)
+    if (state.created.length) await svc.deleteCashEntries(state.created)
+    if (state.previous.length) await svc.restoreCashEntries(state.previous)
+  }
+)

@@ -3,6 +3,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { feeEntriesFromDelivery } from "../../../../../lib/cashbook-rules"
 import { orderNumberOf } from "../../../../../lib/order-number"
 import { recordAutoEntriesWorkflow } from "../../../../../workflows/cash-entries"
+import { hasFinalPaymentEntries } from "../../../../../lib/order-payment-form"
 import { combineWarnings, itemLabel, STOCK_WARNING } from "../../../../../lib/courier-stock-rules"
 import { takeDeliveryStockWorkflow } from "../../../../../workflows/courier-stock"
 import { syncOrderAfterDelivery } from "../../../../../lib/delivery-order-sync"
@@ -89,7 +90,10 @@ export async function POST(req: AuthenticatedMedusaRequest<CompleteDeliverySchem
       data: [order],
     } = await query.graph({ entity: "order", fields: ["id", "custom_display_id", "display_id"], filters: { id: delivery.order_id } })
     courierName = courier?.name ?? null
-    const entries = feeEntriesFromDelivery(delivery, courier?.name ?? null, order ? orderNumberOf(order) : null)
+    // Commande déjà marquée payée avec le formulaire : ses frais font foi.
+    const entries = (await hasFinalPaymentEntries(req.scope, delivery.order_id))
+      ? []
+      : feeEntriesFromDelivery(delivery, courier?.name ?? null, order ? orderNumberOf(order) : null)
     if (entries.length) await recordAutoEntriesWorkflow(req.scope).run({ input: entries })
   } catch (error) {
     req.scope.resolve(ContainerRegistrationKeys.LOGGER).error(

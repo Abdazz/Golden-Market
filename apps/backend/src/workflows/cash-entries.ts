@@ -4,6 +4,7 @@ import {
   createManualEntryStep,
   deleteManualEntryStep,
   recordAutoEntriesStep,
+  replaceOrderEntriesStep,
   updateManualEntryStep,
 } from "./steps/cash-entry-steps"
 import type { ManualEntryInput } from "./steps/cash-entry-steps"
@@ -32,3 +33,11 @@ export const deleteManualEntryWorkflow = createWorkflow("delete-manual-entry", f
   const result = deleteManualEntryStep(input)
   return new WorkflowResponse(result)
 })
+
+export const replaceOrderEntriesWorkflow = createWorkflow(
+  "replace-order-entries",
+  function (input: { order_id: string; entries: NewEntry[] }) {
+    const created = replaceOrderEntriesStep(input)
+    return new WorkflowResponse(created)
+  }
+)

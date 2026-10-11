@@ -203,3 +203,79 @@ export const feeEntriesFromDelivery = (
   }
   return entries
 }
+
+// Formulaire "Marquer comme payée" de la fiche commande (2026-10-11) : montant
+// encaissé (entrée "Vente") et frais engagés par le livreur, course et
+// compagnie de transport confondues (sortie). Seules ces valeurs comptent pour
+// la caisse de la commande ; leurs références les distinguent des écritures
+// automatiques et bloquent celles qui arriveraient après.
+export const FINAL_REFERENCE_PREFIX = "order-final:"
+
+export const finalReferences = (orderId: string) => ({
+  sale: `${FINAL_REFERENCE_PREFIX}${orderId}:sale`,
+  fees: `${FINAL_REFERENCE_PREFIX}${orderId}:fees`,
+})
+
+export const parsePaymentForm = (body: {
+  amount?: unknown
+  fees?: unknown
+}): { ok: true; amount: number; fees: number } | { ok: false; message: string } => {
+  const amount = typeof body.amount === "number" ? body.amount : Number(body.amount)
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return { ok: false, message: "Montant encaissé invalide : nombre entier positif en F CFA." }
+  }
+  const fees = body.fees === undefined || body.fees === null || body.fees === "" ? 0 : Number(body.fees)
+  if (!Number.isInteger(fees) || fees < 0) {
+    return { ok: false, message: "Frais invalides : nombre entier en F CFA (0 si aucun)." }
+  }
+  return { ok: true, amount, fees }
+}
+
+export const finalPaymentEntries = (input: {
+  orderId: string
+  orderNumber: string | null
+  amount: number
+  fees: number
+  date: Date
+}): NewEntry[] => {
+  const refs = finalReferences(input.orderId)
+  const suffix = input.orderNumber ? ` commande ${input.orderNumber}` : ""
+  const entries: NewEntry[] = [
+    {
+      date: input.date,
+      direction: "in",
+      amount: input.amount,
+      category: "sale",
+      label: `Vente${suffix}`,
+      source: "auto",
+      reference: refs.sale,
+      order_id: input.orderId,
+    },
+  ]
+  if (input.fees > 0) {
+    entries.push({
+      date: input.date,
+      direction: "out",
+      amount: input.fees,
+      category: "courier_fee",
+      label: `Frais livreur et expédition${input.orderNumber ? ` - commande ${input.orderNumber}` : ""}`,
+      source: "auto",
+      reference: refs.fees,
+      order_id: input.orderId,
+    })
+  }
+  return entries
+}
+
+// Pré-remplissage du formulaire : frais déjà saisis sur la livraison (course
+// du livreur, compagnie de transport) ; à défaut, pour une expédition, les
+// frais d'expédition des produits de la commande.
+export const expectedFees = (input: {
+  type: "express" | "expedition"
+  courierFee: number | null
+  transportFee: number | null
+  productShippingFee: number
+}): number => {
+  const transport = input.transportFee ?? (input.type === "expedition" ? input.productShippingFee : 0)
+  return (input.courierFee ?? 0) + transport
+}

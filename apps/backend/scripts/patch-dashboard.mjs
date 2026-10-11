@@ -4,7 +4,10 @@
 // code compilé de @medusajs/dashboard avant chaque build (npm run build / dev).
 // - colonne "Livreur" après "Livraison" : order.courier_name, ajouté à la
 //   réponse de GET /admin/orders par src/lib/order-list-delivery.ts ;
-// - colonne "Date" : date et heure (le reste de l'admin garde la date seule).
+// - colonne "Date" : date et heure (le reste de l'admin garde la date seule) ;
+// - bouton "Mark as paid" de la fiche commande : ouvre le formulaire de
+//   src/admin/widgets/order-mark-paid.tsx (montant encaissé et frais) au lieu
+//   de la confirmation native.
 //
 // Idempotent. Si Medusa change ce code (mise à jour du dashboard), le script
 // échoue et le build s'arrête : adapter les ancres ci-dessous à la nouvelle version.
@@ -40,6 +43,14 @@ const PATCHES = [
     apply: (_anchor, marker) => `          ${marker}
           const date = new Date(getValue());
           return /* @__PURE__ */ jsx6("div", { className: "flex h-full w-full items-center overflow-hidden", children: /* @__PURE__ */ jsx6("span", { className: "truncate", children: date.toLocaleString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) }) });`,
+  },
+  {
+    name: "formulaire Marquer comme payée",
+    marker: "/* golden-market:mark-as-paid-form */",
+    anchor: `          onClick: () => handleMarkAsPaid(unpaidPaymentCollection),`,
+    apply: (_anchor, marker) =>
+      `          ${marker}
+          onClick: () => window.dispatchEvent(new CustomEvent("golden-market:mark-as-paid", { detail: { order_id: order.id } })),`,
   },
 ]
 

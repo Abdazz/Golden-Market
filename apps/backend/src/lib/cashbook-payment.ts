@@ -2,6 +2,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import type { NewEntry } from "./cashbook-rules"
 import { refundEntriesFromPayment, saleEntriesFromPayment } from "./cashbook-rules"
 import { orderNumberOf } from "./order-number"
+import { hasFinalPaymentEntries } from "./order-payment-form"
 
 // Inscrit au journal de caisse les encaissements et remboursements d'un
 // paiement (abonnés payment.captured / payment.refunded, spec 2026-09-28
@@ -32,6 +33,8 @@ export async function recordPaymentEntries(
     if (!payment) return
     const order = payment.payment_collection?.order
     const ref = { orderId: order?.id ?? null, orderNumber: order ? orderNumberOf(order) : null }
+    // Vente déjà inscrite par le formulaire "Marquer comme payée" : ses montants font foi.
+    if (kind === "captured" && (await hasFinalPaymentEntries(container, ref.orderId))) return
     const entries = kind === "captured" ? saleEntriesFromPayment(payment, ref) : refundEntriesFromPayment(payment, ref)
     if (entries.length) await record(entries)
   } catch (error) {

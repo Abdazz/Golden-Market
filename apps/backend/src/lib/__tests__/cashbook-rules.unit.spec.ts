@@ -126,3 +126,37 @@ describe("écritures automatiques", () => {
     expect(feeEntriesFromDelivery({ ...base, courier_fee: null, transport_fee: 0 }, "Gildas", "20260902001")).toEqual([])
   })
 })
+
+describe("formulaire Marquer comme payée", () => {
+  const { parsePaymentForm, finalPaymentEntries, expectedFees } = require("../cashbook-rules")
+
+  it("valide le montant encaissé (entier positif) et les frais (entier, 0 par défaut)", () => {
+    expect(parsePaymentForm({ amount: 9500, fees: 2500 })).toEqual({ ok: true, amount: 9500, fees: 2500 })
+    expect(parsePaymentForm({ amount: "9500", fees: "" })).toEqual({ ok: true, amount: 9500, fees: 0 })
+    expect(parsePaymentForm({ amount: 0, fees: 0 }).ok).toBe(false)
+    expect(parsePaymentForm({ amount: 9500, fees: -1 }).ok).toBe(false)
+    expect(parsePaymentForm({ amount: 95.5 }).ok).toBe(false)
+  })
+
+  it("écritures de la caisse : vente = montant encaissé, sortie = frais", () => {
+    const date = new Date("2026-10-11T10:00:00Z")
+    const entries = finalPaymentEntries({ orderId: "o1", orderNumber: "20261011001", amount: 11000, fees: 3000, date })
+    expect(entries).toEqual([
+      expect.objectContaining({ direction: "in", category: "sale", amount: 11000, reference: "order-final:o1:sale", order_id: "o1" }),
+      expect.objectContaining({ direction: "out", category: "courier_fee", amount: 3000, reference: "order-final:o1:fees", label: "Frais livreur et expédition - commande 20261011001" }),
+    ])
+  })
+
+  it("sans frais : seule la vente est inscrite", () => {
+    const entries = finalPaymentEntries({ orderId: "o1", orderNumber: null, amount: 9500, fees: 0, date: new Date() })
+    expect(entries).toHaveLength(1)
+  })
+
+  it("pré-remplissage des frais : ceux de la livraison, sinon les frais d'expédition des produits", () => {
+    expect(expectedFees({ type: "expedition", courierFee: 1000, transportFee: 2000, productShippingFee: 1500 })).toBe(3000)
+    expect(expectedFees({ type: "expedition", courierFee: null, transportFee: null, productShippingFee: 1500 })).toBe(1500)
+    expect(expectedFees({ type: "expedition", courierFee: 1000, transportFee: null, productShippingFee: 1500 })).toBe(2500)
+    expect(expectedFees({ type: "express", courierFee: 1000, transportFee: null, productShippingFee: 1500 })).toBe(1000)
+    expect(expectedFees({ type: "express", courierFee: null, transportFee: null, productShippingFee: 0 })).toBe(0)
+  })
+})
