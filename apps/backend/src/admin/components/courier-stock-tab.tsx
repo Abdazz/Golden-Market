@@ -7,9 +7,11 @@ import type { CourierStockMovement, CourierStockOverview } from "../lib/deliveri
 import { card, inputClass, NoticeText, primaryButton, secondaryButton } from "./delivery-ui"
 import type { Notice } from "./delivery-ui"
 
-// Onglet "Stock livreurs" (spec 2026-09-28 stock-livreurs) : combien il reste
-// de chaque produit chez chaque livreur, remises / retours / corrections et
-// historique. Cartes empilées, utilisable sur téléphone.
+// Onglet "Stock livreurs" (spec 2026-09-28 stock-livreurs) : une carte par
+// livreur (réorganisé le 2026-10-11 à la demande du propriétaire) avec les
+// produits qu'il a en main et leurs quantités, ses remises / retours /
+// corrections et son historique. Stock au dépôt replié en bas. Cartes
+// empilées, utilisable sur téléphone.
 
 type Mode = "handover" | "return" | "adjustment"
 const MODE_LABELS: Record<Mode, string> = { handover: "Remettre", return: "Retour", adjustment: "Corriger" }
@@ -96,18 +98,19 @@ const ProductPicker = ({
 const MovementForm = ({
   mode,
   data,
+  initialCourierId,
   onDone,
   onCancel,
 }: {
   mode: Mode
   data: CourierStockOverview
+  initialCourierId: string
   onDone: (notice: Notice) => void
   onCancel: () => void
 }) => {
-  const [courierId, setCourierId] = useState(data.couriers[0]?.id ?? "")
+  const courierId = initialCourierId
   const [lines, setLines] = useState<Line[]>([EMPTY_LINE])
   const [note, setNote] = useState("")
-  const [resetKey, setResetKey] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -146,25 +149,8 @@ const MovementForm = ({
       <span className="txt-compact-small-plus text-ui-fg-base">
         {mode === "handover" ? "Remettre des produits au livreur" : mode === "return" ? "Le livreur rend des produits" : "Corriger après comptage (quantités réellement chez le livreur)"}
       </span>
-      <select
-        className={inputClass}
-        value={courierId}
-        onChange={(e) => {
-          setCourierId(e.target.value)
-          if (mode === "return") {
-            setLines([EMPTY_LINE])
-            setResetKey((k) => k + 1)
-          }
-        }}
-      >
-        {data.couriers.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
       {lines.map((line, index) => (
-        <div key={`${resetKey}-${index}`} className="flex flex-wrap items-center gap-2">
+        <div key={index} className="flex flex-wrap items-center gap-2">
           <ProductPicker
             choices={choices}
             value={line.inventory_item_id}
@@ -241,9 +227,77 @@ const History = ({ courierId, version }: { courierId: string; version: number })
   )
 }
 
+type OpenForm = { courierId: string; mode: Mode }
+
+const CourierCard = ({
+  courier,
+  data,
+  form,
+  historyOpen,
+  version,
+  onOpenForm,
+  onToggleHistory,
+  onDone,
+}: {
+  courier: { id: string; name: string }
+  data: CourierStockOverview
+  form: Mode | null
+  historyOpen: boolean
+  version: number
+  onOpenForm: (mode: Mode | null) => void
+  onToggleHistory: () => void
+  onDone: (notice: Notice) => void
+}) => {
+  const products = data.items
+    .filter((item) => (item.by_courier[courier.id] ?? 0) !== 0)
+    .sort((a, b) => a.label.localeCompare(b.label, "fr"))
+  const total = products.reduce((sum, item) => sum + (item.by_courier[courier.id] ?? 0), 0)
+  return (
+    <div className={`${card} flex flex-col gap-y-3 px-4 py-3`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="txt-compact-medium-plus text-ui-fg-base">{courier.name}</span>
+        <span className="txt-compact-small text-ui-fg-subtle">
+          {products.length ? `${total} article(s) · ${products.length} produit(s)` : "Aucun produit en main"}
+        </span>
+      </div>
+      {products.length > 0 && (
+        <ul className="flex flex-col divide-y divide-ui-border-base">
+          {products.map((item) => (
+            <li key={item.id} className="txt-compact-small flex items-center justify-between gap-x-3 py-1.5">
+              <span className="text-ui-fg-base">{item.label}</span>
+              <strong className="text-ui-fg-base">{item.by_courier[courier.id]}</strong>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
+          <button key={m} type="button" className={form === m ? primaryButton : secondaryButton} onClick={() => onOpenForm(form === m ? null : m)}>
+            {MODE_LABELS[m]}
+          </button>
+        ))}
+        <button type="button" className={historyOpen ? primaryButton : secondaryButton} onClick={onToggleHistory}>
+          Historique
+        </button>
+      </div>
+      {form && (
+        <MovementForm
+          key={form}
+          mode={form}
+          data={data}
+          initialCourierId={courier.id}
+          onCancel={() => onOpenForm(null)}
+          onDone={onDone}
+        />
+      )}
+      {historyOpen && <History courierId={courier.id} version={version} />}
+    </div>
+  )
+}
+
 export const CourierStockTab = () => {
   const [data, setData] = useState<CourierStockOverview | null>(null)
-  const [mode, setMode] = useState<Mode | null>(null)
+  const [openForm, setOpenForm] = useState<OpenForm | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const [historyOf, setHistoryOf] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
@@ -271,15 +325,10 @@ export const CourierStockTab = () => {
   if (!data) return <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>
   if (!data.couriers.length) return <p className="txt-compact-small text-ui-fg-subtle">Ajoutez d'abord un livreur (onglet Livreurs).</p>
 
+  const inWarehouse = data.items.filter((item) => item.warehouse > 0).sort((a, b) => a.label.localeCompare(b.label, "fr"))
+
   return (
     <div className="flex flex-col gap-y-3">
-      <div className="flex flex-wrap gap-2">
-        {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
-          <button key={m} type="button" className={mode === m ? primaryButton : secondaryButton} onClick={() => setMode(mode === m ? null : m)}>
-            {MODE_LABELS[m]}
-          </button>
-        ))}
-      </div>
       <NoticeText notice={notice} />
       {loadError && (
         <div className="flex flex-wrap items-center gap-2">
@@ -289,46 +338,43 @@ export const CourierStockTab = () => {
           </button>
         </div>
       )}
-      {mode && (
-        <MovementForm
-          key={mode}
-          mode={mode}
+      {data.couriers.map((courier) => (
+        <CourierCard
+          key={courier.id}
+          courier={courier}
           data={data}
-          onCancel={() => setMode(null)}
+          form={openForm?.courierId === courier.id ? openForm.mode : null}
+          historyOpen={historyOf === courier.id}
+          version={version}
+          onOpenForm={(mode) => {
+            setNotice(null)
+            setOpenForm(mode ? { courierId: courier.id, mode } : null)
+          }}
+          onToggleHistory={() => setHistoryOf(historyOf === courier.id ? null : courier.id)}
           onDone={(n) => {
             setNotice(n)
-            setMode(null)
+            setOpenForm(null)
             reload()
           }}
         />
-      )}
-      {data.items.map((item) => (
-        <div key={item.id} className={`${card} flex flex-col gap-y-1 px-4 py-3`}>
-          <span className="txt-compact-small-plus text-ui-fg-base">{item.label}</span>
-          <div className="txt-compact-small flex flex-wrap gap-x-4 gap-y-1 text-ui-fg-subtle">
-            <span>
-              Au dépôt : <strong className="text-ui-fg-base">{item.warehouse}</strong>
-            </span>
-            {data.couriers.map((c) => (
-              <span key={c.id}>
-                {c.name} : <strong className={item.by_courier[c.id] ? "text-ui-fg-base" : ""}>{item.by_courier[c.id] ?? 0}</strong>
-              </span>
-            ))}
-            <span>Total : {item.stocked}</span>
-          </div>
-        </div>
       ))}
-      <div className={`${card} flex flex-col gap-y-2 px-4 py-3`}>
-        <span className="txt-compact-small-plus text-ui-fg-base">Historique</span>
-        <div className="flex flex-wrap gap-2">
-          {data.couriers.map((c) => (
-            <button key={c.id} type="button" className={historyOf === c.id ? primaryButton : secondaryButton} onClick={() => setHistoryOf(historyOf === c.id ? null : c.id)}>
-              {c.name}
-            </button>
-          ))}
-        </div>
-        {historyOf && <History courierId={historyOf} version={version} />}
-      </div>
+      <details className={`${card} px-4 py-3`}>
+        <summary className="txt-compact-small-plus cursor-pointer text-ui-fg-base">
+          Stock au dépôt ({inWarehouse.length} produit(s))
+        </summary>
+        {inWarehouse.length ? (
+          <ul className="mt-2 flex flex-col divide-y divide-ui-border-base">
+            {inWarehouse.map((item) => (
+              <li key={item.id} className="txt-compact-small flex items-center justify-between gap-x-3 py-1.5">
+                <span className="text-ui-fg-base">{item.label}</span>
+                <strong className="text-ui-fg-base">{item.warehouse}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="txt-compact-small mt-2 text-ui-fg-subtle">Rien au dépôt.</p>
+        )}
+      </details>
     </div>
   )
 }
