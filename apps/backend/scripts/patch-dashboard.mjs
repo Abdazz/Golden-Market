@@ -7,7 +7,11 @@
 // - colonne "Date" : date et heure (le reste de l'admin garde la date seule) ;
 // - bouton "Mark as paid" de la fiche commande : ouvre le formulaire de
 //   src/admin/widgets/order-mark-paid.tsx (montant encaissé et frais) au lieu
-//   de la confirmation native.
+//   de la confirmation native ;
+// - page d'arrivée de l'admin (après connexion, ou /app) : le Tableau de bord
+//   (src/admin/routes/dashboard) au lieu de la liste des commandes ;
+// - menu latéral : "Tableau de bord" en premier, au-dessus de "Orders" (les
+//   menus des extensions sont sinon toujours placés après les menus natifs).
 //
 // Idempotent. Si Medusa change ce code (mise à jour du dashboard), le script
 // échoue et le build s'arrête : adapter les ancres ci-dessous à la nouvelle version.
@@ -51,6 +55,36 @@ const PATCHES = [
     apply: (_anchor, marker) =>
       `          ${marker}
           onClick: () => window.dispatchEvent(new CustomEvent("golden-market:mark-as-paid", { detail: { order_id: order.id } })),`,
+  },
+  {
+    name: "connexion vers le Tableau de bord",
+    marker: "/* golden-market:login-to-dashboard */",
+    anchor: `  const from = location.state?.from?.pathname || "/orders";`,
+    apply: (_anchor, marker) => `  ${marker}
+  const from = location.state?.from?.pathname || "/dashboard";`,
+  },
+  {
+    name: "accueil vers le Tableau de bord",
+    marker: "/* golden-market:home-to-dashboard */",
+    anchor: `    navigate("/orders", { replace: true });`,
+    apply: (_anchor, marker) => `    ${marker}
+    navigate("/dashboard", { replace: true });`,
+  },
+  {
+    name: "Tableau de bord en tête du menu",
+    marker: "/* golden-market:dashboard-first */",
+    anchor: `  const extensionItems = menuItems.filter((item) => !item.nested);`,
+    apply: (_anchor, marker) => `  ${marker}
+  const extensionItems = menuItems.filter((item) => !item.nested && item.to !== "/dashboard");
+  const firstExtensionItems = menuItems.filter((item) => !item.nested && item.to === "/dashboard");`,
+  },
+  {
+    name: "Tableau de bord en tête du menu (affichage)",
+    marker: "/* golden-market:dashboard-first-render */",
+    anchor: `          coreRoutes.map((route) => /* @__PURE__ */ jsx16(LayoutComposer.Entry, { id: \`nav:\${route.to}\`, children: /* @__PURE__ */ jsx16(NavItem, { ...route }, route.to) }, route.to)),`,
+    apply: (anchor, marker) => `          ${marker}
+          firstExtensionItems.map((item) => /* @__PURE__ */ jsx16(LayoutComposer.Entry, { id: \`nav:\${item.to}\`, children: /* @__PURE__ */ jsx16(NavItem, { to: item.to, label: item.label, icon: item.icon ? item.icon : /* @__PURE__ */ jsx16(SquaresPlus, {}), items: item.items, translationNs: item.translationNs, type: "extension" }, item.to) }, item.to)),
+${anchor}`,
   },
 ]
 
