@@ -1,13 +1,13 @@
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { defaultTypeForCity, type DeliveryType } from "./delivery-rules"
 
-// Liste des commandes de l'admin : la colonne "Canal de vente" de Medusa (un
-// seul canal chez Golden Market, donc sans intérêt) devient la colonne
-// "Livraison" (2026-10-11, demandé par le propriétaire) : type de livraison et
-// livreur, "Livraison Ouaga · Moussa". Ceux de la dernière livraison non
-// annulée quand la commande est confiée ; sinon le type prévu d'après la ville
-// de livraison (même règle qu'à l'attribution), sans livreur. La liste native
-// ne permet pas d'ajouter une colonne : le livreur partage celle-ci.
+// Liste des commandes de l'admin (2026-10-11, demandé par le propriétaire) :
+// la colonne "Canal de vente" de Medusa (un seul canal chez Golden Market,
+// donc sans intérêt) devient "Livraison" (type de livraison), et une colonne
+// "Livreur" est ajoutée par scripts/patch-dashboard.mjs (order.courier_name).
+// Type et livreur de la dernière livraison non annulée quand la commande est
+// confiée ; sinon le type prévu d'après la ville de livraison (même règle qu'à
+// l'attribution), sans livreur.
 
 export const DELIVERY_TYPE_COLUMN_LABELS: Record<DeliveryType, string> = {
   express: "Livraison Ouaga",
@@ -47,21 +47,21 @@ export const deliveryInfoByOrder = (
   )
 }
 
-export const deliveryColumnLabel = (info: OrderDeliveryInfo, courierNames: Map<string, string>) => {
-  const courier = info.courierId ? courierNames.get(info.courierId) : undefined
-  return [DELIVERY_TYPE_COLUMN_LABELS[info.type], courier].filter(Boolean).join(" · ")
-}
-
 export const withDeliveryAsSalesChannel = (
   body: any,
   infos: Map<string, OrderDeliveryInfo>,
   courierNames: Map<string, string>
 ) => {
   if (!body || !Array.isArray(body.orders)) return body
-  for (const order of body.orders as { id: string; sales_channel?: Record<string, unknown> | null }[]) {
+  for (const order of body.orders as {
+    id: string
+    sales_channel?: Record<string, unknown> | null
+    courier_name?: string | null
+  }[]) {
     const info = infos.get(order.id)
     if (!info) continue
-    order.sales_channel = { ...(order.sales_channel ?? {}), name: deliveryColumnLabel(info, courierNames) }
+    order.sales_channel = { ...(order.sales_channel ?? {}), name: DELIVERY_TYPE_COLUMN_LABELS[info.type] }
+    order.courier_name = (info.courierId && courierNames.get(info.courierId)) || null
   }
   return body
 }

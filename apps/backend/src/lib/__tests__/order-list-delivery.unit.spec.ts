@@ -33,7 +33,7 @@ describe("deliveryInfoByOrder", () => {
 })
 
 describe("withDeliveryAsSalesChannel", () => {
-  it("remplace le nom du canal de vente par le type de livraison et le livreur", () => {
+  it("type de livraison dans le canal de vente, livreur dans courier_name", () => {
     const body = {
       orders: [
         { id: "o1", sales_channel: { id: "sc_1", name: "Default Sales Channel" } },
@@ -45,7 +45,8 @@ describe("withDeliveryAsSalesChannel", () => {
       ["o2", { type: "expedition" as const, courierId: null }],
     ])
     const result = withDeliveryAsSalesChannel(body, infos, new Map([["c1", "Moussa"]]))
-    expect(result.orders.map((o: any) => o.sales_channel.name)).toEqual(["Livraison Ouaga · Moussa", "Expédition"])
+    expect(result.orders.map((o: any) => o.sales_channel.name)).toEqual(["Livraison Ouaga", "Expédition"])
+    expect(result.orders.map((o: any) => o.courier_name)).toEqual(["Moussa", null])
     expect(result.orders[0].sales_channel.id).toBe("sc_1")
   })
 

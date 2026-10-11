@@ -13,9 +13,9 @@
     "medusa"
   ],
   "scripts": {
-    "build": "medusa build",
+    "build": "node scripts/patch-dashboard.mjs && medusa build",
     "start": "medusa start",
-    "dev": "medusa develop",
+    "dev": "node scripts/patch-dashboard.mjs && medusa develop",
     "lint": "medusa lint",
     "import:catalog": "test -f ./src/scripts/import-catalog.ts && medusa exec ./src/scripts/import-catalog.ts || medusa exec ./src/scripts/import-catalog.js",
     "seed:region-bf": "test -f ./src/scripts/seed-region-bf.ts && medusa exec ./src/scripts/seed-region-bf.ts || medusa exec ./src/scripts/seed-region-bf.js",

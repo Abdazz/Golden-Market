@@ -238,7 +238,7 @@ export function orderListCustomerNameMiddleware(req: MedusaRequest, res: MedusaR
   next()
 }
 
-// Liste des commandes : type de livraison et livreur dans la colonne "Canal de vente"
+// Liste des commandes : type de livraison (colonne "Canal de vente") et livreur (colonne "Livreur")
 // (voir lib/order-list-delivery.ts). En cas d'erreur, la liste part sans lui.
 export function orderListDeliveryTypeMiddleware(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
   const json = res.json.bind(res)
