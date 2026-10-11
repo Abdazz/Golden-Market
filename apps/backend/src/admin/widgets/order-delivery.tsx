@@ -154,7 +154,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
       } else if (result.deliveries[0]?.whatsapp_status === "sent") {
         setMessage({ kind: "success", text: "Commande confiée, le livreur a reçu le détail sur WhatsApp." })
       } else {
-        setMessage({ kind: "success", text: "Commande confiée. Copiez le message pour le livreur ou envoyez-le sur WhatsApp." })
+        setMessage({ kind: "success", text: "Commande confiée. Copiez le message pour le livreur." })
       }
       await load()
     } catch (error) {
@@ -220,12 +220,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
           ) : current.whatsapp_status === "sent" ? (
             <span className="txt-compact-small text-ui-fg-subtle">Message WhatsApp envoyé au livreur</span>
           ) : (
-            <div className="flex flex-col gap-y-1">
-              <span className="txt-compact-small text-ui-fg-subtle">Message WhatsApp pas encore envoyé au livreur</span>
-              <button type="button" className={`${secondaryButton} self-start`} disabled={busy} onClick={() => resend(current.id)}>
-                Envoyer le message
-              </button>
-            </div>
+            <span className="txt-compact-small text-ui-fg-subtle">Message WhatsApp pas encore envoyé au livreur</span>
           )}
           {/* Texte reconstruit depuis la commande telle qu'elle est maintenant : il peut différer du message envoyé si la commande a été modifiée après l'assignation. */}
           <CopyCourierMessage
