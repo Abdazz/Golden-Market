@@ -9,6 +9,10 @@ assertProductionConfig(process.env)
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
+    // Sessions de l'admin dans Redis (2026-10-12) : sans redisUrl ici, Medusa
+    // les garde en mémoire et chaque redémarrage (chaque déploiement)
+    // déconnectait tout le monde ("Unauthorized" sur les pages restées ouvertes).
+    redisUrl: process.env.REDIS_URL,
     http: {
       // `port` a été retiré : cette propriété n'existe plus dans le type
       // ProjectConfigOptions.http de @medusajs/framework 2.18.0 (échec de
