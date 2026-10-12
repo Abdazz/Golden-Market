@@ -10,6 +10,8 @@ import { inputClass, NoticeText, primaryButton, secondaryButton } from "../compo
 // envoie l'événement MARK_PAID_EVENT, qui ouvre ce formulaire. Montant
 // encaissé, course du livreur et frais payés à la compagnie de transport,
 // pré-remplis et modifiables : seuls ces montants comptent pour la caisse.
+// Case "Livrée ?" (cochée par défaut pour une livraison Ouaga) : remplace le
+// formulaire "Livrée" de la tournée du jour.
 // Pas de composant @medusajs/ui (conflit de types React 18/19, voir
 // widgets/analytics-summary.tsx).
 const MARK_PAID_EVENT = "golden-market:mark-as-paid"
@@ -23,6 +25,8 @@ type Defaults = {
   transport_fee: number
   courier_fee_saved: boolean
   transport_fee_saved: boolean
+  delivered_default: boolean
+  delivery_status: string | null
 }
 
 const readFee = (text: string) => (text.trim() === "" ? 0 : parseAmountInput(text))
@@ -33,13 +37,12 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
   const [amount, setAmount] = useState("")
   const [courierFee, setCourierFee] = useState("")
   const [transportFee, setTransportFee] = useState("")
+  const [delivered, setDelivered] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const onMarkPaid = (event: Event) => {
-      const orderId = (event as CustomEvent<{ order_id?: string }>).detail?.order_id
-      if (orderId && orderId !== data.id) return
+    const openForm = () => {
       setOpen(true)
       setError(null)
       setDefaults(null)
@@ -49,10 +52,18 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
           setAmount(String(d.amount))
           setCourierFee(String(d.courier_fee))
           setTransportFee(String(d.transport_fee))
+          setDelivered(d.delivered_default)
         })
         .catch((e) => setError((e as Error).message))
     }
+    const onMarkPaid = (event: Event) => {
+      const orderId = (event as CustomEvent<{ order_id?: string }>).detail?.order_id
+      if (orderId && orderId !== data.id) return
+      openForm()
+    }
     window.addEventListener(MARK_PAID_EVENT, onMarkPaid)
+    // Bouton "Livrée" de la tournée du jour : fiche commande ouverte avec ?mark_paid=1.
+    if (new URLSearchParams(window.location.search).get("mark_paid") === "1") openForm()
     return () => window.removeEventListener(MARK_PAID_EVENT, onMarkPaid)
   }, [data.id])
 
@@ -73,10 +84,10 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
     try {
       await api(`/admin/order-payments/${data.id}`, {
         method: "POST",
-        body: { amount: parsedAmount, courier_fee: parsedCourierFee, transport_fee: parsedTransportFee },
+        body: { amount: parsedAmount, courier_fee: parsedCourierFee, transport_fee: parsedTransportFee, delivered },
       })
-      // Rechargement : la fiche native (statut de paiement, activité) se met à jour.
-      window.location.reload()
+      // Rechargement (sans ?mark_paid) : la fiche native (paiement, livraison, activité) se met à jour.
+      window.location.assign(`/app/orders/${data.id}`)
     } catch (e) {
       setError((e as Error).message)
       setBusy(false)
@@ -115,6 +126,17 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
                 <span className="txt-compact-small text-ui-fg-subtle">{transportHint}</span>
               </label>
             )}
+            <label className="txt-compact-small-plus flex items-center gap-x-2 text-ui-fg-base">
+              <input type="checkbox" checked={delivered} onChange={(e) => setDelivered(e.target.checked)} />
+              <span className="whitespace-nowrap">Livrée ?</span>
+              <span className="txt-compact-small font-normal text-ui-fg-subtle">
+                {delivered
+                  ? defaults.delivery_status === "assigned"
+                    ? "la livraison en cours est terminée et le stock du livreur déduit"
+                    : "la commande est marquée livrée"
+                  : "la commande reste à livrer"}
+              </span>
+            </label>
             {parsedAmount !== null && parsedCourierFee !== null && parsedTransportFee !== null && (
               <span className="txt-compact-small text-ui-fg-base">
                 Caisse : entrée {formatXof(parsedAmount)}

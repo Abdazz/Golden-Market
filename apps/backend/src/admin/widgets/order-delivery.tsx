@@ -235,8 +235,18 @@ const OrderDeliveryWidget = ({ data }: Props) => {
               amountToCollect: current.amount_to_collect,
             })}
           />
+          {/* Livrée : formulaire "Marquer comme payée" (widgets/order-mark-paid.tsx), case "Livrée ?" cochée par défaut. */}
+          <button
+            type="button"
+            className={`${secondaryButton} self-start`}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent("golden-market:mark-as-paid", { detail: { order_id: data.id } }))
+            }
+          >
+            Marquer payée / livrée
+          </button>
           <a href="/app/deliveries?tab=tour" className="txt-compact-small text-ui-fg-interactive">
-            Marquer livrée / échec depuis la tournée du jour
+            {current.type === "expedition" ? "Déposée à la gare / échec" : "Échec"} depuis la tournée du jour
           </a>
         </div>
       )}

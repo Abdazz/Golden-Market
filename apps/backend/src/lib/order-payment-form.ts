@@ -7,6 +7,9 @@ import { ORDER_FIELDS, outstandingOf } from "./delivery-service-helpers"
 import { orderNumberOf } from "./order-number"
 import { productShippingFee as feeOfProduct } from "./shipping-fee-rules"
 import { replaceOrderEntriesWorkflow } from "../workflows/cash-entries"
+import { completeDeliveryWorkflow } from "../workflows/complete-delivery"
+import { finishDelivery } from "./delivery-completion"
+import { syncOrderAfterDelivery } from "./delivery-order-sync"
 
 // Formulaire "Marquer comme payée" de la fiche commande (2026-10-11, demandé
 // par le propriétaire) : montant encaissé et frais engagés par le livreur
@@ -67,7 +70,10 @@ export async function paymentFormDefaults(scope: any, orderId: string) {
       ? Math.max(...items.map((i: any) => feeOfProduct(i.variant?.product?.metadata ?? null)))
       : 0
   const collection = (order.payment_collections ?? [])[0]
-  const outstanding = outstandingOf(order) || Number(collection?.amount ?? 0)
+  // Commande déjà payée (formulaire rouvert pour la marquer livrée) : montant
+  // déjà retenu par la caisse, sinon le total de la commande.
+  const previousSale = (await scope.resolve(CASHBOOK_MODULE).listCashEntries({ reference: [finalReferences(orderId).sale] }))[0]
+  const outstanding = outstandingOf(order) || Number(previousSale?.amount ?? 0) || Number(order.total ?? collection?.amount ?? 0)
   return {
     order_number: orderNumberOf(order),
     type,
@@ -80,6 +86,9 @@ export async function paymentFormDefaults(scope: any, orderId: string) {
     }),
     // Origine des frais pré-remplis : saisis sur la livraison ou valeur par défaut.
     courier_fee_saved: delivery?.courier_fee !== null && delivery?.courier_fee !== undefined,
+    // Case "Livrée ?" : cochée par défaut pour une livraison Ouaga.
+    delivered_default: type === "express",
+    delivery_status: delivery?.status ?? null,
     transport_fee_saved: delivery?.transport_fee !== null && delivery?.transport_fee !== undefined,
   }
 }
@@ -98,7 +107,16 @@ const markOrderPaid = async (scope: any, order: any) => {
   }
 }
 
-export async function submitPaymentForm(scope: any, orderId: string, values: PaymentFormValues) {
+// Case "Livrée ?" (2026-10-12) : remplace le formulaire "Livrée" de la tournée
+// du jour. Cochée, la livraison en cours est terminée (montant encaissé et
+// course du livreur repris du formulaire, déstockage du livreur, "Fulfillment"
+// livré) ; sans livraison en cours, seule la commande Medusa passe en livrée.
+export async function submitPaymentForm(
+  scope: any,
+  orderId: string,
+  values: PaymentFormValues,
+  options: { delivered?: boolean } = {}
+): Promise<{ warning: string | null }> {
   const order = await loadOrder(scope, orderId)
   if (!order) throw new Error("Commande introuvable.")
   // Livraison Ouaga : pas de compagnie de transport (champ masqué dans le formulaire).
@@ -114,6 +132,23 @@ export async function submitPaymentForm(scope: any, orderId: string, values: Pay
     },
   })
   await markOrderPaid(scope, order)
+
+  if (!options.delivered) return { warning: null }
+  if (delivery?.status === "assigned") {
+    const { result: completed } = await completeDeliveryWorkflow(scope).run({
+      input: {
+        id: delivery.id,
+        status: "delivered",
+        amount_collected: values.amount,
+        courier_fee: values.courier_fee,
+        transport_fee: type === "expedition" ? values.transport_fee : null,
+      },
+    })
+    const { warning } = await finishDelivery(scope, completed)
+    return { warning }
+  }
+  const warning = await syncOrderAfterDelivery(scope, { orderId, status: "delivered", collected: 0 })
+  return { warning }
 }
 
 // Commande dont la caisse vient du formulaire : les écritures automatiques

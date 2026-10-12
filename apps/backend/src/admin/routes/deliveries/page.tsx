@@ -442,9 +442,10 @@ const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boo
       {line.status === "assigned" && !locked && !action && (
         <div className="flex flex-wrap gap-2">
           {line.type === "express" ? (
-            <button type="button" className={primaryButton} onClick={() => setAction("delivered")}>
+            // Livrée : formulaire "Marquer comme payée" de la fiche commande, case "Livrée ?" cochée (2026-10-12).
+            <a href={`/app/orders/${line.order_id}?mark_paid=1`} className={primaryButton}>
               Livrée
-            </button>
+            </a>
           ) : (
             <button type="button" className={primaryButton} onClick={() => setAction("shipped")}>
               Déposée à la gare

@@ -5,7 +5,8 @@ import { paymentFormDefaults, submitPaymentForm } from "../../../../lib/order-pa
 
 // Formulaire "Marquer comme payée" de la fiche commande (voir
 // lib/order-payment-form.ts) : GET -> valeurs pré-remplies, POST -> commande
-// marquée payée et caisse de la commande remplacée par les montants saisis.
+// marquée payée et caisse de la commande remplacée par les montants saisis ;
+// delivered: true -> commande (et livraison en cours) marquée livrée.
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const defaults = await paymentFormDefaults(req.scope, req.params.order_id)
   if (!defaults) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Commande introuvable.")
@@ -16,6 +17,7 @@ export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse)
   const parsed = parsePaymentForm((req.body ?? {}) as Record<string, unknown>)
   if (!parsed.ok) throw new MedusaError(MedusaError.Types.INVALID_DATA, parsed.message)
   const { amount, courier_fee, transport_fee } = parsed
-  await submitPaymentForm(req.scope, req.params.order_id, { amount, courier_fee, transport_fee })
-  res.json({ ok: true })
+  const delivered = (req.body as { delivered?: unknown } | undefined)?.delivered === true
+  const { warning } = await submitPaymentForm(req.scope, req.params.order_id, { amount, courier_fee, transport_fee }, { delivered })
+  res.json({ ok: true, warning })
 }
