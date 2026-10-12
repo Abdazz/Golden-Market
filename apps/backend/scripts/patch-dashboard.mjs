@@ -10,8 +10,9 @@
 //   de la confirmation native ;
 // - page d'arrivée de l'admin (après connexion, ou /app) : le Tableau de bord
 //   (src/admin/routes/dashboard) au lieu de la liste des commandes ;
-// - menu latéral : "Tableau de bord" en premier, au-dessus de "Orders" (les
-//   menus des extensions sont sinon toujours placés après les menus natifs).
+// - menu latéral : "Tableau de bord" en premier, au-dessus de "Orders", puis
+//   "Livraisons" et "Caisse" juste sous "Orders" (2026-10-12) ; les menus des
+//   extensions sont sinon toujours placés après les menus natifs.
 //
 // Idempotent. Si Medusa change ce code (mise à jour du dashboard), le script
 // échoue et le build s'arrête : adapter les ancres ci-dessous à la nouvelle version.
@@ -71,20 +72,28 @@ const PATCHES = [
     navigate("/dashboard", { replace: true });`,
   },
   {
-    name: "Tableau de bord en tête du menu",
-    marker: "/* golden-market:dashboard-first */",
+    name: "ordre du menu",
+    marker: "/* golden-market:pinned-menu */",
     anchor: `  const extensionItems = menuItems.filter((item) => !item.nested);`,
     apply: (_anchor, marker) => `  ${marker}
-  const extensionItems = menuItems.filter((item) => !item.nested && item.to !== "/dashboard");
-  const firstExtensionItems = menuItems.filter((item) => !item.nested && item.to === "/dashboard");`,
+  const PINNED_FIRST = ["/dashboard"];
+  const PINNED_AFTER_ORDERS = ["/deliveries", "/cash"];
+  const pinnedItems = (paths) => paths.map((to) => menuItems.find((item) => !item.nested && item.to === to)).filter(Boolean);
+  const firstExtensionItems = pinnedItems(PINNED_FIRST);
+  const afterOrdersItems = pinnedItems(PINNED_AFTER_ORDERS);
+  const extensionItems = menuItems.filter((item) => !item.nested && !PINNED_FIRST.includes(item.to) && !PINNED_AFTER_ORDERS.includes(item.to));
+  const extensionEntry = (item) => /* @__PURE__ */ jsx16(LayoutComposer.Entry, { id: \`nav:\${item.to}\`, children: /* @__PURE__ */ jsx16(NavItem, { to: item.to, label: item.label, icon: item.icon ? item.icon : /* @__PURE__ */ jsx16(SquaresPlus, {}), items: item.items, translationNs: item.translationNs, type: "extension" }, item.to) }, item.to);`,
   },
   {
-    name: "Tableau de bord en tête du menu (affichage)",
-    marker: "/* golden-market:dashboard-first-render */",
+    name: "ordre du menu (affichage)",
+    marker: "/* golden-market:pinned-menu-render */",
     anchor: `          coreRoutes.map((route) => /* @__PURE__ */ jsx16(LayoutComposer.Entry, { id: \`nav:\${route.to}\`, children: /* @__PURE__ */ jsx16(NavItem, { ...route }, route.to) }, route.to)),`,
-    apply: (anchor, marker) => `          ${marker}
-          firstExtensionItems.map((item) => /* @__PURE__ */ jsx16(LayoutComposer.Entry, { id: \`nav:\${item.to}\`, children: /* @__PURE__ */ jsx16(NavItem, { to: item.to, label: item.label, icon: item.icon ? item.icon : /* @__PURE__ */ jsx16(SquaresPlus, {}), items: item.items, translationNs: item.translationNs, type: "extension" }, item.to) }, item.to)),
-${anchor}`,
+    apply: (_anchor, marker) => `          ${marker}
+          firstExtensionItems.map(extensionEntry),
+          coreRoutes.flatMap((route) => [
+            /* @__PURE__ */ jsx16(LayoutComposer.Entry, { id: \`nav:\${route.to}\`, children: /* @__PURE__ */ jsx16(NavItem, { ...route }, route.to) }, route.to),
+            ...(route.to === "/orders" ? afterOrdersItems.map(extensionEntry) : [])
+          ]),`,
   },
 ]
 
