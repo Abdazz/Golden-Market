@@ -392,6 +392,17 @@ const CashPage = () => {
                 {formatXof(s!.balanceAfter)}
               </span>
             </div>
+            {data.entries.length > 0 && (
+              // En-tête des colonnes de montants (2026-10-12) : Entrée, Sortie, Solde.
+              <div className="txt-compact-xsmall-plus hidden items-center gap-x-3 border-b border-ui-border-base px-4 py-2 text-ui-fg-subtle sm:flex">
+                <span className="w-12 shrink-0">Date</span>
+                <span className="min-w-0 flex-1">Libellé</span>
+                <span className="w-24 shrink-0 text-right">Entrée</span>
+                <span className="w-24 shrink-0 text-right">Sortie</span>
+                <span className="w-24 shrink-0 text-right">Solde</span>
+                <span className="w-32 shrink-0" />
+              </div>
+            )}
             {data.entries.length === 0 ? (
               <p className="txt-compact-small px-4 py-3 text-ui-fg-subtle">
                 Aucune écriture ce mois-ci.
@@ -424,13 +435,14 @@ const CashPage = () => {
                       {entry.note ? ` · ${entry.note}` : ""}
                     </span>
                   </div>
-                  <span
-                    className={`txt-compact-small-plus shrink-0 tabular-nums ${entry.direction === "in" ? "text-ui-tag-green-text" : "text-ui-fg-error"}`}
-                  >
-                    {entry.direction === "in" ? "+" : "−"}
-                    {formatXof(entry.amount)}
+                  {/* Entrée / Sortie : chaque montant dans sa colonne (vide pour l'autre sens). */}
+                  <span className="txt-compact-small-plus w-24 shrink-0 text-right tabular-nums text-ui-tag-green-text">
+                    {entry.direction === "in" ? formatXof(entry.amount) : ""}
                   </span>
-                  <span className="txt-compact-xsmall hidden w-24 shrink-0 text-right tabular-nums text-ui-fg-subtle sm:block">
+                  <span className="txt-compact-small-plus w-24 shrink-0 text-right tabular-nums text-ui-fg-error">
+                    {entry.direction === "out" ? formatXof(entry.amount) : ""}
+                  </span>
+                  <span className="txt-compact-small w-24 shrink-0 text-right tabular-nums text-ui-fg-base">
                     {formatXof(entry.balance_after)}
                   </span>
                   {/* Colonne d'actions de largeur fixe : montants alignés sur toutes les lignes. */}
