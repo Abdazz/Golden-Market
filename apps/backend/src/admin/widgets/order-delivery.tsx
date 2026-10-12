@@ -258,17 +258,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
             })}
           />
           <div className="flex flex-wrap gap-2">
-            {/* Paiement (et livraison si la case "Livrée ?" est cochée) : formulaire de widgets/order-mark-paid.tsx. */}
-            <button
-              type="button"
-              className={secondaryButton}
-              disabled={busy}
-              onClick={() =>
-                window.dispatchEvent(new CustomEvent("golden-market:mark-as-paid", { detail: { order_id: data.id } }))
-              }
-            >
-              Marquer payée
-            </button>
+            {/* Paiement : bouton natif "Mark as paid" de la fiche (formulaire de widgets/order-mark-paid.tsx). */}
             {/* Livraison seule, sans paiement ni caisse : confirmation sur place. */}
             {confirmDeliver ? (
               <>
