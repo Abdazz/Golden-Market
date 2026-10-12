@@ -1,22 +1,43 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { monthOf, parseManualEntry, summarizeMonth, withRunningBalance } from "../../../lib/cashbook-rules"
+import { monthOf, parseManualEntry, PERIODS, periodRange, summarizeRange, withRunningBalance } from "../../../lib/cashbook-rules"
+import type { Period } from "../../../lib/cashbook-rules"
 import { loadAllEntries } from "../../../lib/cashbook-query"
 import { createManualEntryWorkflow } from "../../../workflows/cash-entries"
 import type { ManualEntrySchema } from "./middlewares"
 
-// Journal de caisse d'un mois (AAAA-MM, mois courant par défaut) : écritures
-// avec le solde après chacune (plus récentes en haut), totaux, solde actuel.
+// Journal de caisse d'une période (2026-10-12) : jour, semaine, mois ou année
+// (?period=day|week|month|year&date=AAAA-MM-JJ ; mois en cours par défaut ;
+// ?month=AAAA-MM reste accepté). Écritures avec le solde après chacune (plus
+// récentes en haut), totaux de la période, solde actuel.
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
-  const requested = String(req.query.month ?? "")
-  const month = /^\d{4}-\d{2}$/.test(requested) ? requested : monthOf(new Date())
+  const requestedPeriod = String(req.query.period ?? "") as Period
+  const period: Period = PERIODS.includes(requestedPeriod) ? requestedPeriod : "month"
+  const requestedDate = String(req.query.date ?? "")
+  const requestedMonth = String(req.query.month ?? "")
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+    ? requestedDate
+    : /^\d{4}-\d{2}$/.test(requestedMonth)
+    ? `${requestedMonth}-01`
+    : new Date().toISOString().slice(0, 10)
+  const range = periodRange(period, date)
   const all = await loadAllEntries(req.scope)
-  const summary = summarizeMonth(all, month)
-  const entries = withRunningBalance(
-    all.filter((e) => monthOf(e.date) === month),
-    summary.balanceBefore
-  ).reverse()
+  const summary = summarizeRange(all, range)
+  const inRange = (e: { date: Date | string }) => {
+    const t = new Date(e.date).getTime()
+    return t >= range.start.getTime() && t < range.end.getTime()
+  }
+  const entries = withRunningBalance(all.filter(inRange), summary.balanceBefore).reverse()
   const balance = all.reduce((sum, e) => sum + (e.direction === "in" ? e.amount : -e.amount), 0)
-  res.json({ month, entries, summary, balance })
+  res.json({
+    period,
+    date,
+    start: range.start.toISOString(),
+    end: range.end.toISOString(),
+    month: monthOf(range.start),
+    entries,
+    summary,
+    balance,
+  })
 }
 
 export async function POST(req: AuthenticatedMedusaRequest<ManualEntrySchema>, res: MedusaResponse) {

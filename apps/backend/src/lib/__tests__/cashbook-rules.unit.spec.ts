@@ -170,3 +170,39 @@ describe("formulaire Marquer comme payée", () => {
     expect(expectedFees({ type: "express", courierFee: 0, transportFee: null, productShippingFee: 0 })).toEqual({ courier_fee: 0, transport_fee: 0 })
   })
 })
+
+describe("périodes de la caisse", () => {
+  const { periodRange, shiftAnchor, summarizeRange } = require("../cashbook-rules")
+  const iso = (r: { start: Date; end: Date }) => [r.start.toISOString().slice(0, 10), r.end.toISOString().slice(0, 10)]
+
+  it("jour, semaine (lundi -> lundi suivant), mois, année", () => {
+    expect(iso(periodRange("day", "2026-10-12"))).toEqual(["2026-10-12", "2026-10-13"])
+    expect(iso(periodRange("week", "2026-10-12"))).toEqual(["2026-10-12", "2026-10-19"])
+    expect(iso(periodRange("week", "2026-10-18"))).toEqual(["2026-10-12", "2026-10-19"])
+    expect(iso(periodRange("month", "2026-10-12"))).toEqual(["2026-10-01", "2026-11-01"])
+    expect(iso(periodRange("year", "2026-10-12"))).toEqual(["2026-01-01", "2027-01-01"])
+  })
+
+  it("période précédente / suivante", () => {
+    expect(shiftAnchor("day", "2026-10-01", -1)).toBe("2026-09-30")
+    expect(shiftAnchor("week", "2026-10-12", 1)).toBe("2026-10-19")
+    expect(shiftAnchor("month", "2026-01-31", -1)).toBe("2025-12-01")
+    expect(shiftAnchor("year", "2026-10-12", 1)).toBe("2027-01-01")
+  })
+
+  it("totaux de la période et solde avant / après", () => {
+    const entries = [
+      { id: "1", date: "2026-10-11T10:00:00Z", direction: "in", amount: 1000, category: "sale" },
+      { id: "2", date: "2026-10-12T10:00:00Z", direction: "in", amount: 9500, category: "sale" },
+      { id: "3", date: "2026-10-12T11:00:00Z", direction: "out", amount: 1000, category: "courier_fee" },
+      { id: "4", date: "2026-10-13T00:00:00Z", direction: "in", amount: 500, category: "other_in" },
+    ]
+    expect(summarizeRange(entries, periodRange("day", "2026-10-12"))).toEqual({
+      income: 9500,
+      expenses: 1000,
+      revenue: 9500,
+      balanceBefore: 1000,
+      balanceAfter: 9500,
+    })
+  })
+})

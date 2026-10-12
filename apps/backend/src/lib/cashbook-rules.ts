@@ -90,6 +90,55 @@ export const summarizeMonth = (entries: EntryLike[], month: string) => {
   return { income, expenses, revenue: sales, balanceBefore, balanceAfter: balanceBefore + income - expenses }
 }
 
+// Périodes de la page Caisse (2026-10-12) : jour, semaine (lundi -> dimanche),
+// mois ou année contenant la date de référence (AAAA-MM-JJ), heure de
+// Ouagadougou (UTC toute l'année). Intervalle [start, end[.
+export type Period = "day" | "week" | "month" | "year"
+export const PERIODS: Period[] = ["day", "week", "month", "year"]
+
+export const periodRange = (period: Period, anchor: string): { start: Date; end: Date } => {
+  const d = new Date(`${anchor}T00:00:00Z`)
+  const y = d.getUTCFullYear()
+  const m = d.getUTCMonth()
+  if (period === "year") return { start: new Date(Date.UTC(y, 0, 1)), end: new Date(Date.UTC(y + 1, 0, 1)) }
+  if (period === "month") return { start: new Date(Date.UTC(y, m, 1)), end: new Date(Date.UTC(y, m + 1, 1)) }
+  if (period === "week") {
+    const fromMonday = (d.getUTCDay() + 6) % 7
+    const start = new Date(Date.UTC(y, m, d.getUTCDate() - fromMonday))
+    return { start, end: new Date(start.getTime() + 7 * 86_400_000) }
+  }
+  return { start: d, end: new Date(d.getTime() + 86_400_000) }
+}
+
+// Date de référence de la période précédente (-1) ou suivante (+1).
+export const shiftAnchor = (period: Period, anchor: string, delta: number): string => {
+  const d = new Date(`${anchor}T00:00:00Z`)
+  if (period === "year") d.setUTCFullYear(d.getUTCFullYear() + delta, 0, 1)
+  else if (period === "month") d.setUTCMonth(d.getUTCMonth() + delta, 1)
+  else d.setUTCDate(d.getUTCDate() + delta * (period === "week" ? 7 : 1))
+  return d.toISOString().slice(0, 10)
+}
+
+// Totaux d'une période et solde avant / après (même calcul que summarizeMonth).
+export const summarizeRange = (entries: EntryLike[], range: { start: Date; end: Date }) => {
+  let balanceBefore = 0
+  let income = 0
+  let expenses = 0
+  let sales = 0
+  for (const e of entries) {
+    const t = time(e)
+    if (t < range.start.getTime()) {
+      balanceBefore += signed(e)
+    } else if (t < range.end.getTime()) {
+      if (e.direction === "in") income += e.amount
+      else expenses += e.amount
+      if (e.category === "sale") sales += e.amount
+      if (e.category === "refund") sales -= e.amount
+    }
+  }
+  return { income, expenses, revenue: sales, balanceBefore, balanceAfter: balanceBefore + income - expenses }
+}
+
 // Écritures triées dans l'ordre chronologique, avec le solde après chacune.
 export const withRunningBalance = <T extends EntryLike>(entries: T[], balanceBefore: number): (T & { balance_after: number })[] => {
   let balance = balanceBefore

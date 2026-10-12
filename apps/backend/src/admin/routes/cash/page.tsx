@@ -29,6 +29,10 @@ type Summary = {
   balanceAfter: number;
 };
 type MonthData = {
+  period: Period;
+  date: string;
+  start: string;
+  end: string;
   month: string;
   entries: Entry[];
   summary: Summary;
@@ -65,18 +69,39 @@ const secondaryButton =
   "txt-compact-small-plus rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-1.5 text-ui-fg-base disabled:opacity-50";
 const card = "bg-ui-bg-base shadow-elevation-card-rest rounded-lg";
 
-const currentMonth = () => new Date().toISOString().slice(0, 7);
+// Périodes (2026-10-12) : jour, semaine (lundi -> dimanche), mois, année ;
+// même découpage que le serveur (lib/cashbook-rules.ts periodRange).
+type Period = "day" | "week" | "month" | "year";
+const PERIOD_OPTIONS: { value: Period; label: string; of: string; current: string }[] = [
+  { value: "day", label: "Jour", of: "du jour", current: "Aujourd'hui" },
+  { value: "week", label: "Semaine", of: "de la semaine", current: "Semaine en cours" },
+  { value: "month", label: "Mois", of: "du mois", current: "Mois en cours" },
+  { value: "year", label: "Année", of: "de l'année", current: "Année en cours" },
+];
+const today = () => new Date().toISOString().slice(0, 10);
+const shiftAnchor = (period: Period, anchor: string, delta: number) => {
+  const d = new Date(`${anchor}T00:00:00Z`);
+  if (period === "year") d.setUTCFullYear(d.getUTCFullYear() + delta, 0, 1);
+  else if (period === "month") d.setUTCMonth(d.getUTCMonth() + delta, 1);
+  else d.setUTCDate(d.getUTCDate() + delta * (period === "week" ? 7 : 1));
+  return d.toISOString().slice(0, 10);
+};
+const longDay = (iso: string) =>
+  new Date(iso).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const periodLabel = (data: MonthData) => {
+  if (data.period === "day") return longDay(data.start);
+  if (data.period === "month") return monthLabel(data.month);
+  if (data.period === "year") return data.start.slice(0, 4);
+  const last = new Date(new Date(data.end).getTime() - 86_400_000).toISOString();
+  const short = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
+  return `Semaine du ${short(data.start)} au ${short(last)} ${last.slice(0, 4)}`;
+};
 const monthLabel = (month: string) =>
   new Date(`${month}-01T00:00:00Z`).toLocaleDateString("fr-FR", {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
-const shiftMonth = (month: string, delta: number) => {
-  const d = new Date(`${month}-01T00:00:00Z`);
-  d.setUTCMonth(d.getUTCMonth() + delta);
-  return d.toISOString().slice(0, 7);
-};
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("fr-FR", {
     day: "2-digit",
@@ -266,14 +291,15 @@ const StatCard = ({
 );
 
 const CashPage = () => {
-  const [month, setMonth] = useState(currentMonth());
+  const [period, setPeriod] = useState<Period>("month");
+  const [anchor, setAnchor] = useState(today());
   const [data, setData] = useState<MonthData | null>(null);
   const [history, setHistory] = useState<HistoryRow[] | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    api<MonthData>(`/admin/cash-entries?month=${month}`)
+    api<MonthData>(`/admin/cash-entries?period=${period}&date=${anchor}`)
       .then((r) => {
         setData(r);
         setError(null);
@@ -282,7 +308,7 @@ const CashPage = () => {
     api<{ months: HistoryRow[] }>("/admin/cash-entries/history")
       .then((r) => setHistory(r.months))
       .catch(() => setHistory([]));
-  }, [month]);
+  }, [period, anchor]);
   useEffect(load, [load]);
 
   const remove = async (entry: Entry) => {
@@ -295,6 +321,9 @@ const CashPage = () => {
   };
 
   const s = data?.summary;
+  const option = PERIOD_OPTIONS.find((o) => o.value === period)!;
+  // Période affichée = celle qui contient aujourd'hui.
+  const isCurrent = !!data && today() >= data.start.slice(0, 10) && today() < data.end.slice(0, 10);
 
   return (
     <div className="flex flex-col gap-y-4">
@@ -330,33 +359,47 @@ const CashPage = () => {
         />
       )}
 
-      <div className="flex items-center gap-x-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex rounded-md border border-ui-border-base bg-ui-bg-base p-0.5">
+          {PERIOD_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={`txt-compact-small-plus rounded px-3 py-1 ${
+                period === o.value ? "bg-ui-button-inverted text-ui-fg-on-inverted" : "text-ui-fg-base"
+              }`}
+              onClick={() => setPeriod(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           className={secondaryButton}
-          onClick={() => setMonth(shiftMonth(month, -1))}
-          aria-label="Mois précédent"
+          onClick={() => setAnchor(shiftAnchor(period, anchor, -1))}
+          aria-label="Période précédente"
         >
           ‹
         </button>
-        <span className="txt-compact-small-plus min-w-[140px] text-center capitalize text-ui-fg-base">
-          {monthLabel(month)}
+        <span className="txt-compact-small-plus min-w-[140px] text-center text-ui-fg-base first-letter:uppercase">
+          {data ? periodLabel(data) : "…"}
         </span>
         <button
           type="button"
           className={secondaryButton}
-          onClick={() => setMonth(shiftMonth(month, 1))}
-          aria-label="Mois suivant"
+          onClick={() => setAnchor(shiftAnchor(period, anchor, 1))}
+          aria-label="Période suivante"
         >
           ›
         </button>
-        {month !== currentMonth() && (
+        {data && !isCurrent && (
           <button
             type="button"
             className="txt-compact-small text-ui-fg-interactive"
-            onClick={() => setMonth(currentMonth())}
+            onClick={() => setAnchor(today())}
           >
-            Mois en cours
+            {option.current}
           </button>
         )}
       </div>
@@ -374,21 +417,21 @@ const CashPage = () => {
               tone={data.balance < 0 ? "negative" : undefined}
             />
             <StatCard
-              label="Chiffre d'affaires du mois"
+              label={`Chiffre d'affaires ${option.of}`}
               value={formatXof(s!.revenue)}
               tone="positive"
             />
-            <StatCard label="Entrées du mois" value={formatXof(s!.income)} />
-            <StatCard label="Sorties du mois" value={formatXof(s!.expenses)} />
+            <StatCard label={`Entrées ${option.of}`} value={formatXof(s!.income)} />
+            <StatCard label={`Sorties ${option.of}`} value={formatXof(s!.expenses)} />
           </div>
 
           <div className={`${card} flex flex-col`}>
             <div className="flex items-center justify-between border-b border-ui-border-base px-4 py-3">
               <span className="txt-compact-small-plus text-ui-fg-base">
-                Écritures du mois
+                Écritures {option.of}
               </span>
               <span className="txt-compact-small text-ui-fg-subtle">
-                Solde en début de mois : {formatXof(s!.balanceBefore)} · fin :{" "}
+                Solde en début de période : {formatXof(s!.balanceBefore)} · fin :{" "}
                 {formatXof(s!.balanceAfter)}
               </span>
             </div>
@@ -405,7 +448,7 @@ const CashPage = () => {
             )}
             {data.entries.length === 0 ? (
               <p className="txt-compact-small px-4 py-3 text-ui-fg-subtle">
-                Aucune écriture ce mois-ci.
+                Aucune écriture sur cette période.
               </p>
             ) : (
               data.entries.map((entry) => (
@@ -500,7 +543,10 @@ const CashPage = () => {
             <button
               key={row.month}
               type="button"
-              onClick={() => setMonth(row.month)}
+              onClick={() => {
+                setPeriod("month");
+                setAnchor(`${row.month}-01`);
+              }}
               className="txt-compact-small grid grid-cols-4 gap-2 border-b border-ui-border-base px-4 py-2 text-left last:border-b-0 hover:bg-ui-bg-subtle"
             >
               <span className="capitalize text-ui-fg-base">
