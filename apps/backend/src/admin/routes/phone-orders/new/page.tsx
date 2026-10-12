@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react"
 // est identifié par son numéro WhatsApp, jamais par un e-mail. Route admin
 // POST /admin/phone-orders (lib/phone-order.ts). Pas d'entrée dans le menu
 // latéral : on y accède par le bouton au-dessus de la liste des commandes.
+// Avec ?order_id=... : "Modifier la commande" (2026-10-12), mêmes champs
+// pré-remplis, enregistrés par /admin/phone-orders/:order_id/edit
+// (lib/order-edit.ts) ; on y accède par le bouton de la fiche commande.
 // Pas de composant @medusajs/ui (conflit de types React 18/19).
 
 type VariantResult = {
@@ -32,7 +35,13 @@ const formatXof = (amount: number | null) =>
 const inputClass = "txt-compact-small w-full rounded-md border border-ui-border-base bg-ui-bg-field px-3 py-2"
 const labelClass = "txt-compact-small-plus text-ui-fg-base"
 
+// Lu une fois : l'adresse ne change pas pendant la saisie.
+const editedOrderId = new URLSearchParams(window.location.search).get("order_id")
+
 const NewPhoneOrderPage = () => {
+  const [orderNumber, setOrderNumber] = useState<string | null>(null)
+  const [notEditable, setNotEditable] = useState<string | null>(null)
+  const [loading, setLoading] = useState(!!editedOrderId)
   const [phone, setPhone] = useState("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -66,6 +75,26 @@ const NewPhoneOrderPage = () => {
     setAddress((v) => v || res.address)
     if (res.city) setCity((v) => (v === "Ouagadougou" || !v ? res.city : v))
   }
+
+  // Modification : valeurs actuelles de la commande.
+  useEffect(() => {
+    if (!editedOrderId) return
+    fetch(`/admin/phone-orders/${editedOrderId}/edit`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data) => {
+        setOrderNumber(data.order_number)
+        setNotEditable(data.not_editable_reason)
+        setPhone(data.phone)
+        setFirstName(data.first_name)
+        setLastName(data.last_name)
+        setCity(data.city)
+        setAddress(data.address)
+        setPaymentMethod(data.payment_method)
+        setLines(data.lines)
+      })
+      .catch(() => setError("Commande introuvable ou service injoignable."))
+      .finally(() => setLoading(false))
+  }, [])
 
   useEffect(() => {
     const term = search.trim()
@@ -131,7 +160,7 @@ const NewPhoneOrderPage = () => {
     setSubmitting(true)
     setError(null)
     try {
-      const res = await fetch("/admin/phone-orders", {
+      const res = await fetch(editedOrderId ? `/admin/phone-orders/${editedOrderId}/edit` : "/admin/phone-orders", {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
@@ -147,7 +176,7 @@ const NewPhoneOrderPage = () => {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.message ?? "La commande n'a pas pu être créée.")
+        setError(data.message ?? (editedOrderId ? "La commande n'a pas pu être modifiée." : "La commande n'a pas pu être créée."))
         return
       }
       // Adresse complète (useNavigate sans effet depuis une extension admin).
@@ -163,15 +192,24 @@ const NewPhoneOrderPage = () => {
     <div className="bg-ui-bg-base shadow-elevation-card-rest flex flex-col gap-y-6 rounded-lg p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="txt-large-plus text-ui-fg-base">Nouvelle commande</h1>
+          <h1 className="txt-large-plus text-ui-fg-base">
+            {editedOrderId ? `Modifier la commande${orderNumber ? ` ${orderNumber}` : ""}` : "Nouvelle commande"}
+          </h1>
           <p className="txt-compact-small text-ui-fg-subtle">
-            Commande prise par téléphone. Le client reçoit la confirmation sur son WhatsApp.
+            {editedOrderId
+              ? "Ville, adresse, articles, moyen de paiement : les frais de livraison et le total sont recalculés. Aucun message n'est envoyé au client ni au livreur."
+              : "Commande prise par téléphone."}
           </p>
         </div>
-        <a href="/app/orders" className="txt-compact-small text-ui-fg-interactive">
-          ← Retour aux commandes
+        <a href={editedOrderId ? `/app/orders/${editedOrderId}` : "/app/orders"} className="txt-compact-small text-ui-fg-interactive">
+          {editedOrderId ? "← Retour à la commande" : "← Retour aux commandes"}
         </a>
       </div>
+
+      {loading && <p className="txt-compact-small text-ui-fg-subtle">Chargement de la commande…</p>}
+      {notEditable && (
+        <p className="txt-compact-small text-ui-fg-error">{notEditable} Elle ne peut plus être modifiée.</p>
+      )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-y-1 md:col-span-2">
@@ -322,10 +360,10 @@ const NewPhoneOrderPage = () => {
         <button
           type="button"
           onClick={submit}
-          disabled={submitting || lines.length === 0}
+          disabled={submitting || loading || !!notEditable || lines.length === 0}
           className="txt-compact-small-plus rounded-md bg-ui-button-inverted px-4 py-2 text-ui-fg-on-inverted disabled:opacity-50"
         >
-          {submitting ? "Création…" : "Créer la commande"}
+          {editedOrderId ? (submitting ? "Enregistrement…" : "Enregistrer les modifications") : submitting ? "Création…" : "Créer la commande"}
         </button>
       </div>
     </div>
