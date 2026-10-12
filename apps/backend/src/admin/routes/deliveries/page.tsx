@@ -373,6 +373,23 @@ const LineAction = ({
 
 const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boolean; onChanged: (n: Notice) => void }) => {
   const [action, setAction] = useState<ActionKind | null>(null)
+  const [confirmDeliver, setConfirmDeliver] = useState(false)
+  const markDelivered = async () => {
+    setBusy(true)
+    try {
+      const r = await api<{ warning: string | null }>(`/admin/order-payments/${line.order_id}/deliver`, { method: "POST" })
+      setConfirmDeliver(false)
+      onChanged(
+        r.warning
+          ? { kind: "warning", text: `Commande ${line.order_number} livrée, avec un avertissement : ${r.warning}` }
+          : { kind: "success", text: `Commande ${line.order_number} marquée livrée.` }
+      )
+    } catch (e) {
+      onChanged({ kind: "error", text: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
   const [busy, setBusy] = useState(false)
 
   const resend = async () => {
@@ -442,10 +459,11 @@ const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boo
       {line.status === "assigned" && !locked && !action && (
         <div className="flex flex-wrap gap-2">
           {line.type === "express" ? (
-            // Livrée : formulaire "Marquer comme payée" de la fiche commande, case "Livrée ?" cochée (2026-10-12).
-            <a href={`/app/orders/${line.order_id}?mark_paid=1`} className={primaryButton}>
+            // Livrée (2026-10-12) : simple confirmation, puis livraison terminée sans formulaire
+            // (paiement et caisse : "Marquer payée" sur la fiche commande).
+            <button type="button" className={primaryButton} onClick={() => setConfirmDeliver(true)}>
               Livrée
-            </a>
+            </button>
           ) : (
             <button type="button" className={primaryButton} onClick={() => setAction("shipped")}>
               Déposée à la gare
@@ -454,6 +472,24 @@ const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boo
           <button type="button" className={secondaryButton} onClick={() => setAction("failed")}>
             Échec
           </button>
+        </div>
+      )}
+      {confirmDeliver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
+          <div className="bg-ui-bg-base shadow-elevation-modal flex w-full max-w-sm flex-col gap-y-3 rounded-lg p-5">
+            <span className="txt-compact-medium-plus text-ui-fg-base">Commande {line.order_number} livrée ?</span>
+            <span className="txt-compact-small text-ui-fg-subtle">
+              La livraison est terminée et le stock du livreur déduit. Le paiement se marque à part (« Marquer payée » sur la fiche commande).
+            </span>
+            <div className="flex justify-end gap-x-2">
+              <button type="button" className={secondaryButton} disabled={busy} onClick={() => setConfirmDeliver(false)}>
+                Non
+              </button>
+              <button type="button" className={primaryButton} disabled={busy} onClick={markDelivered}>
+                {busy ? "…" : "Oui"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {action && (

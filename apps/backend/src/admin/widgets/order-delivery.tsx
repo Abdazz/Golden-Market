@@ -55,6 +55,8 @@ const OrderDeliveryWidget = ({ data }: Props) => {
   const [amount, setAmount] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: "error" | "warning" | "success"; text: string } | null>(null)
+  // Confirmation sur place du bouton "Marquer livrée".
+  const [confirmDeliver, setConfirmDeliver] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -164,6 +166,26 @@ const OrderDeliveryWidget = ({ data }: Props) => {
     }
   }
 
+  // "Marquer livrée" : livraison seule (POST /admin/order-payments/:id/deliver).
+  const markDelivered = async () => {
+    setBusy(true)
+    setMessage(null)
+    try {
+      const result = await api<{ warning: string | null }>(`/admin/order-payments/${data.id}/deliver`, { method: "POST" })
+      if (result.warning) {
+        setMessage({ kind: "warning", text: `Commande livrée, avec un avertissement : ${result.warning}` })
+        setBusy(false)
+        await load()
+        return
+      }
+      // Rechargement : statut natif "Fulfillment" et activité à jour.
+      window.location.reload()
+    } catch (error) {
+      setMessage({ kind: "error", text: (error as Error).message })
+      setBusy(false)
+    }
+  }
+
   const resend = async (id: string) => {
     setBusy(true)
     setMessage(null)
@@ -235,16 +257,34 @@ const OrderDeliveryWidget = ({ data }: Props) => {
               amountToCollect: current.amount_to_collect,
             })}
           />
-          {/* Livrée : formulaire "Marquer comme payée" (widgets/order-mark-paid.tsx), case "Livrée ?" cochée par défaut. */}
-          <button
-            type="button"
-            className={`${secondaryButton} self-start`}
-            onClick={() =>
-              window.dispatchEvent(new CustomEvent("golden-market:mark-as-paid", { detail: { order_id: data.id } }))
-            }
-          >
-            Marquer payée / livrée
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {/* Paiement (et livraison si la case "Livrée ?" est cochée) : formulaire de widgets/order-mark-paid.tsx. */}
+            <button
+              type="button"
+              className={secondaryButton}
+              disabled={busy}
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("golden-market:mark-as-paid", { detail: { order_id: data.id } }))
+              }
+            >
+              Marquer payée
+            </button>
+            {/* Livraison seule, sans paiement ni caisse : confirmation sur place. */}
+            {confirmDeliver ? (
+              <>
+                <button type="button" className={primaryButton} disabled={busy} onClick={markDelivered}>
+                  Confirmer : livrée
+                </button>
+                <button type="button" className={secondaryButton} disabled={busy} onClick={() => setConfirmDeliver(false)}>
+                  Annuler
+                </button>
+              </>
+            ) : (
+              <button type="button" className={secondaryButton} disabled={busy} onClick={() => setConfirmDeliver(true)}>
+                Marquer livrée
+              </button>
+            )}
+          </div>
           <a href="/app/deliveries?tab=tour" className="txt-compact-small text-ui-fg-interactive">
             {current.type === "expedition" ? "Déposée à la gare / échec" : "Échec"} depuis la tournée du jour
           </a>

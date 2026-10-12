@@ -8,6 +8,7 @@ import { orderNumberOf } from "./order-number"
 import { productShippingFee as feeOfProduct } from "./shipping-fee-rules"
 import { replaceOrderEntriesWorkflow } from "../workflows/cash-entries"
 import { completeDeliveryWorkflow } from "../workflows/complete-delivery"
+import { updateDeliveryWorkflow } from "../workflows/update-delivery"
 import { finishDelivery } from "./delivery-completion"
 import { syncOrderAfterDelivery } from "./delivery-order-sync"
 
@@ -41,7 +42,7 @@ const latestDelivery = async (scope: any, orderId: string) => {
   const query = scope.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({
     entity: "delivery",
-    fields: ["id", "type", "status", "assigned_at", "courier_fee", "transport_fee"],
+    fields: ["id", "type", "status", "assigned_at", "courier_fee", "transport_fee", "amount_to_collect"],
     filters: { order_id: orderId },
   })
   return (data as any[])
@@ -133,6 +134,15 @@ export async function submitPaymentForm(
   })
   await markOrderPaid(scope, order)
 
+  // Déjà marquée "Livrée" seule (tournée du jour ou fiche commande) : le livreur
+  // devait encaisser -> montant encaissé et course repris sur la livraison, pour
+  // le versement du soir (argent à récupérer chez le livreur).
+  if (delivery?.status === "delivered" && Number(delivery.amount_to_collect ?? 0) > 0) {
+    await updateDeliveryWorkflow(scope).run({
+      input: { id: delivery.id, amount_collected: values.amount, courier_fee: values.courier_fee },
+    })
+  }
+
   if (!options.delivered) return { warning: null }
   if (delivery?.status === "assigned") {
     const { result: completed } = await completeDeliveryWorkflow(scope).run({
@@ -162,4 +172,29 @@ export async function hasFinalPaymentEntries(scope: any, orderId: string | null)
   } catch {
     return false
   }
+}
+
+// Bouton "Marquer livrée" de la fiche commande (2026-10-12) : livraison seule,
+// sans paiement ni écriture de caisse (ceux-ci passent par "Marquer payée").
+// La livraison en cours est terminée (rien d'encaissé par le livreur,
+// déstockage du livreur, "Fulfillment" livré) ; sans livraison en cours, seule
+// la commande Medusa passe en livrée.
+export async function markOrderDelivered(scope: any, orderId: string): Promise<{ warning: string | null }> {
+  const delivery = await latestDelivery(scope, orderId)
+  if (delivery?.status === "assigned") {
+    // Déjà marquée payée (formulaire) alors que le livreur devait encaisser :
+    // il a encaissé ce montant (versement du soir). Sinon rien pour l'instant,
+    // repris quand on marquera la commande payée.
+    const previousSale =
+      Number(delivery.amount_to_collect ?? 0) > 0
+        ? (await scope.resolve(CASHBOOK_MODULE).listCashEntries({ reference: [finalReferences(orderId).sale] }))[0]
+        : undefined
+    const { result: completed } = await completeDeliveryWorkflow(scope).run({
+      input: { id: delivery.id, status: "delivered", amount_collected: Number(previousSale?.amount ?? 0) },
+    })
+    const { warning } = await finishDelivery(scope, completed)
+    return { warning }
+  }
+  const warning = await syncOrderAfterDelivery(scope, { orderId, status: "delivered", collected: 0 })
+  return { warning }
 }
