@@ -221,6 +221,29 @@ export const monthlyHistory = (entries: EntryLike[], now: Date, count = 12) => {
   })
 }
 
+// Même tableau pour la période choisie sur la page Caisse (2026-10-12) : les
+// `count` derniers jours, semaines, mois ou années, du plus récent au plus
+// ancien. `start` = premier jour de la période (AAAA-MM-JJ).
+export const periodHistory = (entries: EntryLike[], period: Period, today: string, count: number) => {
+  const rows: { start: string; sales: number; expenses: number; result: number }[] = []
+  let anchor = today
+  for (let i = 0; i < count; i++) {
+    const range = periodRange(period, anchor)
+    let sales = 0
+    let expenses = 0
+    for (const e of entries) {
+      const t = time(e)
+      if (t < range.start.getTime() || t >= range.end.getTime()) continue
+      if (e.category === "sale") sales += e.amount
+      else if (e.category === "refund") sales -= e.amount
+      else if (e.direction === "out") expenses += e.amount
+    }
+    rows.push({ start: range.start.toISOString().slice(0, 10), sales, expenses, result: sales - expenses })
+    anchor = shiftAnchor(period, anchor, -1)
+  }
+  return rows
+}
+
 type OrderRef = { orderId: string | null; orderNumber: string | null }
 const orderLabel = (ref: OrderRef) => (ref.orderNumber ? ` commande ${ref.orderNumber}` : "")
 

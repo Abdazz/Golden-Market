@@ -225,3 +225,19 @@ describe("rowsByOrder", () => {
     expect(rows[0].entries.map((e: any) => e.id)).toEqual(["1", "2"])
   })
 })
+
+describe("periodHistory", () => {
+  const { periodHistory } = require("../cashbook-rules")
+  it("ventes, dépenses et résultat des dernières semaines, de la plus récente à la plus ancienne", () => {
+    const entries = [
+      { id: "1", date: "2026-10-12T10:00:00Z", direction: "in", amount: 9500, category: "sale" },
+      { id: "2", date: "2026-10-12T10:00:00Z", direction: "out", amount: 1000, category: "courier_fee" },
+      { id: "3", date: "2026-10-06T10:00:00Z", direction: "in", amount: 7000, category: "sale" },
+    ]
+    expect(periodHistory(entries, "week", "2026-10-14", 3)).toEqual([
+      { start: "2026-10-12", sales: 9500, expenses: 1000, result: 8500 },
+      { start: "2026-10-05", sales: 7000, expenses: 0, result: 7000 },
+      { start: "2026-09-28", sales: 0, expenses: 0, result: 0 },
+    ])
+  })
+})

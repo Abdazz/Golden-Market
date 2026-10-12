@@ -51,7 +51,7 @@ type MonthData = {
   balance: number;
 };
 type HistoryRow = {
-  month: string;
+  start: string;
   sales: number;
   expenses: number;
   result: number;
@@ -84,12 +84,20 @@ const card = "bg-ui-bg-base shadow-elevation-card-rest rounded-lg";
 // Périodes (2026-10-12) : jour, semaine (lundi -> dimanche), mois, année ;
 // même découpage que le serveur (lib/cashbook-rules.ts periodRange).
 type Period = "day" | "week" | "month" | "year";
-const PERIOD_OPTIONS: { value: Period; label: string; of: string; current: string }[] = [
-  { value: "day", label: "Jour", of: "du jour", current: "Aujourd'hui" },
-  { value: "week", label: "Semaine", of: "de la semaine", current: "Semaine en cours" },
-  { value: "month", label: "Mois", of: "du mois", current: "Mois en cours" },
-  { value: "year", label: "Année", of: "de l'année", current: "Année en cours" },
+const PERIOD_OPTIONS: { value: Period; label: string; of: string; current: string; per: string }[] = [
+  { value: "day", label: "Jour", of: "du jour", current: "Aujourd'hui", per: "par jour" },
+  { value: "week", label: "Semaine", of: "de la semaine", current: "Semaine en cours", per: "par semaine" },
+  { value: "month", label: "Mois", of: "du mois", current: "Mois en cours", per: "par mois" },
+  { value: "year", label: "Année", of: "de l'année", current: "Année en cours", per: "par année" },
 ];
+// Libellé d'une ligne du tableau "Chiffre d'affaires par ..." (start = premier jour).
+const historyLabel = (period: Period, start: string) => {
+  const d = (opts: Intl.DateTimeFormatOptions) => new Date(`${start}T00:00:00Z`).toLocaleDateString("fr-FR", { ...opts, timeZone: "UTC" });
+  if (period === "day") return d({ weekday: "short", day: "numeric", month: "short" });
+  if (period === "week") return `Semaine du ${d({ day: "numeric", month: "short", year: "numeric" })}`;
+  if (period === "year") return start.slice(0, 4);
+  return d({ month: "long", year: "numeric" });
+};
 const today = () => new Date().toISOString().slice(0, 10);
 const shiftAnchor = (period: Period, anchor: string, delta: number) => {
   const d = new Date(`${anchor}T00:00:00Z`);
@@ -317,8 +325,8 @@ const CashPage = () => {
         setError(null);
       })
       .catch((e) => setError((e as Error).message));
-    api<{ months: HistoryRow[] }>("/admin/cash-entries/history")
-      .then((r) => setHistory(r.months))
+    api<{ rows: HistoryRow[] }>(`/admin/cash-entries/history?period=${period}`)
+      .then((r) => setHistory(r.rows))
       .catch(() => setHistory([]));
   }, [period, anchor]);
   useEffect(load, [load]);
@@ -546,26 +554,23 @@ const CashPage = () => {
       {history && history.length > 0 && (
         <div className={`${card} flex flex-col`}>
           <span className="txt-compact-small-plus border-b border-ui-border-base px-4 py-3 text-ui-fg-base">
-            Chiffre d'affaires par mois
+            Chiffre d'affaires {option.per}
           </span>
           <div className="txt-compact-xsmall grid grid-cols-4 gap-2 border-b border-ui-border-base px-4 py-2 text-ui-fg-subtle">
-            <span>Mois</span>
+            <span>{option.label}</span>
             <span className="text-right">Ventes</span>
             <span className="text-right">Dépenses</span>
             <span className="text-right">Résultat</span>
           </div>
           {history.map((row) => (
             <button
-              key={row.month}
+              key={row.start}
               type="button"
-              onClick={() => {
-                setPeriod("month");
-                setAnchor(`${row.month}-01`);
-              }}
+              onClick={() => setAnchor(row.start)}
               className="txt-compact-small grid grid-cols-4 gap-2 border-b border-ui-border-base px-4 py-2 text-left last:border-b-0 hover:bg-ui-bg-subtle"
             >
-              <span className="capitalize text-ui-fg-base">
-                {monthLabel(row.month)}
+              <span className="text-ui-fg-base first-letter:uppercase">
+                {historyLabel(period, row.start)}
               </span>
               <span className="text-right tabular-nums text-ui-fg-base">
                 {formatXof(row.sales)}
