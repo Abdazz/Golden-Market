@@ -458,17 +458,11 @@ const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boo
       )}
       {line.status === "assigned" && !locked && !action && (
         <div className="flex flex-wrap gap-2">
-          {line.type === "express" ? (
-            // Livrée (2026-10-12) : simple confirmation, puis livraison terminée sans formulaire
-            // (paiement et caisse : "Marquer payée" sur la fiche commande).
-            <button type="button" className={primaryButton} onClick={() => setConfirmDeliver(true)}>
-              Livrée
-            </button>
-          ) : (
-            <button type="button" className={primaryButton} onClick={() => setAction("shipped")}>
-              Déposée à la gare
-            </button>
-          )}
+          {/* Livrée (2026-10-12), livraison Ouaga comme expédition : simple confirmation, puis
+              livraison terminée sans formulaire (paiement et caisse : "Mark as paid" de la fiche commande). */}
+          <button type="button" className={primaryButton} onClick={() => setConfirmDeliver(true)}>
+            Livrée
+          </button>
           <button type="button" className={secondaryButton} onClick={() => setAction("failed")}>
             Échec
           </button>

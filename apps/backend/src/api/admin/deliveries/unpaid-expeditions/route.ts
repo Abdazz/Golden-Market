@@ -3,14 +3,15 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { customerName, isPaid, loadOrders, outstandingOf } from "../../../../lib/delivery-service-helpers"
 import { orderNumberOf } from "../../../../lib/order-number"
 
-// Expéditions déposées à la gare dont la commande n'est pas encore payée
-// (paiement Orange/Moov Money attendu après l'envoi).
+// Expéditions déposées à la gare (ou marquées "Livrée" depuis le 2026-10-12)
+// dont la commande n'est pas encore payée (paiement Orange/Moov Money attendu
+// après l'envoi).
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const { data: shipped } = await query.graph({
     entity: "delivery",
     fields: ["id", "order_id", "destination_city", "transport_company", "completed_at"],
-    filters: { type: "expedition", status: "shipped" },
+    filters: { type: "expedition", status: ["shipped", "delivered"] },
   })
   const orders = await loadOrders(
     req.scope,

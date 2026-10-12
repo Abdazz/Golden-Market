@@ -276,7 +276,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
             )}
           </div>
           <a href="/app/deliveries?tab=tour" className="txt-compact-small text-ui-fg-interactive">
-            {current.type === "expedition" ? "Déposée à la gare / échec" : "Échec"} depuis la tournée du jour
+            Échec depuis la tournée du jour
           </a>
         </div>
       )}
