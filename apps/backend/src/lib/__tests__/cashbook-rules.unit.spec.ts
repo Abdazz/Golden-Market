@@ -206,3 +206,22 @@ describe("périodes de la caisse", () => {
     })
   })
 })
+
+describe("rowsByOrder", () => {
+  const { rowsByOrder } = require("../cashbook-rules")
+  it("une ligne par commande (entrée et sorties ensemble), une ligne par écriture sans commande", () => {
+    const entries = [
+      { id: "1", date: "2026-10-11T10:00:00Z", direction: "in", amount: 90000, category: "sale", label: "Vente commande 20260928004", order_id: "o4" },
+      { id: "2", date: "2026-10-11T10:00:01Z", direction: "out", amount: 1000, category: "courier_fee", label: "Course du livreur - commande 20260928004", order_id: "o4" },
+      { id: "3", date: "2026-10-11T11:00:00Z", direction: "out", amount: 5000, category: "purchase", label: "Achat cartons", order_id: null },
+      { id: "4", date: "2026-10-11T12:00:00Z", direction: "in", amount: 9500, category: "sale", label: "Vente commande 20260928002", order_id: "o2" },
+    ]
+    const rows = rowsByOrder(entries, 1000)
+    expect(rows.map((r: any) => [r.order_number, r.income, r.expense, r.balance_after])).toEqual([
+      ["20260928004", 90000, 1000, 90000],
+      [null, 0, 5000, 85000],
+      ["20260928002", 9500, 0, 94500],
+    ])
+    expect(rows[0].entries.map((e: any) => e.id)).toEqual(["1", "2"])
+  })
+})

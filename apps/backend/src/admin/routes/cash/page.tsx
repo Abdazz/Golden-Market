@@ -28,7 +28,19 @@ type Summary = {
   balanceBefore: number;
   balanceAfter: number;
 };
+// Ligne du tableau : une commande (entrée et frais ensemble) ou une écriture seule.
+type Row = {
+  id: string;
+  date: string;
+  order_id: string | null;
+  order_number: string | null;
+  income: number;
+  expense: number;
+  entries: Entry[];
+  balance_after: number;
+};
 type MonthData = {
+  rows: Row[];
   period: Period;
   date: string;
   start: string;
@@ -435,7 +447,7 @@ const CashPage = () => {
                 {formatXof(s!.balanceAfter)}
               </span>
             </div>
-            {data.entries.length > 0 && (
+            {data.rows.length > 0 && (
               // En-tête des colonnes de montants (2026-10-12) : Entrée, Sortie, Solde.
               <div className="txt-compact-xsmall-plus hidden items-center gap-x-3 border-b border-ui-border-base px-4 py-2 text-ui-fg-subtle sm:flex">
                 <span className="w-12 shrink-0">Date</span>
@@ -446,83 +458,86 @@ const CashPage = () => {
                 <span className="w-32 shrink-0" />
               </div>
             )}
-            {data.entries.length === 0 ? (
+            {data.rows.length === 0 ? (
               <p className="txt-compact-small px-4 py-3 text-ui-fg-subtle">
                 Aucune écriture sur cette période.
               </p>
             ) : (
-              data.entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-ui-border-base px-4 py-2 last:border-b-0"
-                >
-                  <span className="txt-compact-small w-12 shrink-0 text-ui-fg-subtle">
-                    {formatDate(entry.date)}
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-col break-words">
-                    <span className="txt-compact-small text-ui-fg-base">
-                      {entry.order_id ? (
-                        <a
-                          href={`/app/orders/${entry.order_id}`}
-                          className="text-ui-fg-interactive"
-                        >
-                          {entry.label}
-                        </a>
-                      ) : (
-                        entry.label
-                      )}
-                    </span>
-                    <span className="txt-compact-xsmall text-ui-fg-subtle">
-                      {CATEGORY_LABELS[entry.category] ?? entry.category}
-                      {entry.source === "auto" ? " · automatique" : ""}
-                      {entry.note ? ` · ${entry.note}` : ""}
-                    </span>
-                  </div>
-                  {/* Entrée / Sortie : chaque montant dans sa colonne (vide pour l'autre sens). */}
-                  <span className="txt-compact-small-plus w-24 shrink-0 text-right tabular-nums text-ui-tag-green-text">
-                    {entry.direction === "in" ? formatXof(entry.amount) : ""}
-                  </span>
-                  <span className="txt-compact-small-plus w-24 shrink-0 text-right tabular-nums text-ui-fg-error">
-                    {entry.direction === "out" ? formatXof(entry.amount) : ""}
-                  </span>
-                  <span className="txt-compact-small w-24 shrink-0 text-right tabular-nums text-ui-fg-base">
-                    {formatXof(entry.balance_after)}
-                  </span>
-                  {/* Colonne d'actions de largeur fixe : montants alignés sur toutes les lignes. */}
+              data.rows.map((row) => {
+                // Écriture seule (sans commande) : libellé, catégorie et actions comme avant.
+                const single = !row.order_id ? row.entries[0] : null;
+                return (
                   <div
-                    className={`${entry.source === "manual" ? "flex" : "hidden sm:flex"} w-full shrink-0 justify-end gap-x-2 sm:w-32`}
+                    key={row.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-ui-border-base px-4 py-2 last:border-b-0"
                   >
-                    {entry.source === "manual" && (
-                      <>
-                        <button
-                          type="button"
-                          className="txt-compact-xsmall text-ui-fg-interactive"
-                          onClick={() =>
-                            setForm({
-                              id: entry.id,
-                              direction: entry.direction,
-                              category: entry.category,
-                              amount: String(entry.amount),
-                              label: entry.label,
-                              note: entry.note ?? "",
-                              date: entry.date.slice(0, 10),
-                            })
-                          }
-                        >
-                          Modifier
-                        </button>
-                        <button
-                          type="button"
-                          className="txt-compact-xsmall text-ui-fg-error"
-                          onClick={() => void remove(entry)}
-                        >
-                          Supprimer
-                        </button>
-                      </>
-                    )}
+                    <span className="txt-compact-small w-12 shrink-0 text-ui-fg-subtle">
+                      {formatDate(row.date)}
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col break-words">
+                      <span className="txt-compact-small text-ui-fg-base">
+                        {row.order_id ? (
+                          <a href={`/app/orders/${row.order_id}`} className="text-ui-fg-interactive">
+                            Commande {row.order_number ?? ""}
+                          </a>
+                        ) : (
+                          single!.label
+                        )}
+                      </span>
+                      <span className="txt-compact-xsmall text-ui-fg-subtle">
+                        {single
+                          ? `${CATEGORY_LABELS[single.category] ?? single.category}${single.source === "auto" ? " · automatique" : ""}${single.note ? ` · ${single.note}` : ""}`
+                          : [...row.entries]
+                              .sort((a, b) => (a.direction === b.direction ? 0 : a.direction === "in" ? -1 : 1))
+                              .map((e) => `${CATEGORY_LABELS[e.category] ?? e.category} ${formatXof(e.amount)}`)
+                              .join(" · ")}
+                      </span>
+                    </div>
+                    <span className="txt-compact-small-plus w-24 shrink-0 text-right tabular-nums text-ui-tag-green-text">
+                      {row.income ? formatXof(row.income) : ""}
+                    </span>
+                    <span className="txt-compact-small-plus w-24 shrink-0 text-right tabular-nums text-ui-fg-error">
+                      {row.expense ? formatXof(row.expense) : ""}
+                    </span>
+                    <span className="txt-compact-small w-24 shrink-0 text-right tabular-nums text-ui-fg-base">
+                      {formatXof(row.balance_after)}
+                    </span>
+                    {/* Colonne d'actions de largeur fixe : montants alignés sur toutes les lignes. */}
+                    <div
+                      className={`${single?.source === "manual" ? "flex" : "hidden sm:flex"} w-full shrink-0 justify-end gap-x-2 sm:w-32`}
+                    >
+                      {single?.source === "manual" && (
+                        <>
+                          <button
+                            type="button"
+                            className="txt-compact-xsmall text-ui-fg-interactive"
+                            onClick={() =>
+                              setForm({
+                                id: single.id,
+                                direction: single.direction,
+                                category: single.category,
+                                amount: String(single.amount),
+                                label: single.label,
+                                note: single.note ?? "",
+                                date: single.date.slice(0, 10),
+                              })
+                            }
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            className="txt-compact-xsmall text-ui-fg-error"
+                            onClick={() => void remove(single)}
+                          >
+                            Supprimer
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </>

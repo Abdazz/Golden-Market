@@ -1,5 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { monthOf, parseManualEntry, PERIODS, periodRange, summarizeRange, withRunningBalance } from "../../../lib/cashbook-rules"
+import { monthOf, parseManualEntry, PERIODS, periodRange, rowsByOrder, summarizeRange, withRunningBalance } from "../../../lib/cashbook-rules"
 import type { Period } from "../../../lib/cashbook-rules"
 import { loadAllEntries } from "../../../lib/cashbook-query"
 import { createManualEntryWorkflow } from "../../../workflows/cash-entries"
@@ -27,6 +27,8 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     return t >= range.start.getTime() && t < range.end.getTime()
   }
   const entries = withRunningBalance(all.filter(inRange), summary.balanceBefore).reverse()
+  // Une ligne par commande (entrée et frais sur la même ligne), plus récentes en haut.
+  const rows = rowsByOrder(all.filter(inRange), summary.balanceBefore).reverse()
   const balance = all.reduce((sum, e) => sum + (e.direction === "in" ? e.amount : -e.amount), 0)
   res.json({
     period,
@@ -35,6 +37,7 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     end: range.end.toISOString(),
     month: monthOf(range.start),
     entries,
+    rows,
     summary,
     balance,
   })

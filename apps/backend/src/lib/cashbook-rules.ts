@@ -150,6 +150,55 @@ export const withRunningBalance = <T extends EntryLike>(entries: T[], balanceBef
     })
 }
 
+// Lignes du tableau de la caisse (2026-10-12, demandé par le propriétaire) :
+// une ligne par commande, avec son encaissement (Entrée) et ses frais
+// (Sortie) sur la même ligne ; une ligne par écriture sans commande (achats,
+// publicité, divers). Ordre chronologique (dernière écriture de la ligne),
+// avec le solde après chaque ligne.
+export type CashRow<T> = {
+  id: string
+  date: Date | string
+  order_id: string | null
+  order_number: string | null
+  income: number
+  expense: number
+  entries: T[]
+  balance_after: number
+}
+
+const orderNumberIn = (label: string) => /commande (\S+)/.exec(label)?.[1] ?? null
+
+export const rowsByOrder = <T extends EntryLike & { order_id?: string | null; label: string }>(
+  entries: T[],
+  balanceBefore: number
+): CashRow<T>[] => {
+  const groups = new Map<string, T[]>()
+  for (const e of [...entries].sort((a, b) => time(a) - time(b))) {
+    const key = e.order_id ? `order:${e.order_id}` : `entry:${e.id}`
+    groups.set(key, [...(groups.get(key) ?? []), e])
+  }
+  let balance = balanceBefore
+  return [...groups.entries()]
+    .map(([key, list]) => ({ key, list, last: list[list.length - 1] }))
+    .sort((a, b) => time(a.last) - time(b.last))
+    .map(({ key, list, last }) => {
+      const income = list.filter((e) => e.direction === "in").reduce((sum, e) => sum + e.amount, 0)
+      const expense = list.filter((e) => e.direction === "out").reduce((sum, e) => sum + e.amount, 0)
+      balance += income - expense
+      const orderId = list[0].order_id ?? null
+      return {
+        id: key,
+        date: last.date,
+        order_id: orderId,
+        order_number: orderId ? list.map((e) => orderNumberIn(e.label)).find(Boolean) ?? null : null,
+        income,
+        expense,
+        entries: list,
+        balance_after: balance,
+      }
+    })
+}
+
 // Ventes nettes (ventes − remboursements), dépenses (autres sorties) et
 // résultat des `count` derniers mois, du plus récent au plus ancien.
 export const monthlyHistory = (entries: EntryLike[], now: Date, count = 12) => {
