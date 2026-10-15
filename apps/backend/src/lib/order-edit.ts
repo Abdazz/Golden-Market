@@ -47,7 +47,7 @@ const ORDER_EDIT_FIELDS = [
   "fulfillments.canceled_at",
 ]
 
-const loadOrder = async (scope: any, orderId: string) => {
+export const loadOrder = async (scope: any, orderId: string) => {
   const query = scope.resolve(ContainerRegistrationKeys.QUERY)
   const {
     data: [order],
@@ -55,7 +55,7 @@ const loadOrder = async (scope: any, orderId: string) => {
   return order
 }
 
-const loadDeliveries = async (scope: any, orderId: string) => {
+export const loadDeliveries = async (scope: any, orderId: string) => {
   const query = scope.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({
     entity: "delivery",
@@ -75,6 +75,13 @@ export const notEditableReason = (order: any, deliveries: { status: string }[]):
   return null
 }
 
+// Suppression (2026-10-15) : commande saisie à la main (source "telephone"),
+// sous les mêmes conditions que la modification. "Supprimer" = annuler et masquer.
+export const notDeletableReason = (order: any, deliveries: { status: string }[]): string | null => {
+  if (order.metadata?.source !== "telephone") return "Seule une commande saisie à la main peut être supprimée."
+  return notEditableReason(order, deliveries)
+}
+
 export async function orderEditDefaults(scope: any, orderId: string) {
   const order = await loadOrder(scope, orderId)
   if (!order) return null
@@ -84,6 +91,7 @@ export async function orderEditDefaults(scope: any, orderId: string) {
     order_id: order.id,
     order_number: orderNumberOf(order),
     not_editable_reason: notEditableReason(order, deliveries),
+    not_deletable_reason: notDeletableReason(order, deliveries),
     phone: address.phone ?? "",
     first_name: address.first_name ?? "",
     last_name: address.last_name ?? "",

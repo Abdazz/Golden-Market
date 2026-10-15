@@ -76,8 +76,14 @@ export const addDeliveryColumn = async (scope: any, body: any) => {
       fields: ["order_id", "courier_id", "type", "status", "assigned_at"],
       filters: { order_id: orderIds },
     }),
-    query.graph({ entity: "order", fields: ["id", "shipping_address.city"], filters: { id: orderIds } }),
+    query.graph({ entity: "order", fields: ["id", "metadata", "shipping_address.city"], filters: { id: orderIds } }),
   ])
+  // Commandes supprimées (annulées et masquées, lib/order-delete.ts) : retirées de la liste.
+  const hidden = new Set(orders.filter((o: any) => o.metadata?.deleted_at).map((o: any) => o.id))
+  if (hidden.size) {
+    body.orders = body.orders.filter((o: { id: string }) => !hidden.has(o.id))
+    if (typeof body.count === "number") body.count -= hidden.size
+  }
   const infos = deliveryInfoByOrder(orderIds, deliveries, orders)
   const courierIds = [...new Set([...infos.values()].map((info) => info.courierId).filter(Boolean))] as string[]
   const { data: couriers } = courierIds.length

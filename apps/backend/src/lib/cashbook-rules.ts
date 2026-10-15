@@ -125,6 +125,7 @@ export const summarizeRange = (entries: EntryLike[], range: { start: Date; end: 
   let income = 0
   let expenses = 0
   let sales = 0
+  let refunds = 0
   for (const e of entries) {
     const t = time(e)
     if (t < range.start.getTime()) {
@@ -133,10 +134,14 @@ export const summarizeRange = (entries: EntryLike[], range: { start: Date; end: 
       if (e.direction === "in") income += e.amount
       else expenses += e.amount
       if (e.category === "sale") sales += e.amount
-      if (e.category === "refund") sales -= e.amount
+      if (e.category === "refund") {
+        sales -= e.amount
+        refunds += e.amount
+      }
     }
   }
-  return { income, expenses, revenue: sales, balanceBefore, balanceAfter: balanceBefore + income - expenses }
+  // result = CA - sorties hors remboursements (déjà déduits du CA), demandé le 2026-10-15.
+  return { income, expenses, revenue: sales, result: sales - (expenses - refunds), balanceBefore, balanceAfter: balanceBefore + income - expenses }
 }
 
 // Écritures triées dans l'ordre chronologique, avec le solde après chacune.

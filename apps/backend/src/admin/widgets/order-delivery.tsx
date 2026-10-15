@@ -186,6 +186,21 @@ const OrderDeliveryWidget = ({ data }: Props) => {
     }
   }
 
+  const reassign = async (id: string, newCourierId: string) => {
+    if (!newCourierId) return
+    setBusy(true)
+    setMessage(null)
+    try {
+      await api(`/admin/deliveries/${id}/reassign`, { method: "POST", body: { courier_id: newCourierId } })
+      setMessage({ kind: "success", text: "Livreur changé. Copiez le message pour le nouveau livreur." })
+      await load()
+    } catch (error) {
+      setMessage({ kind: "error", text: (error as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const resend = async (id: string) => {
     setBusy(true)
     setMessage(null)
@@ -222,6 +237,23 @@ const OrderDeliveryWidget = ({ data }: Props) => {
               {STATUS_LABELS.assigned}
             </span>
           </div>
+          {couriers.length > 1 && (
+            <select
+              className={inputClass}
+              value=""
+              disabled={busy}
+              onChange={(e) => reassign(current.id, e.target.value)}
+            >
+              <option value="">Changer de livreur…</option>
+              {couriers
+                .filter((c) => c.id !== current.courier_id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </select>
+          )}
           <span className="txt-compact-small text-ui-fg-subtle">
             {TYPE_LABELS[current.type]} · {current.place || "—"}
           </span>

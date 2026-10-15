@@ -63,6 +63,9 @@ export const CourierStockMovementSchema = z.object({
 })
 export type CourierStockMovementSchema = z.infer<typeof CourierStockMovementSchema>
 
+export const ReassignDeliverySchema = z.object({ courier_id: z.string().min(1, "Choisissez un livreur.") })
+export type ReassignDeliverySchema = z.infer<typeof ReassignDeliverySchema>
+
 export const deliveryMiddlewares: MiddlewareRoute[] = [
   { matcher: "/admin/couriers", methods: ["POST"], middlewares: [validateAndTransformBody(CreateCourierSchema)] },
   { matcher: "/admin/couriers/:id", methods: ["POST"], middlewares: [validateAndTransformBody(UpdateCourierSchema)] },
@@ -71,6 +74,11 @@ export const deliveryMiddlewares: MiddlewareRoute[] = [
     matcher: "/admin/deliveries/:id/complete",
     methods: ["POST"],
     middlewares: [validateAndTransformBody(CompleteDeliverySchema)],
+  },
+  {
+    matcher: "/admin/deliveries/:id/reassign",
+    methods: ["POST"],
+    middlewares: [validateAndTransformBody(ReassignDeliverySchema)],
   },
   {
     matcher: "/admin/courier-settlements",

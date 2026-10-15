@@ -1,6 +1,6 @@
 jest.mock("@medusajs/medusa/core-flows", () => ({}))
 jest.mock("../../workflows/update-delivery", () => ({}))
-import { itemChanges, notEditableReason } from "../order-edit"
+import { itemChanges, notDeletableReason, notEditableReason } from "../order-edit"
 
 describe("itemChanges", () => {
   const existing = [
@@ -50,5 +50,21 @@ describe("notEditableReason", () => {
     expect(notEditableReason({ ...unpaid, summary: { pending_difference: 0 } }, [])).toBe("Commande déjà payée.")
     expect(notEditableReason(unpaid, [{ status: "delivered" }])).toBe("Commande déjà livrée ou expédiée.")
     expect(notEditableReason({ ...unpaid, fulfillments: [{ shipped_at: "2026-10-12" }] }, [])).toBe("Commande déjà livrée ou expédiée.")
+  })
+})
+
+describe("notDeletableReason", () => {
+  const manual = { status: "pending", total: 1000, summary: { pending_difference: 1000 }, metadata: { source: "telephone" } }
+  it("commande saisie à la main, non payée, non livrée : supprimable", () => {
+    expect(notDeletableReason(manual, [{ status: "assigned" }])).toBeNull()
+  })
+  it("commande du site ou de WhatsApp : refusée", () => {
+    expect(notDeletableReason({ ...manual, metadata: { source: "whatsapp" } }, [])).toMatch(/saisie à la main/)
+  })
+  it("payée : refusée", () => {
+    expect(notDeletableReason({ ...manual, summary: { pending_difference: 0 } }, [])).toMatch(/payée/)
+  })
+  it("livrée : refusée", () => {
+    expect(notDeletableReason(manual, [{ status: "delivered" }])).toMatch(/livrée/)
   })
 })

@@ -25,6 +25,7 @@ type Summary = {
   income: number;
   expenses: number;
   revenue: number;
+  result: number;
   balanceBefore: number;
   balanceAfter: number;
 };
@@ -128,6 +129,8 @@ const formatDate = (iso: string) =>
     month: "2-digit",
     timeZone: "UTC",
   });
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
 
 type FormState = {
   id: string | null;
@@ -311,7 +314,7 @@ const StatCard = ({
 );
 
 const CashPage = () => {
-  const [period, setPeriod] = useState<Period>("month");
+  const [period, setPeriod] = useState<Period>("day");
   const [anchor, setAnchor] = useState(today());
   const [data, setData] = useState<MonthData | null>(null);
   const [history, setHistory] = useState<HistoryRow[] | null>(null);
@@ -441,7 +444,11 @@ const CashPage = () => {
               value={formatXof(s!.revenue)}
               tone="positive"
             />
-            <StatCard label={`Entrées ${option.of}`} value={formatXof(s!.income)} />
+            <StatCard
+              label={`Résultat ${option.of}`}
+              value={formatXof(s!.result)}
+              tone={s!.result < 0 ? "negative" : undefined}
+            />
             <StatCard label={`Sorties ${option.of}`} value={formatXof(s!.expenses)} />
           </div>
 
@@ -479,8 +486,9 @@ const CashPage = () => {
                     key={row.id}
                     className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-ui-border-base px-4 py-2 last:border-b-0"
                   >
-                    <span className="txt-compact-small w-12 shrink-0 text-ui-fg-subtle">
+                    <span className="txt-compact-small flex w-14 shrink-0 flex-col text-ui-fg-subtle">
                       {formatDate(row.date)}
+                      <span className="txt-compact-xsmall">{formatTime(row.date)}</span>
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col break-words">
                       <span className="txt-compact-small text-ui-fg-base">

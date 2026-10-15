@@ -201,9 +201,24 @@ describe("périodes de la caisse", () => {
       income: 9500,
       expenses: 1000,
       revenue: 9500,
+      result: 8500,
       balanceBefore: 1000,
       balanceAfter: 9500,
     })
+  })
+})
+
+describe("résultat de la période", () => {
+  const { periodRange, summarizeRange } = require("../cashbook-rules")
+  it("un remboursement baisse le CA mais n'est pas compté deux fois dans les sorties", () => {
+    const entries = [
+      { id: "1", date: "2026-10-12T10:00:00Z", direction: "in", amount: 10000, category: "sale" },
+      { id: "2", date: "2026-10-12T11:00:00Z", direction: "out", amount: 2000, category: "refund" },
+      { id: "3", date: "2026-10-12T12:00:00Z", direction: "out", amount: 1000, category: "courier_fee" },
+    ]
+    const s = summarizeRange(entries, periodRange("day", "2026-10-12"))
+    expect(s.revenue).toBe(8000)
+    expect(s.result).toBe(7000)
   })
 })
 
