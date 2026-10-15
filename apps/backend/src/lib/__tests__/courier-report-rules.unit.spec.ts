@@ -1,4 +1,4 @@
-import { parseReport, reportFields, reportState, summarizeDay } from "../courier-report-rules"
+import { parseReport, reportBelongsTo, reportFields, reportState, summarizeDay, wholeAmount } from "../courier-report-rules"
 
 describe("reportFields", () => {
   it("Ouaga : montant encaissé et course, pas de frais d'expédition", () => {
@@ -71,5 +71,20 @@ describe("reportState et summarizeDay", () => {
       validated: 1,
       failed: 1,
     })
+  })
+})
+
+describe("reportBelongsTo / wholeAmount", () => {
+  it("rapport de l'ancien livreur ignoré", () => {
+    expect(reportBelongsTo({ courier_id: "a" }, { courier_id: "a" })).toBe(true)
+    expect(reportBelongsTo({ courier_id: "b" }, { courier_id: "a" })).toBe(false)
+    expect(reportBelongsTo({ courier_id: "a" }, null)).toBe(false)
+  })
+  it("montant strict", () => {
+    expect(wholeAmount(1500)).toBe(1500)
+    expect(wholeAmount("1500")).toBe(1500)
+    expect(wholeAmount(true)).toBeNull()
+    expect(wholeAmount("1e3")).toBeNull()
+    expect(wholeAmount(-1)).toBeNull()
   })
 })

@@ -15,8 +15,8 @@ export const reportFields = (type: DeliveryType) => ({
   courier_fee: true as const,
 })
 
-const wholeAmount = (value: unknown): number | null => {
-  const n = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : NaN
+export const wholeAmount = (value: unknown): number | null => {
+  const n = typeof value === "number" ? value : typeof value === "string" && /^\s*\d+\s*$/.test(value) ? Number(value) : NaN
   return Number.isInteger(n) && n >= 0 ? n : null
 }
 
@@ -78,3 +78,8 @@ export const summarizeDay = (states: LineState[]) => {
     failed: count("failed"),
   }
 }
+
+// Un rapport n'est valable que pour le livreur à qui la livraison est confiée :
+// après un changement de livreur, l'ancien rapport ne compte plus.
+export const reportBelongsTo = (delivery: { courier_id: string }, report: { courier_id: string } | null): boolean =>
+  !!report && report.courier_id === delivery.courier_id

@@ -20,7 +20,7 @@ export async function GET(req: CourierRequest, res: MedusaResponse) {
   res.json({
     courier: { id: courier.id, name: courier.name },
     date,
-    deliveries: lines.map((l) => ({
+    deliveries: lines.filter((l) => l.state !== "canceled").map((l) => ({
       id: l.id,
       order_number: l.order_number,
       customer_name: l.customer_name,
@@ -35,7 +35,8 @@ export async function GET(req: CourierRequest, res: MedusaResponse) {
       report: l.report && {
         delivered: l.report.delivered,
         failure_reason: l.report.failure_reason,
-        amount_collected: l.report.amount_collected,
+        // Expédition : le montant saisi par l'équipe n'est jamais montré au livreur.
+        amount_collected: reportFields(l.type).amount_collected ? l.report.amount_collected : null,
         courier_fee: l.report.courier_fee,
         transport_fee: l.report.transport_fee,
         return_reason: l.report.return_reason,

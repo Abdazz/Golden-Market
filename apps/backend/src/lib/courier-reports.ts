@@ -1,8 +1,8 @@
-import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import { DELIVERY_MODULE } from "../modules/delivery"
 import type DeliveryModuleService from "../modules/delivery/service"
 import { completeDeliveryWorkflow } from "../workflows/complete-delivery"
-import { parseReport, reportState, summarizeDay, type DeliveryType, type LineState } from "./courier-report-rules"
+import { parseReport, reportBelongsTo, reportState, summarizeDay, wholeAmount, type DeliveryType, type LineState } from "./courier-report-rules"
 import { todayInOuaga } from "./delivery-rules"
 import { DELIVERY_FIELDS, loadOrders, toTourLine } from "./delivery-service-helpers"
 import { finishDelivery } from "./delivery-completion"
@@ -27,6 +27,18 @@ export type ReportView = {
 export type ReportLine = ReturnType<typeof toTourLine> & { state: LineState; report: ReportView | null }
 
 const svcOf = (scope: any) => scope.resolve(DELIVERY_MODULE) as DeliveryModuleService
+
+// Verrou par clé : deux validations (ou une validation et un renvoi) du même
+// rapport ne s'exécutent jamais en même temps.
+const withLock = <T>(scope: any, key: string, job: () => Promise<T>): Promise<T> =>
+  scope.resolve(Modules.LOCKING).execute(key, job, { timeout: 10 }) as Promise<T>
+
+// Journée du livreur déjà validée : plus aucune livraison ne peut être terminée
+// (même règle que prepareCompletionStep).
+async function assertDayOpen(svc: DeliveryModuleService, courierId: string) {
+  const [locked] = await svc.listCourierSettlements({ courier_id: courierId, day: todayInOuaga() })
+  if (locked) throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Journée déjà validée : rouvrez-la pour modifier.")
+}
 
 const toView = (r: any): ReportView => ({
   id: r.id,
@@ -59,7 +71,8 @@ export async function loadCourierDay(scope: any, courierId: string, date: string
   const reportOf = new Map(reports.map((r) => [r.delivery_id, r]))
   return deliveries
     .map((d) => {
-      const report = reportOf.get(d.id) ?? null
+      const found = reportOf.get(d.id) ?? null
+      const report = reportBelongsTo(d, found) ? found : null
       return { ...toTourLine(d, orders.get(d.order_id)), state: reportState(d, report), report: report ? toView(report) : null }
     })
     .sort((a, b) => String(a.assigned_at).localeCompare(String(b.assigned_at)))
@@ -89,7 +102,11 @@ export async function listCouriersOfDay(scope: any, date: string) {
 // Le livreur envoie (ou corrige) son rapport. « Non » : échec enregistré tout de
 // suite (la commande revient à confier, rien à valider). « Oui » : en attente de
 // validation de l'équipe.
-export async function submitCourierReport(scope: any, courierId: string, deliveryId: string, body: Record<string, unknown>) {
+export function submitCourierReport(scope: any, courierId: string, deliveryId: string, body: Record<string, unknown>) {
+  return withLock(scope, `courier-report:${deliveryId}`, () => submitLocked(scope, courierId, deliveryId, body))
+}
+
+async function submitLocked(scope: any, courierId: string, deliveryId: string, body: Record<string, unknown>) {
   const svc = svcOf(scope)
   const delivery = await svc.retrieveDelivery(deliveryId).catch(() => null)
   if (!delivery || delivery.courier_id !== courierId) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Livraison introuvable.")
@@ -126,7 +143,12 @@ export async function submitCourierReport(scope: any, courierId: string, deliver
 
 // Validation d'un rapport « Oui » : tout est figé sauf le montant encaissé d'une
 // expédition (le client a payé l'entreprise par Mobile Money, saisi ici).
-export async function validateCourierReport(scope: any, reportId: string, input: { amount_collected?: unknown }) {
+export function validateCourierReport(scope: any, reportId: string, input: { amount_collected?: unknown }) {
+  return withLock(scope, `validate-report:${reportId}`, () => validateLocked(scope, reportId, input))
+}
+
+// Le rapport est relu après la prise du verrou.
+async function validateLocked(scope: any, reportId: string, input: { amount_collected?: unknown }) {
   const svc = svcOf(scope)
   const report = await svc.retrieveDeliveryReport(reportId).catch(() => null)
   if (!report) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Rapport introuvable.")
@@ -134,11 +156,13 @@ export async function validateCourierReport(scope: any, reportId: string, input:
     throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Ce rapport n'est pas en attente de validation.")
   }
   const delivery = await svc.retrieveDelivery(report.delivery_id)
+  if (!reportBelongsTo(delivery, report)) throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Ce rapport appartient à un autre livreur.")
   if (delivery.status !== "assigned") throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Cette livraison est déjà terminée.")
+  await assertDayOpen(svc, delivery.courier_id)
   let amount = report.amount_collected
   if (delivery.type === "expedition") {
-    const typed = Number(input.amount_collected)
-    if (!Number.isInteger(typed) || typed <= 0) {
+    const typed = wholeAmount(input.amount_collected)
+    if (typed === null || typed <= 0) {
       throw new MedusaError(MedusaError.Types.INVALID_DATA, "Indiquez le montant encaissé (nombre entier positif en F CFA).")
     }
     amount = typed
@@ -154,13 +178,20 @@ export async function validateCourierReport(scope: any, reportId: string, input:
   return { warning }
 }
 
-export async function returnCourierReport(scope: any, reportId: string, reason: unknown) {
+export function returnCourierReport(scope: any, reportId: string, reason: unknown) {
+  return withLock(scope, `validate-report:${reportId}`, () => returnLocked(scope, reportId, reason))
+}
+
+async function returnLocked(scope: any, reportId: string, reason: unknown) {
   const svc = svcOf(scope)
   const text = typeof reason === "string" ? reason.trim() : ""
   if (!text) throw new MedusaError(MedusaError.Types.INVALID_DATA, "Indiquez le motif du renvoi.")
   const report = await svc.retrieveDeliveryReport(reportId).catch(() => null)
   if (!report) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Rapport introuvable.")
   if (report.status !== "submitted") throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Ce rapport n'est pas en attente de validation.")
+  const delivery = await svc.retrieveDelivery(report.delivery_id)
+  if (!reportBelongsTo(delivery, report)) throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Ce rapport appartient à un autre livreur.")
+  if (delivery.status !== "assigned") throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Cette livraison est déjà terminée.")
   await svc.updateDeliveryReports({ id: report.id, status: "returned", return_reason: text })
 }
 

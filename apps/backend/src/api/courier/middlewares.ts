@@ -1,4 +1,6 @@
 import type { MedusaNextFunction, MedusaRequest, MedusaResponse, MiddlewareRoute } from "@medusajs/framework/http"
+import { DELIVERY_MODULE } from "../../modules/delivery"
+import type DeliveryModuleService from "../../modules/delivery/service"
 import { verifyCourierToken } from "../../lib/courier-auth"
 
 // Routes /courier/* (spec 2026-10-15 espace-livreur) : jeton livreur en
@@ -7,12 +9,16 @@ import { verifyCourierToken } from "../../lib/courier-auth"
 // propre session).
 export type CourierRequest = MedusaRequest & { courier_id: string }
 
-export function authenticateCourier(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
+export async function authenticateCourier(req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) {
   const header = req.headers.authorization ?? ""
   const token = header.startsWith("Bearer ") ? header.slice(7) : ""
   const secret = process.env.COOKIE_SECRET
   const courierId = token && secret ? verifyCourierToken(token, secret) : null
-  if (!courierId) {
+  // Un livreur désactivé perd l'accès même avec un jeton encore valide.
+  const courier = courierId
+    ? await (req.scope.resolve(DELIVERY_MODULE) as DeliveryModuleService).retrieveCourier(courierId).catch(() => null)
+    : null
+  if (!courierId || !courier || !courier.active) {
     res.status(401).json({ message: "Session expirée : reconnectez-vous." })
     return
   }

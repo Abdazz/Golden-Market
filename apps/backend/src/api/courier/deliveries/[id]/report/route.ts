@@ -1,5 +1,5 @@
 import type { MedusaResponse } from "@medusajs/framework/http"
-import { MedusaError } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
 import { submitCourierReport } from "../../../../../lib/courier-reports"
 import type { CourierRequest } from "../../../middlewares"
 
@@ -11,7 +11,14 @@ export async function POST(req: CourierRequest, res: MedusaResponse) {
     // renvoyé au livreur (il reste inscrit sur la livraison).
     res.json({ report: { status: report.status, delivered: report.delivered } })
   } catch (error) {
-    const status = error instanceof MedusaError && error.type === MedusaError.Types.NOT_FOUND ? 404 : 400
-    res.status(status).json({ message: (error as Error).message })
+    if (error instanceof MedusaError) {
+      const known = [MedusaError.Types.NOT_FOUND, MedusaError.Types.NOT_ALLOWED, MedusaError.Types.INVALID_DATA]
+      if (known.includes(error.type as any)) {
+        res.status(error.type === MedusaError.Types.NOT_FOUND ? 404 : 400).json({ message: error.message })
+        return
+      }
+    }
+    req.scope.resolve(ContainerRegistrationKeys.LOGGER).error(`Rapport livreur : ${(error as Error).message}`)
+    res.status(500).json({ message: "Une erreur est survenue, réessayez." })
   }
 }
