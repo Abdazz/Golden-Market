@@ -21,11 +21,12 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 détail technique dans `AGENTS.md` (« Espace livreur (2026-10-15) »).
 - Espace livreur : page `/livreur` du storefront (mobile-first, relais `/api/livreur/*`, cookie httpOnly
   `_gm_courier`), routes backend `/courier/*` avec jeton HMAC (`COOKIE_SECRET`, 12 h, livreur désactivé
-  refusé), PIN à 4 chiffres haché scrypt créé dans l'onglet « Livreurs », limiteur 5 échecs / 15 min. Rapport
+  refusé), PIN à 4 chiffres haché scrypt créé dans l'onglet « Livreurs », limiteur 5 échecs / 15 min par numéro (verrou par numéro) et 20 essais / 15 min par IP. Rapport
   `delivery_report` (`submitted` / `returned` / `validated` / `applied`) ; champs selon Ouaga (montant encaissé +
   course) ou expédition (course + « Frais Expédition », montant à encaisser jamais montré). Onglet admin
-  « Rapports livreurs » : valider (= `submitPaymentForm` avec `skipEditWindow`) ou renvoyer pour correction ;
-  verrous `validate-report:<id>` / `courier-report:<id>` (30 s, en mémoire : un seul conteneur backend).
+  « Rapports livreurs » : valider ou renvoyer pour correction (expédition : montant saisi = payée, vide = pas encore payée ;
+  le livreur n'est jamais réputé avoir encaissé une expédition ni une commande Ouaga déjà payée) ;
+  verrou `courier-report:<livraison>` commun (30 s, en mémoire : un seul conteneur backend).
 - Décisions du propriétaire : PIN à 4 chiffres ; le livreur répond d'abord Oui / Non ; Non sans validation
   (échec appliqué tout de suite) ; renvoi pour correction ; onglet par livreur du jour ; libellé « Frais
   Expédition » ; modification du paiement dans les 24 h depuis la DERNIÈRE action ; section « Paiement
@@ -36,7 +37,7 @@ détail technique dans `AGENTS.md` (« Espace livreur (2026-10-15) »).
   des écritures ; modifier le paiement dans les 24 h (`lib/payment-edit-rules.ts`), section placée en tête par
   le patch du dashboard (`#golden-market-order-top`, `scripts/patch-dashboard.mjs` ; après un changement,
   vider `apps/backend/node_modules/.vite` et recharger en forçant le cache).
-- Piège connu : verrou et limiteur non atomiques / en mémoire (voir `AGENTS.md`).
+- Piège connu : verrous en mémoire, limite par IP non sérialisée (voir `AGENTS.md`).
 - **À faire en production avant usage** : `COOKIE_SECRET` présent dans les `.env` du VPS ;
   `NEXT_PUBLIC_MEDUSA_BACKEND_URL` du storefront de production pointant sur le backend ; migration
   `db:migrate` (table `delivery_report`, colonne `courier.pin_hash`) ; créer les PIN des livreurs ; tester
