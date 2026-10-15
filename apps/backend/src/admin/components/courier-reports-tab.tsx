@@ -29,7 +29,7 @@ const STATE_BADGE: Record<ReportState, string> = {
 const sentAt = (iso: string) =>
   new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
 
-const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => void }) => {
+const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => void | Promise<unknown> }) => {
   const report = line.report
   const isExpedition = line.type === "expedition"
   const [amount, setAmount] = useState("")
@@ -44,8 +44,8 @@ const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => voi
     try {
       const r = await api<{ warning?: string }>(path, { method: "POST", body })
       setReason(null)
-      if (r.warning) setWarning(r.warning)
-      onChanged()
+      setWarning(r.warning ?? null)
+      await onChanged()
     } catch (e) {
       setError((e as Error).message)
     } finally {

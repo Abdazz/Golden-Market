@@ -159,10 +159,12 @@ const ReportSheet = ({
   line,
   onClose,
   onSent,
+  onExpired,
 }: {
   line: Line
   onClose: () => void
   onSent: () => void
+  onExpired: () => void
 }) => {
   const prev = line.report
   const [delivered, setDelivered] = useState<boolean | null>(null)
@@ -221,6 +223,7 @@ const ReportSheet = ({
       })
       onSent()
     } catch (err) {
+      if ((err as { status?: number }).status === 401) return onExpired()
       setError((err as Error).message)
     } finally {
       setBusy(false)
@@ -230,7 +233,6 @@ const ReportSheet = ({
   return (
     <div
       className="fixed inset-0 z-[100] flex items-end bg-black/50"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         ref={dialogRef}
@@ -511,6 +513,10 @@ export const LivreurApp = () => {
         <ReportSheet
           line={open}
           onClose={() => setOpen(null)}
+          onExpired={() => {
+            setOpen(null)
+            setState("login")
+          }}
           onSent={() => {
             setOpen(null)
             load()

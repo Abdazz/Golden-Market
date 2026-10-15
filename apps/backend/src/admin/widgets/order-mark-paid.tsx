@@ -102,7 +102,7 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
     ? "Valeur enregistrée."
     : defaults?.transport_fee_saved
     ? "Saisis sur la livraison."
-    : "Frais d'expédition payés par le client, reversés à la compagnie."
+    : "Frais Expédition payés par le client, reversés à la compagnie de transport."
   const totalFees = (parsedCourierFee ?? 0) + (parsedTransportFee ?? 0)
 
   return (

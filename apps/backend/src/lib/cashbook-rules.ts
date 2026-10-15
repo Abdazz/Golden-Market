@@ -321,7 +321,7 @@ export const feeEntriesFromDelivery = (
       direction: "out",
       amount: delivery.transport_fee,
       category: "transport_fee",
-      label: `Frais ${delivery.transport_company || "compagnie de transport"}${suffix}`,
+      label: `Frais ${delivery.transport_company || "Expédition"}${suffix}`,
       source: "auto",
       reference: `delivery:${delivery.id}:transport_fee`,
       order_id: delivery.order_id,

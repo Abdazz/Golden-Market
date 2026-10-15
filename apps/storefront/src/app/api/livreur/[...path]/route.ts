@@ -7,6 +7,9 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
 const COOKIE = "_gm_courier"
 const MAX_AGE = 12 * 3600
 
+const json = (body: unknown, status = 200) =>
+  NextResponse.json(body, { status, headers: { "cache-control": "no-store" } })
+
 async function relay(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -15,7 +18,7 @@ async function relay(
   const route = path.join("/")
 
   if (route === "logout") {
-    const res = NextResponse.json({ ok: true })
+    const res = json({ ok: true })
     res.cookies.delete(COOKIE)
     return res
   }
@@ -25,7 +28,14 @@ async function relay(
     route === "deliveries" ||
     /^deliveries\/[A-Za-z0-9_]+\/report$/.test(route)
   if (!BACKEND_URL || !allowed) {
-    return NextResponse.json({ message: "Introuvable." }, { status: 404 })
+    return json({ message: "Introuvable." }, 404)
+  }
+
+  if (
+    req.method === "POST" &&
+    !(req.headers.get("content-type") ?? "").startsWith("application/json")
+  ) {
+    return json({ message: "Requête invalide." }, 415)
   }
 
   const token = req.cookies.get(COOKIE)?.value
@@ -43,21 +53,18 @@ async function relay(
       cache: "no-store",
     })
   } catch {
-    return NextResponse.json(
-      { message: "Serveur injoignable, réessayez dans un instant." },
-      { status: 502 }
-    )
+    return json({ message: "Serveur injoignable, réessayez dans un instant." }, 502)
   }
-  const json = await backend
+  const data = await backend
     .json()
     .catch(() => ({ message: "Erreur du serveur." }))
 
   if (route === "login" && backend.ok) {
-    const { token: issued, courier } = json as {
+    const { token: issued, courier } = data as {
       token: string
       courier: { id: string; name: string }
     }
-    const res = NextResponse.json({ courier })
+    const res = json({ courier })
     res.cookies.set(COOKIE, issued, {
       httpOnly: true,
       sameSite: "lax",
@@ -68,7 +75,7 @@ async function relay(
     return res
   }
 
-  const res = NextResponse.json(json, { status: backend.status })
+  const res = json(data, backend.status)
   if (backend.status === 401) res.cookies.delete(COOKIE)
   return res
 }
