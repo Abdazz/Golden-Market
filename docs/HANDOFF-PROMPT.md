@@ -1,7 +1,7 @@
 # Prompt de reprise (nouvelle session Claude Code)
 
 Copier le bloc ci-dessous comme premier message d'une nouvelle session ouverte dans
-`medusa-golden-market/`. Mis à jour le 2026-10-15.
+`medusa-golden-market/`. Mis à jour le 2026-10-15 (espace livreur).
 
 ---
 
@@ -57,10 +57,21 @@ mémoire n'est pas encore reliée : créer d'abord le lien vers `docs/claude-mem
   (tournée du jour, expéditions comprises, et encadré Livraison) ; « Marquer comme payée » séparé (bouton
   natif « Mark as paid » : montant, course, frais compagnie, case « Livrée ? ») ; menu Tableau de bord,
   Orders, Livraisons, Caisse. Détail dans `HANDOFF.md`.
+- Espace livreur (2026-10-15, commits locaux sur `staging`, pas encore poussés ni déployés) : page `/livreur`
+  (téléphone + PIN à 4 chiffres, Oui / Non, rapport), onglet admin « Rapports livreurs » (valider / renvoyer
+  pour correction), PIN géré dans l'onglet « Livreurs » ; voir `AGENTS.md` (« Espace livreur ») et `HANDOFF.md`.
+- Lot du 2026-10-15 : suppression d'une commande saisie à la main, « Changer de livreur », caisse (jour par
+  défaut, carte « Résultat », heure), modification du paiement dans les 24 h après la dernière action
+  (section « Paiement enregistré » en tête de la fiche commande), libellé « Frais Expédition ».
 - Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier plan : 2026-10-10 ;
   les lots des 2026-10-11 et 12, petites demandes enchaînées, n'ont pas de plan).
 
 ## À vérifier en début de session
+
+- Espace livreur : premier vrai passage d'un livreur (connexion par téléphone + PIN, rapport, validation dans
+  « Rapports livreurs ») une fois déployé ; avant cela, vérifier en production `COOKIE_SECRET`,
+  `NEXT_PUBLIC_MEDUSA_BACKEND_URL` du storefront, la migration et les PIN créés. Données de test locales
+  (livreurs / commandes de l'environnement local) : à ignorer.
 
 - Lot du 2026-10-10 : premier vrai reçu d'expédition envoyé par Gildas (ou un autre livreur actif) à
   l'agent : alerte « Reçu d'expédition de … » reçue par le propriétaire, réponse brève de l'agent, aucun

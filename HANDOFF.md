@@ -16,6 +16,35 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-15 - **Espace livreur (`/livreur`) et lot de demandes du jour** (commits `592fb3a` à `7753c78` sur
+`staging`, NON poussés : un push enchaîne la production). Spec et plan `docs/superpowers/{specs,plans}/2026-10-15-espace-livreur*`,
+détail technique dans `AGENTS.md` (« Espace livreur (2026-10-15) »).
+- Espace livreur : page `/livreur` du storefront (mobile-first, relais `/api/livreur/*`, cookie httpOnly
+  `_gm_courier`), routes backend `/courier/*` avec jeton HMAC (`COOKIE_SECRET`, 12 h, livreur désactivé
+  refusé), PIN à 4 chiffres haché scrypt créé dans l'onglet « Livreurs », limiteur 5 échecs / 15 min. Rapport
+  `delivery_report` (`submitted` / `returned` / `validated` / `applied`) ; champs selon Ouaga (montant encaissé +
+  course) ou expédition (course + « Frais Expédition », montant à encaisser jamais montré). Onglet admin
+  « Rapports livreurs » : valider (= `submitPaymentForm` avec `skipEditWindow`) ou renvoyer pour correction ;
+  verrous `validate-report:<id>` / `courier-report:<id>` (30 s, en mémoire : un seul conteneur backend).
+- Décisions du propriétaire : PIN à 4 chiffres ; le livreur répond d'abord Oui / Non ; Non sans validation
+  (échec appliqué tout de suite) ; renvoi pour correction ; onglet par livreur du jour ; libellé « Frais
+  Expédition » ; modification du paiement dans les 24 h depuis la DERNIÈRE action ; section « Paiement
+  enregistré » en haut de la fiche commande.
+- Autres demandes : suppression d'une commande saisie à la main (annuler + masquer, `metadata.deleted_at`,
+  `lib/order-delete.ts`) ; « Changer de livreur » (`POST /admin/deliveries/:id/reassign`, supprime les rapports
+  non validés) ; caisse : période par défaut jour, carte « Résultat » = CA - sorties hors remboursements, heure
+  des écritures ; modifier le paiement dans les 24 h (`lib/payment-edit-rules.ts`), section placée en tête par
+  le patch du dashboard (`#golden-market-order-top`, `scripts/patch-dashboard.mjs` ; après un changement,
+  vider `apps/backend/node_modules/.vite` et recharger en forçant le cache).
+- Piège connu : verrou et limiteur non atomiques / en mémoire (voir `AGENTS.md`).
+- **À faire en production avant usage** : `COOKIE_SECRET` présent dans les `.env` du VPS ;
+  `NEXT_PUBLIC_MEDUSA_BACKEND_URL` du storefront de production pointant sur le backend ; migration
+  `db:migrate` (table `delivery_report`, colonne `courier.pin_hash`) ; créer les PIN des livreurs ; tester
+  sur un vrai téléphone sans valider de rapport réel.
+- Pistes : application livreur native ; « Marquer non payée » / « Marquer non livrée » (demandé le 2026-10-15,
+  visible 24 h après la dernière action) : Medusa n'a pas d'annulation d'un paiement capturé ni d'une
+  expédition faite, enquête de faisabilité en attente d'accord du propriétaire, NON commencée.
+
 2026-10-12 - **Commandes modifiables, caisse en colonnes, « Livrée » et « Marquer payée » séparés, menu
 réordonné** (demandes rapides du propriétaire, tout en production, dernier commit `676150b`).
 - « Modifier la commande » (widget `order-edit-button.tsx`, page `phone-orders/new?order_id=`, route
