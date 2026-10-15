@@ -1,4 +1,4 @@
-import { PAYMENT_EDIT_WINDOW_MS, paymentEditStatus } from "../payment-edit-rules"
+import { mayEditPayment, PAYMENT_EDIT_WINDOW_MS, paymentEditStatus } from "../payment-edit-rules"
 
 const T0 = new Date("2026-10-15T08:00:00.000Z")
 const after = (ms: number) => new Date(T0.getTime() + ms)
@@ -29,4 +29,13 @@ describe("paymentEditStatus", () => {
   it("date en chaîne ISO", () => {
     expect(paymentEditStatus("2026-10-15T08:00:00.000Z", after(1000))).toMatchObject({ recorded: true, editable: true })
   })
+})
+
+describe("mayEditPayment", () => {
+  const late = after(PAYMENT_EDIT_WINDOW_MS + 1000)
+  it("jamais enregistré : autorisé", () => expect(mayEditPayment({ recordedAt: null, now: late })).toBe(true))
+  it("fenêtre dépassée : refusé", () => expect(mayEditPayment({ recordedAt: T0, now: late })).toBe(false))
+  it("fenêtre dépassée avec skipWindow : autorisé", () =>
+    expect(mayEditPayment({ recordedAt: T0, now: late, skipWindow: true })).toBe(true))
+  it("dans la fenêtre : autorisé", () => expect(mayEditPayment({ recordedAt: T0, now: after(1000) })).toBe(true))
 })

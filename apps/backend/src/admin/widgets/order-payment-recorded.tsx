@@ -1,5 +1,6 @@
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
 import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { api, formatXof } from "../lib/deliveries"
 import { secondaryButton } from "../components/delivery-ui"
 
@@ -8,6 +9,10 @@ import { secondaryButton } from "../components/delivery-ui"
 // payée », relus dans la caisse (GET /admin/order-payments/:id). Le bouton
 // « Modifier le paiement » rouvre le formulaire (widgets/order-mark-paid.tsx)
 // tant que les 24 h suivant la dernière action ne sont pas écoulées.
+// Affichage en tête de la colonne principale : Medusa 2.18 rend les widgets
+// `*.before` sous le contenu ; scripts/patch-dashboard.mjs ajoute donc un
+// conteneur #golden-market-order-top en haut, où la carte est rendue par un
+// portail (à défaut de conteneur : à sa place d'origine).
 // Pas de composant @medusajs/ui (conflit de types React 18/19).
 const MARK_PAID_EVENT = "golden-market:mark-as-paid"
 
@@ -38,6 +43,7 @@ const time = (iso: string) => iso.slice(11, 16)
 
 const OrderPaymentRecordedWidget = ({ data }: Props) => {
   const [info, setInfo] = useState<Info | null>(null)
+  const [top, setTop] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     api<Info>(`/admin/order-payments/${data.id}`)
@@ -46,6 +52,17 @@ const OrderPaymentRecordedWidget = ({ data }: Props) => {
   }, [data.id])
 
   const recorded = info?.recorded
+  useEffect(() => {
+    const el = document.getElementById("golden-market-order-top")
+    if (!el || !recorded) return
+    el.style.display = "block"
+    setTop(el)
+    return () => {
+      el.style.display = "none"
+      setTop(null)
+    }
+  }, [recorded])
+
   if (!info || !recorded) return null
 
   const rows: [string, string][] = [
@@ -57,7 +74,7 @@ const OrderPaymentRecordedWidget = ({ data }: Props) => {
     ["Commande livrée", info.delivered ? "oui" : "non"],
   ]
 
-  return (
+  const card = (
     <div className="bg-ui-bg-base shadow-elevation-card-rest flex flex-col gap-y-3 rounded-lg px-6 py-4">
       <span className="txt-compact-medium-plus text-ui-fg-base">Paiement enregistré</span>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
@@ -88,10 +105,11 @@ const OrderPaymentRecordedWidget = ({ data }: Props) => {
       </div>
     </div>
   )
+  return top ? createPortal(card, top) : card
 }
 
 export const config = defineWidgetConfig({
-  zone: "order.details.before",
+  zone: "order.details.side.before",
 })
 
 export default OrderPaymentRecordedWidget

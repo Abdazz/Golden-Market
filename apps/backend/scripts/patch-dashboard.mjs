@@ -12,7 +12,11 @@
 //   (src/admin/routes/dashboard) au lieu de la liste des commandes ;
 // - menu latéral : "Tableau de bord" en premier, au-dessus de "Orders", puis
 //   "Livraisons" et "Caisse" juste sous "Orders" (2026-10-12) ; les menus des
-//   extensions sont sinon toujours placés après les menus natifs.
+//   extensions sont sinon toujours placés après les menus natifs ;
+// - fiche commande : conteneur #golden-market-order-top en tête de la colonne
+//   principale (2026-10-15), où le widget order-payment-recorded.tsx affiche
+//   « Paiement enregistré » par un portail : Medusa 2.18 rend les widgets
+//   `*.before` sous le contenu, jamais au-dessus.
 //
 // Idempotent. Si Medusa change ce code (mise à jour du dashboard), le script
 // échoue et le build s'arrête : adapter les ancres ci-dessous à la nouvelle version.
@@ -21,6 +25,16 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
 const PATCHES = [
+  {
+    name: "conteneur Paiement enregistré",
+    marker: "/* golden-market:order-top */",
+    anchor: `        main: /* @__PURE__ */ jsxs20(Fragment4, { children: [
+          /* @__PURE__ */ jsx19(LayoutComposer.Entry, { id: "OrderActiveEditSection"`,
+    apply: (_anchor, marker) => `        main: /* @__PURE__ */ jsxs20(Fragment4, { children: [
+          ${marker}
+          /* @__PURE__ */ jsx19("div", { id: "golden-market-order-top", style: { display: "none" } }),
+          /* @__PURE__ */ jsx19(LayoutComposer.Entry, { id: "OrderActiveEditSection"`,
+  },
   {
     name: "colonne Livreur",
     marker: "/* golden-market:courier-column */",

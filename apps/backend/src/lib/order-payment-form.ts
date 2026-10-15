@@ -11,7 +11,7 @@ import { completeDeliveryWorkflow } from "../workflows/complete-delivery"
 import { updateDeliveryWorkflow } from "../workflows/update-delivery"
 import { finishDelivery } from "./delivery-completion"
 import { syncOrderAfterDelivery } from "./delivery-order-sync"
-import { paymentEditStatus } from "./payment-edit-rules"
+import { mayEditPayment, paymentEditStatus } from "./payment-edit-rules"
 
 // Formulaire "Marquer comme payée" de la fiche commande (2026-10-11, demandé
 // par le propriétaire) : montant encaissé et frais engagés par le livreur
@@ -145,13 +145,15 @@ export async function submitPaymentForm(
   scope: any,
   orderId: string,
   values: PaymentFormValues,
-  options: { delivered?: boolean } = {}
+  // skipEditWindow : validation d'un rapport du livreur par l'admin, non soumise
+  // à la limite de 24 h après la dernière action.
+  options: { delivered?: boolean; skipEditWindow?: boolean } = {}
 ): Promise<{ warning: string | null }> {
   const order = await loadOrder(scope, orderId)
   if (!order) throw new Error("Commande introuvable.")
   // Déjà enregistré : modifiable seulement 24 h après la dernière action.
   const recorded = await recordedPayment(scope, orderId)
-  if (recorded && !paymentEditStatus(recorded.recorded_at).editable) {
+  if (recorded && !mayEditPayment({ recordedAt: recorded.recorded_at, skipWindow: options.skipEditWindow })) {
     throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Délai de 24 h dépassé : le paiement ne peut plus être modifié.")
   }
   // Livraison Ouaga : pas de compagnie de transport (champ masqué dans le formulaire).

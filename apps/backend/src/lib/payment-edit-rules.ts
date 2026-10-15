@@ -13,3 +13,9 @@ export const paymentEditStatus = (
   // Limite incluse : exactement 24 h après, c'est encore modifiable.
   return { recorded: true, editable: now.getTime() <= until.getTime(), editable_until: until.toISOString() }
 }
+
+// Décision de modification : refusée seulement si le paiement est déjà
+// enregistré et la fenêtre dépassée. skipWindow : validation d'un rapport du
+// livreur par l'admin, qui n'est pas soumise aux 24 h.
+export const mayEditPayment = (input: { recordedAt: Date | string | null; now?: Date; skipWindow?: boolean }): boolean =>
+  input.skipWindow === true || !input.recordedAt || paymentEditStatus(input.recordedAt, input.now).editable
