@@ -174,7 +174,8 @@ async function validateLocked(scope: any, reportId: string, input: { amount_coll
     scope,
     delivery.order_id,
     { amount, courier_fee: report.courier_fee ?? 0, transport_fee: report.transport_fee ?? 0 },
-    { delivered: true }
+    // La validation d'un rapport remplace l'enregistrement du paiement même au-delà du délai de 24 h.
+    { delivered: true, skipEditWindow: true }
   )
   await svc.updateDeliveryReports({ id: report.id, status: "validated", amount_collected: amount, validated_at: new Date() })
   return { warning }
