@@ -8,10 +8,13 @@ commande. Première version : une seule page web ; une application livreur viend
 
 - Connexion par **téléphone + code PIN** (créé par l'équipe pour chaque livreur).
 - Le livreur voit ses commandes ; un clic ouvre un formulaire du même type que « Marquer comme payée ».
-- Champs du formulaire : **Montant encaissé**, **Course du livreur**, **Frais Expédition** (nouveau nom de
-  « Frais compagnie de transport », y compris dans l'admin), case **Livrée ?** toujours **cochée par défaut**.
-- **Livraison à Ouagadougou** : le client paie à la réception, c'est le livreur qui encaisse. Il voit et
-  renseigne « Montant encaissé » (pas « Frais Expédition »).
+- Le formulaire pose d'abord la question **« La commande a-t-elle été livrée ? » (Oui / Non)**, sans
+  réponse présélectionnée (une commande confiée peut ne pas avoir été livrée).
+  - **Non** : une zone de saisie « Pourquoi n'a-t-elle pas été livrée ? » (obligatoire) remplace le reste.
+  - **Oui** : les champs suivants s'affichent : **Montant encaissé**, **Course du livreur**,
+    **Frais Expédition** (nouveau nom de « Frais compagnie de transport », y compris dans l'admin).
+- **Livraison à Ouagadougou** : le client paie à la réception, c'est le livreur qui encaisse. Après « Oui », il voit et
+  renseigne « Montant encaissé » et « Course du livreur » (pas « Frais Expédition »).
 - **Expédition (hors Ouagadougou)** : le client paie par Mobile Money à l'entreprise. Le livreur **ne voit
   pas** « Montant encaissé » (il ne le connaît pas) ; il renseigne « Course du livreur » et « Frais
   Expédition ».
@@ -31,7 +34,7 @@ commande. Première version : une seule page web ; une application livreur viend
 ## Architecture
 
 - **Modèle** : table `delivery_report` dans le module `delivery` (livraison unique, livreur, `status`
-  `submitted` / `validated`, `delivered`, `amount_collected` nullable, `courier_fee`, `transport_fee`,
+  `submitted` / `validated`, `delivered` (oui / non), `failure_reason` (si non), `amount_collected` nullable, `courier_fee`, `transport_fee`,
   `submitted_at`, `validated_at`). Colonne `pin_hash` ajoutée à `courier`.
 - **Authentification livreur** : routes `/courier/login` (téléphone + PIN) et `/courier/logout` ; jeton
   signé (HMAC, `COOKIE_SECRET`), cookie `httpOnly`, 12 h. Middleware dédié sur `/courier/*` : une session
@@ -41,7 +44,9 @@ commande. Première version : une seule page web ; une application livreur viend
 - **Routes admin** : `GET /admin/courier-reports` (rapports à valider, groupés par livreur),
   `POST /admin/courier-reports/:id/validate` (montant encaissé seulement pour une expédition),
   `POST /admin/couriers/:id/pin`.
-- **Validation** : réutilise le code existant de fin de livraison et de paiement
+- **Validation** : un rapport « Oui » suit le chemin ci-dessous ; un rapport « Non » enregistre un échec
+  de livraison avec le motif du livreur (même écriture que le bouton « Échec » existant : la commande
+  redevient à confier, aucune écriture de caisse). Réutilise le code existant de fin de livraison et de paiement
   (`finishDelivery`, `markOrderDelivered`, mark-paid) avec les valeurs du rapport ; stock livreur, caisse
   (frais) et commande se mettent à jour comme aujourd'hui. Un rapport validé ne peut plus changer.
 - **Écran admin** : onglet « Rapports livreurs » dans `/app/deliveries` (par livreur, un rapport par
@@ -54,7 +59,7 @@ Application mobile, géolocalisation, notifications push, preuve de livraison pa
 
 ## Tests
 
-Règles pures (champs selon Ouaga / expédition, « Livrée » cochée par défaut, montant jamais accepté du
+Règles pures (champs selon Ouaga / expédition, question Oui / Non d'abord, motif obligatoire si Non, montant jamais accepté du
 livreur pour une expédition) ; PIN (haché, limiteur, mauvais PIN) ; un livreur ne lit ni ne modifie la
 livraison d'un autre ; validation = mêmes écritures qu'une fin de livraison manuelle ; contrôle visuel
 de la page livreur sur téléphone (largeur 390 px) et de l'onglet admin dans Chrome.
