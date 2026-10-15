@@ -2,7 +2,9 @@ import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/util
 import { capturePaymentWorkflow, markPaymentCollectionAsPaid } from "@medusajs/medusa/core-flows"
 import { CASHBOOK_MODULE } from "../modules/cashbook"
 import { expectedFees, finalPaymentEntries, finalReferences, type PaymentFormValues } from "./cashbook-rules"
-import { defaultTypeForCity, type DeliveryType } from "./delivery-rules"
+import { dayOf, defaultTypeForCity, type DeliveryType } from "./delivery-rules"
+import { DELIVERY_MODULE } from "../modules/delivery"
+import type DeliveryModuleService from "../modules/delivery/service"
 import { ORDER_FIELDS, outstandingOf } from "./delivery-service-helpers"
 import { orderNumberOf } from "./order-number"
 import { productShippingFee as feeOfProduct } from "./shipping-fee-rules"
@@ -44,7 +46,7 @@ const latestDelivery = async (scope: any, orderId: string) => {
   const query = scope.resolve(ContainerRegistrationKeys.QUERY)
   const { data } = await query.graph({
     entity: "delivery",
-    fields: ["id", "type", "status", "assigned_at", "courier_fee", "transport_fee", "amount_to_collect"],
+    fields: ["id", "type", "status", "assigned_at", "completed_at", "courier_id", "courier_fee", "transport_fee", "amount_to_collect"],
     filters: { order_id: orderId },
   })
   return (data as any[])
@@ -160,6 +162,18 @@ export async function submitPaymentForm(
   const delivery = await latestDelivery(scope, orderId)
   const type: DeliveryType = delivery?.type ?? defaultTypeForCity(order.shipping_address?.city)
   if (type !== "expedition") values = { ...values, transport_fee: 0 }
+  // Montant repris sur une livraison déjà terminée (plus bas) : refusé si le
+  // versement du livreur pour ce jour-là est déjà validé.
+  const rewritesDelivery = delivery?.status === "delivered" && Number(delivery.amount_to_collect ?? 0) > 0
+  if (rewritesDelivery && delivery.completed_at) {
+    const [settled] = await (scope.resolve(DELIVERY_MODULE) as DeliveryModuleService).listCourierSettlements({
+      courier_id: delivery.courier_id,
+      day: dayOf(delivery.completed_at),
+    })
+    if (settled) {
+      throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Journée du livreur déjà validée : rouvrez-la pour modifier le paiement.")
+    }
+  }
   // La caisse d'abord : une capture inscrite par l'abonné payment.captured
   // juste après est ignorée (écritures du formulaire déjà présentes).
   await replaceOrderEntriesWorkflow(scope).run({
@@ -173,7 +187,7 @@ export async function submitPaymentForm(
   // Déjà marquée "Livrée" seule (tournée du jour ou fiche commande) : le livreur
   // devait encaisser -> montant encaissé et course repris sur la livraison, pour
   // le versement du soir (argent à récupérer chez le livreur).
-  if (delivery?.status === "delivered" && Number(delivery.amount_to_collect ?? 0) > 0) {
+  if (rewritesDelivery) {
     await updateDeliveryWorkflow(scope).run({
       input: { id: delivery.id, amount_collected: values.amount, courier_fee: values.courier_fee },
     })

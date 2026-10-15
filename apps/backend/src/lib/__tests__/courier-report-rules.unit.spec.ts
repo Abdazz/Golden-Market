@@ -7,6 +7,10 @@ describe("reportFields", () => {
   it("expédition : course et frais d'expédition, jamais de montant encaissé", () => {
     expect(reportFields("expedition")).toEqual({ amount_collected: false, transport_fee: true, courier_fee: true })
   })
+  it("Ouaga déjà payée (rien à encaisser) : montant encaissé non demandé", () => {
+    expect(reportFields("express", 0)).toEqual({ amount_collected: false, transport_fee: false, courier_fee: true })
+    expect(reportFields("express", 9500)).toEqual({ amount_collected: true, transport_fee: false, courier_fee: true })
+  })
 })
 
 describe("parseReport", () => {
@@ -33,6 +37,13 @@ describe("parseReport", () => {
     expect(parseReport("express", { delivered: true, amount_collected: 0, courier_fee: 1000 })).toMatchObject({ ok: false })
     expect(parseReport("express", { delivered: true, amount_collected: 9500.5, courier_fee: 1000 })).toMatchObject({ ok: false })
     expect(parseReport("express", { delivered: true, amount_collected: 9500 })).toMatchObject({ ok: false })
+  })
+  it("Ouaga déjà payée : montant absent accepté, enregistré à 0", () => {
+    expect(parseReport("express", { delivered: true, courier_fee: 1000 }, { amountToCollect: 0 })).toEqual({
+      ok: true,
+      values: { delivered: true, failure_reason: null, amount_collected: 0, courier_fee: 1000, transport_fee: null },
+    })
+    expect(parseReport("express", { delivered: true, courier_fee: 1000 }, { amountToCollect: 9500 })).toMatchObject({ ok: false })
   })
   it("Ouaga : un Frais Expédition envoyé est ignoré", () => {
     const r = parseReport("express", { delivered: true, amount_collected: 9500, courier_fee: 1000, transport_fee: 700 })

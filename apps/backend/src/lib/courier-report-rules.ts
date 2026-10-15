@@ -9,8 +9,10 @@ export type ReportValues =
 
 // Champs montrés au livreur : en expédition le client paie l'entreprise par
 // Mobile Money, le livreur ne connaît pas ce montant (il ne le voit jamais).
-export const reportFields = (type: DeliveryType) => ({
-  amount_collected: type === "express",
+// Commande Ouaga déjà payée (montant à encaisser 0) : rien à encaisser, le
+// champ n'est pas demandé et le montant est enregistré à 0.
+export const reportFields = (type: DeliveryType, amountToCollect?: number | null) => ({
+  amount_collected: type === "express" && amountToCollect !== 0,
   transport_fee: type === "expedition",
   courier_fee: true as const,
 })
@@ -22,7 +24,8 @@ export const wholeAmount = (value: unknown): number | null => {
 
 export const parseReport = (
   type: DeliveryType,
-  body: { delivered?: unknown; failure_reason?: unknown; amount_collected?: unknown; courier_fee?: unknown; transport_fee?: unknown }
+  body: { delivered?: unknown; failure_reason?: unknown; amount_collected?: unknown; courier_fee?: unknown; transport_fee?: unknown },
+  context: { amountToCollect?: number | null } = {}
 ): { ok: true; values: ReportValues } | { ok: false; message: string } => {
   if (typeof body.delivered !== "boolean") return { ok: false, message: "Indiquez si la commande a été livrée." }
   if (!body.delivered) {
@@ -33,10 +36,11 @@ export const parseReport = (
       values: { delivered: false, failure_reason: reason, amount_collected: null, courier_fee: null, transport_fee: null },
     }
   }
-  const fields = reportFields(type)
+  const fields = reportFields(type, context.amountToCollect)
   const courierFee = wholeAmount(body.courier_fee)
   if (courierFee === null) return { ok: false, message: "Course du livreur invalide : nombre entier en F CFA (0 si aucune)." }
-  let amountCollected: number | null = null
+  // Expédition : null (saisi par l'équipe à la validation). Ouaga déjà payée : 0.
+  let amountCollected: number | null = type === "express" ? 0 : null
   if (fields.amount_collected) {
     amountCollected = wholeAmount(body.amount_collected)
     if (amountCollected === null || amountCollected <= 0) {

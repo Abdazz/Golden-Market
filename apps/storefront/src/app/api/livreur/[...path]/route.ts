@@ -39,6 +39,9 @@ async function relay(
   }
 
   const token = req.cookies.get(COOKIE)?.value
+  // Connexion : adresse du client transmise au backend (limite d'essais par IP).
+  const forwardedFor =
+    req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip")
   let backend: Response
   try {
     backend = await fetch(`${BACKEND_URL}/courier/${route}`, {
@@ -47,6 +50,9 @@ async function relay(
         "content-type": "application/json",
         ...(token && route !== "login"
           ? { authorization: `Bearer ${token}` }
+          : {}),
+        ...(route === "login" && forwardedFor
+          ? { "x-forwarded-for": forwardedFor }
           : {}),
       },
       body: req.method === "POST" ? await req.text() : undefined,

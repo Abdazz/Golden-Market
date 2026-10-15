@@ -80,7 +80,11 @@ const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => voi
             {!report.delivered && <span>Motif : {report.failure_reason ?? "—"}</span>}
             {report.delivered && (
               <>
-                <span>Encaissé : {formatXof(report.amount_collected)}</span>
+                {/* Expédition : montant saisi par l'équipe à la validation seulement. */}
+                {(!isExpedition || line.state === "validated") && <span>Encaissé : {formatXof(report.amount_collected)}</span>}
+                {!isExpedition && report.amount_collected !== line.amount_to_collect && (
+                  <span className="txt-compact-xsmall text-ui-fg-error">Écart avec le montant à encaisser</span>
+                )}
                 <span>Course : {formatXof(report.courier_fee)}</span>
                 {isExpedition && <span>Frais Expédition : {formatXof(report.transport_fee)}</span>}
               </>
@@ -95,9 +99,9 @@ const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => voi
           <div className="flex flex-col gap-y-2">
             {isExpedition && report.delivered && (
               <input
-                className={`${inputClass} max-w-[140px]`}
+                className={`${inputClass} max-w-[260px]`}
                 inputMode="numeric"
-                placeholder="Montant encaissé"
+                placeholder="Montant encaissé (laisser vide si pas encore payé)"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
@@ -108,7 +112,9 @@ const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => voi
                   type="button"
                   className={primaryButton}
                   disabled={busy}
-                  onClick={() => call(`/admin/courier-reports/${report.id}/validate`, isExpedition && report.delivered ? { amount_collected: amount } : {})}
+                  onClick={() =>
+                    call(`/admin/courier-reports/${report.id}/validate`, isExpedition && amount.trim() ? { amount_collected: amount.trim() } : {})
+                  }
                 >
                   Valider
                 </button>
@@ -142,15 +148,24 @@ const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => voi
   )
 }
 
-const CourierLines = ({ courierId, onBack }: { courierId: string; onBack: () => void }) => {
+const CourierLines = ({ courierId, onBack, onChanged }: { courierId: string; onBack: () => void; onChanged?: () => void }) => {
   const [data, setData] = useState<{ courier: { name: string }; lines: ReportLine[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const load = useCallback(() => {
-    api<{ courier: { name: string }; lines: ReportLine[] }>(`/admin/courier-reports/${courierId}`)
-      .then(setData)
-      .catch((e) => setError((e as Error).message))
-  }, [courierId])
-  useEffect(load, [load])
+  // Renvoie la promesse : après une action, la ligne reste occupée jusqu'à la fin du rechargement.
+  const load = useCallback(
+    () =>
+      api<{ courier: { name: string }; lines: ReportLine[] }>(`/admin/courier-reports/${courierId}`)
+        .then(setData)
+        .catch((e) => setError((e as Error).message)),
+    [courierId]
+  )
+  useEffect(() => {
+    load()
+  }, [load])
+  const reload = useCallback(async () => {
+    await load()
+    onChanged?.()
+  }, [load, onChanged])
 
   return (
     <div className="flex flex-col gap-y-3">
@@ -174,7 +189,7 @@ const CourierLines = ({ courierId, onBack }: { courierId: string; onBack: () => 
             </thead>
             <tbody>
               {data.lines.map((line) => (
-                <ReportRow key={line.id} line={line} onChanged={load} />
+                <ReportRow key={line.id} line={line} onChanged={reload} />
               ))}
             </tbody>
           </table>
@@ -184,7 +199,11 @@ const CourierLines = ({ courierId, onBack }: { courierId: string; onBack: () => 
   )
 }
 
-export const CourierReportsTab = () => {
+// Nombre de rapports à valider (pastille de l'onglet), tous livreurs du jour.
+export const countReportsToValidate = () =>
+  api<{ couriers: DayCourier[] }>("/admin/courier-reports").then((r) => r.couriers.reduce((n, c) => n + c.summary.submitted, 0))
+
+export const CourierReportsTab = ({ onChanged }: { onChanged?: () => void }) => {
   const [couriers, setCouriers] = useState<DayCourier[] | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   useEffect(() => {
@@ -194,7 +213,7 @@ export const CourierReportsTab = () => {
       .catch(() => setCouriers([]))
   }, [selected])
 
-  if (selected) return <CourierLines courierId={selected} onBack={() => setSelected(null)} />
+  if (selected) return <CourierLines courierId={selected} onBack={() => setSelected(null)} onChanged={onChanged} />
   if (couriers === null) return <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>
   if (!couriers.length) {
     return <p className="txt-compact-small text-ui-fg-subtle">Aucune commande confiée à un livreur aujourd'hui.</p>
@@ -209,7 +228,9 @@ export const CourierReportsTab = () => {
           className={`${card} flex flex-col gap-y-1 px-4 py-3 text-left`}
         >
           <span className="txt-compact-small-plus text-ui-fg-base">{c.courier_name}</span>
-          <span className="txt-compact-small text-ui-fg-subtle">{c.summary.total} commande(s) aujourd'hui</span>
+          <span className="txt-compact-small text-ui-fg-subtle">
+            {c.summary.total} commande(s) aujourd'hui · {c.summary.total - c.summary.todo} rapport(s) reçu(s)
+          </span>
           <span className="txt-compact-small text-ui-fg-subtle">
             {c.summary.submitted} à valider · {c.summary.returned} renvoyé(s) · {c.summary.validated} validé(s) · {c.summary.failed} non livrée(s) · {c.summary.todo} sans rapport
           </span>

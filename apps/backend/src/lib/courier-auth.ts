@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto"
+import { createHmac, randomBytes, scrypt, timingSafeEqual } from "crypto"
+import { promisify } from "util"
 
 // Authentification du livreur (spec 2026-10-15 espace-livreur) : PIN à 4 chiffres
 // haché avec scrypt, jeton signé HMAC (id du livreur + expiration), sans session Medusa.
@@ -7,16 +8,20 @@ export const COURIER_TOKEN_TTL_SECONDS = 12 * 3600
 
 export const isValidPin = (pin: unknown): pin is string => typeof pin === "string" && /^\d{4}$/.test(pin)
 
-export const hashPin = (pin: string): string => {
+// Asynchrone (pool de threads) : un calcul scrypt ne bloque pas le serveur.
+// Format inchangé « sel:hash » en hexadécimal, paramètres scrypt par défaut.
+const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>
+
+export const hashPin = async (pin: string): Promise<string> => {
   const salt = randomBytes(16)
-  return `${salt.toString("hex")}:${scryptSync(pin, salt, 32).toString("hex")}`
+  return `${salt.toString("hex")}:${(await scryptAsync(pin, salt, 32)).toString("hex")}`
 }
 
-export const verifyPin = (pin: string, stored: string): boolean => {
+export const verifyPin = async (pin: string, stored: string): Promise<boolean> => {
   const [saltHex, hashHex] = stored.split(":")
   if (!saltHex || !hashHex) return false
   const expected = Buffer.from(hashHex, "hex")
-  const actual = scryptSync(pin, Buffer.from(saltHex, "hex"), expected.length || 32)
+  const actual = await scryptAsync(pin, Buffer.from(saltHex, "hex"), expected.length || 32)
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 

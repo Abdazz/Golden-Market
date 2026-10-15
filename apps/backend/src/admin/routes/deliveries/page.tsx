@@ -28,7 +28,7 @@ import type {
 import { Badge, card, inputClass, NoticeText, primaryButton, secondaryButton, useCouriers } from "../../components/delivery-ui"
 import type { Notice } from "../../components/delivery-ui"
 import { CourierStockTab } from "../../components/courier-stock-tab"
-import { CourierReportsTab } from "../../components/courier-reports-tab"
+import { countReportsToValidate, CourierReportsTab } from "../../components/courier-reports-tab"
 
 // Page "Livraisons" (spec 2026-09-28 livreurs-livraisons) : confier les
 // commandes, suivre la tournée d'un livreur et vérifier son versement du
@@ -853,6 +853,14 @@ const readTab = (): Tab => {
 
 const DeliveriesPage = () => {
   const [tab, setTab] = useState<Tab>(readTab)
+  // Pastille de l'onglet « Rapports livreurs » : rapports à valider du jour.
+  const [reportsToValidate, setReportsToValidate] = useState(0)
+  const refreshReportsCount = useCallback(() => {
+    countReportsToValidate()
+      .then(setReportsToValidate)
+      .catch(() => setReportsToValidate(0))
+  }, [])
+  useEffect(refreshReportsCount, [refreshReportsCount])
 
   const selectTab = (next: Tab) => {
     setTab(next)
@@ -886,13 +894,16 @@ const DeliveriesPage = () => {
             }`}
           >
             {t.label}
+            {t.id === "reports" && reportsToValidate > 0 && (
+              <span className="ml-2 rounded-full bg-ui-tag-orange-bg px-2 text-ui-tag-orange-text">{reportsToValidate}</span>
+            )}
           </button>
         ))}
       </div>
       {tab === "to-assign" && <ToAssignTab />}
       {tab === "tour" && <TourTab />}
       {tab === "unpaid" && <UnpaidTab />}
-      {tab === "reports" && <CourierReportsTab />}
+      {tab === "reports" && <CourierReportsTab onChanged={refreshReportsCount} />}
       {tab === "stock" && <CourierStockTab />}
       {tab === "couriers" && <CouriersTab />}
     </div>

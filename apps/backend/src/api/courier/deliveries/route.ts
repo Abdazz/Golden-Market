@@ -20,28 +20,31 @@ export async function GET(req: CourierRequest, res: MedusaResponse) {
   res.json({
     courier: { id: courier.id, name: courier.name },
     date,
-    deliveries: lines.filter((l) => l.state !== "canceled").map((l) => ({
-      id: l.id,
-      order_number: l.order_number,
-      customer_name: l.customer_name,
-      customer_phone: l.customer_phone,
-      place: l.place,
-      type: l.type,
-      items: l.items,
-      amount_to_collect: l.type === "express" ? l.amount_to_collect : null,
-      fields: reportFields(l.type),
-      state: l.state,
-      failure_reason: l.failure_reason,
-      report: l.report && {
-        delivered: l.report.delivered,
-        failure_reason: l.report.failure_reason,
-        // Expédition : le montant saisi par l'équipe n'est jamais montré au livreur.
-        amount_collected: reportFields(l.type).amount_collected ? l.report.amount_collected : null,
-        courier_fee: l.report.courier_fee,
-        transport_fee: l.report.transport_fee,
-        return_reason: l.report.return_reason,
-        status: l.report.status,
-      },
-    })),
+    deliveries: lines.filter((l) => l.state !== "canceled").map((l) => {
+      const fields = reportFields(l.type, l.amount_to_collect)
+      return {
+        id: l.id,
+        order_number: l.order_number,
+        customer_name: l.customer_name,
+        customer_phone: l.customer_phone,
+        place: l.place,
+        type: l.type,
+        items: l.items,
+        amount_to_collect: l.type === "express" ? l.amount_to_collect : null,
+        fields,
+        state: l.state,
+        failure_reason: l.failure_reason,
+        report: l.report && {
+          delivered: l.report.delivered,
+          failure_reason: l.report.failure_reason,
+          // Expédition : le montant saisi par l'équipe n'est jamais montré au livreur.
+          amount_collected: fields.amount_collected ? l.report.amount_collected : null,
+          courier_fee: l.report.courier_fee,
+          transport_fee: l.report.transport_fee,
+          return_reason: l.report.return_reason,
+          status: l.report.status,
+        },
+      }
+    }),
   })
 }

@@ -1,3 +1,4 @@
+import { scryptSync } from "crypto"
 import { hashPin, isValidPin, signCourierToken, verifyCourierToken, verifyPin } from "../courier-auth"
 
 describe("PIN", () => {
@@ -5,14 +6,20 @@ describe("PIN", () => {
     expect(isValidPin("1234")).toBe(true)
     for (const bad of ["123", "12345", "12a4", "", " 1234", 1234, null, undefined]) expect(isValidPin(bad)).toBe(false)
   })
-  it("haché (jamais en clair), vérifiable, sel différent à chaque fois", () => {
-    const a = hashPin("1234")
-    const b = hashPin("1234")
+  it("haché (jamais en clair), vérifiable, sel différent à chaque fois", async () => {
+    const a = await hashPin("1234")
+    const b = await hashPin("1234")
     expect(a).not.toContain("1234")
     expect(a).not.toEqual(b)
-    expect(verifyPin("1234", a)).toBe(true)
-    expect(verifyPin("1235", a)).toBe(false)
-    expect(verifyPin("1234", "n-importe-quoi")).toBe(false)
+    expect(await verifyPin("1234", a)).toBe(true)
+    expect(await verifyPin("1235", a)).toBe(false)
+    expect(await verifyPin("1234", "n-importe-quoi")).toBe(false)
+  })
+  it("un PIN haché avant le passage en asynchrone (scryptSync) se vérifie toujours", async () => {
+    const salt = Buffer.from("00112233445566778899aabbccddeeff", "hex")
+    const old = `${salt.toString("hex")}:${scryptSync("4321", salt, 32).toString("hex")}`
+    expect(await verifyPin("4321", old)).toBe(true)
+    expect(await verifyPin("4322", old)).toBe(false)
   })
 })
 

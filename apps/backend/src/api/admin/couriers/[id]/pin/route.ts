@@ -8,6 +8,6 @@ import type { SetPinSchema } from "../../../deliveries/middlewares"
 export async function POST(req: AuthenticatedMedusaRequest<SetPinSchema>, res: MedusaResponse) {
   const svc = req.scope.resolve(DELIVERY_MODULE) as DeliveryModuleService
   const courier = await svc.retrieveCourier(req.params.id)
-  await svc.updateCouriers({ id: courier.id, pin_hash: hashPin(req.validatedBody.pin) })
+  await svc.updateCouriers({ id: courier.id, pin_hash: await hashPin(req.validatedBody.pin) })
   res.json({ ok: true })
 }
