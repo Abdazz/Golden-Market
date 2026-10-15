@@ -6,7 +6,7 @@
 export type DeliveryStatus = "assigned" | "delivered" | "failed" | "shipped" | "canceled"
 export type DeliveryType = "express" | "expedition"
 
-export type Courier = { id: string; name: string; phone: string; active: boolean; notes: string | null }
+export type Courier = { id: string; name: string; phone: string; active: boolean; notes: string | null; has_pin?: boolean }
 
 export type TourLine = {
   id: string
@@ -38,6 +38,21 @@ export type TourLine = {
   whatsapp_error: string | null
   sync_warning: string | null
 }
+
+export type ReportState = "todo" | "submitted" | "returned" | "validated" | "failed" | "canceled"
+export type CourierReport = {
+  id: string
+  status: "submitted" | "returned" | "validated" | "applied"
+  delivered: boolean
+  failure_reason: string | null
+  amount_collected: number | null
+  courier_fee: number | null
+  transport_fee: number | null
+  return_reason: string | null
+  submitted_at: string
+}
+export type ReportLine = TourLine & { state: ReportState; report: CourierReport | null }
+export type CourierDaySummary = { total: number; todo: number; submitted: number; returned: number; validated: number; failed: number }
 
 export type Settlement = {
   collected: number

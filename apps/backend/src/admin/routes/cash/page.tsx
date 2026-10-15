@@ -62,7 +62,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   sale: "Vente",
   refund: "Remboursement",
   courier_fee: "Frais livreur",
-  transport_fee: "Frais compagnie",
+  transport_fee: "Frais Expédition",
   purchase: "Achat de marchandises",
   advertising: "Publicité",
   opening_balance: "Solde initial",

@@ -28,6 +28,7 @@ import type {
 import { Badge, card, inputClass, NoticeText, primaryButton, secondaryButton, useCouriers } from "../../components/delivery-ui"
 import type { Notice } from "../../components/delivery-ui"
 import { CourierStockTab } from "../../components/courier-stock-tab"
+import { CourierReportsTab } from "../../components/courier-reports-tab"
 
 // Page "Livraisons" (spec 2026-09-28 livreurs-livraisons) : confier les
 // commandes, suivre la tournée d'un livreur et vérifier son versement du
@@ -36,12 +37,13 @@ import { CourierStockTab } from "../../components/courier-stock-tab"
 // Pas de composant @medusajs/ui (conflit de types React 18/19, voir
 // widgets/analytics-summary.tsx) : HTML natif + classes utilitaires Medusa.
 
-type Tab = "to-assign" | "tour" | "unpaid" | "stock" | "couriers"
+type Tab = "to-assign" | "tour" | "unpaid" | "reports" | "stock" | "couriers"
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "to-assign", label: "À confier" },
   { id: "tour", label: "Tournée du jour" },
   { id: "unpaid", label: "Expéditions à faire payer" },
+  { id: "reports", label: "Rapports livreurs" },
   { id: "stock", label: "Stock livreurs" },
   { id: "couriers", label: "Livreurs" },
 ]
@@ -357,7 +359,7 @@ const LineAction = ({
         value={courierFee}
         onChange={setCourierFee}
       />
-      {kind === "shipped" && <FeeInput label="Frais de la compagnie" value={transportFee} onChange={setTransportFee} />}
+      {kind === "shipped" && <FeeInput label="Frais Expédition" value={transportFee} onChange={setTransportFee} />}
       {error && <p className="txt-compact-small text-ui-fg-error">{error}</p>}
       <div className="flex gap-x-2">
         <button type="button" className={primaryButton} disabled={busy} onClick={submit}>
@@ -431,7 +433,7 @@ const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boo
         <span>À encaisser : {formatXof(line.status === "canceled" ? 0 : line.amount_to_collect)}</span>
         {line.amount_collected !== null && <span>Encaissé : {formatXof(line.amount_collected)}</span>}
         {line.courier_fee !== null && <span>Frais livreur : {formatXof(line.courier_fee)}</span>}
-        {line.transport_fee !== null && <span>Frais compagnie : {formatXof(line.transport_fee)}</span>}
+        {line.transport_fee !== null && <span>Frais Expédition : {formatXof(line.transport_fee)}</span>}
       </div>
       {line.amount_collected !== null && line.amount_collected !== line.amount_to_collect && (
         <span className="txt-compact-small text-ui-fg-error">
@@ -604,7 +606,7 @@ const TourTab = () => {
                 <span>Terminées : {s.completedCount}</span>
                 <span>Encaissé : {formatXof(s.collected)}</span>
                 <span>Frais livreur : {formatXof(s.courierFees)}</span>
-                <span>Frais compagnie : {formatXof(s.transportFees)}</span>
+                <span>Frais Expédition : {formatXof(s.transportFees)}</span>
               </div>
               {s.toRemit >= 0 ? (
                 <span className="txt-xlarge-plus text-ui-fg-base">À reverser : {formatXof(s.toRemit)}</span>
@@ -737,6 +739,53 @@ const CourierForm = ({ courier, onSaved, onCancel }: { courier?: Courier; onSave
   )
 }
 
+const PinControl = ({ courier, onSaved }: { courier: Courier; onSaved: () => void }) => {
+  const [open, setOpen] = useState(false)
+  const [pin, setPin] = useState("")
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async () => {
+    setError(null)
+    try {
+      await api(`/admin/couriers/${courier.id}/pin`, { method: "POST", body: { pin } })
+      setOpen(false)
+      setPin("")
+      onSaved()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {courier.has_pin && <span className="txt-compact-small text-ui-fg-subtle">PIN défini</span>}
+      {open ? (
+        <>
+          <input
+            className={`${inputClass} max-w-[100px]`}
+            inputMode="numeric"
+            maxLength={4}
+            placeholder="4 chiffres"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+          />
+          <button type="button" className={primaryButton} onClick={save}>
+            Enregistrer
+          </button>
+          <button type="button" className={secondaryButton} onClick={() => { setOpen(false); setError(null) }}>
+            Annuler
+          </button>
+        </>
+      ) : (
+        <button type="button" className={secondaryButton} onClick={() => setOpen(true)}>
+          {courier.has_pin ? "Changer le PIN" : "Créer le PIN"}
+        </button>
+      )}
+      {error && <span className="txt-compact-small text-ui-fg-error">{error}</span>}
+    </div>
+  )
+}
+
 const CouriersTab = () => {
   const { couriers, reload } = useCouriers()
   const [editing, setEditing] = useState<string | null>(null)
@@ -787,6 +836,7 @@ const CouriersTab = () => {
                 </div>
               </div>
             )}
+            {editing !== c.id && <PinControl courier={c} onSaved={reload} />}
           </div>
         ))
       )}
@@ -842,6 +892,7 @@ const DeliveriesPage = () => {
       {tab === "to-assign" && <ToAssignTab />}
       {tab === "tour" && <TourTab />}
       {tab === "unpaid" && <UnpaidTab />}
+      {tab === "reports" && <CourierReportsTab />}
       {tab === "stock" && <CourierStockTab />}
       {tab === "couriers" && <CouriersTab />}
     </div>

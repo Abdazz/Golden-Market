@@ -364,7 +364,7 @@ export const parsePaymentForm = (body: {
   if (courierFee === null) return { ok: false, message: "Course du livreur invalide : nombre entier en F CFA (0 si aucune)." }
   const transportFee = optionalFee(body.transport_fee)
   if (transportFee === null) {
-    return { ok: false, message: "Frais de la compagnie invalides : nombre entier en F CFA (0 si aucun)." }
+    return { ok: false, message: "Frais Expédition invalides : nombre entier en F CFA (0 si aucun)." }
   }
   return { ok: true, amount, courier_fee: courierFee, transport_fee: transportFee }
 }
@@ -387,7 +387,7 @@ export const finalPaymentEntries = (
   const entries = [entry("in", input.amount, "sale", `Vente${input.orderNumber ? ` commande ${input.orderNumber}` : ""}`, refs.sale)]
   if (input.courier_fee > 0) entries.push(entry("out", input.courier_fee, "courier_fee", `Course du livreur${suffix}`, refs.courierFee))
   if (input.transport_fee > 0) {
-    entries.push(entry("out", input.transport_fee, "transport_fee", `Frais compagnie de transport${suffix}`, refs.transportFee))
+    entries.push(entry("out", input.transport_fee, "transport_fee", `Frais Expédition${suffix}`, refs.transportFee))
   }
   return entries
 }

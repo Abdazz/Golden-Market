@@ -154,7 +154,7 @@ describe("formulaire Marquer comme payée", () => {
     expect(entries).toEqual([
       expect.objectContaining({ direction: "in", category: "sale", amount: 11000, reference: "order-final:o1:sale", order_id: "o1" }),
       expect.objectContaining({ direction: "out", category: "courier_fee", amount: 1000, reference: "order-final:o1:courier_fee", label: "Course du livreur - commande 20261011001" }),
-      expect.objectContaining({ direction: "out", category: "transport_fee", amount: 2000, reference: "order-final:o1:transport_fee", label: "Frais compagnie de transport - commande 20261011001" }),
+      expect.objectContaining({ direction: "out", category: "transport_fee", amount: 2000, reference: "order-final:o1:transport_fee", label: "Frais Expédition - commande 20261011001" }),
     ])
   })
 
