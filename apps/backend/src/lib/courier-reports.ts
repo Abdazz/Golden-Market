@@ -29,9 +29,11 @@ export type ReportLine = ReturnType<typeof toTourLine> & { state: LineState; rep
 const svcOf = (scope: any) => scope.resolve(DELIVERY_MODULE) as DeliveryModuleService
 
 // Verrou par clé : deux validations (ou une validation et un renvoi) du même
-// rapport ne s'exécutent jamais en même temps.
+// rapport ne s'exécutent jamais en même temps. Le délai (30 s) sert aussi
+// d'expiration du verrou dans le fournisseur en mémoire : la validation (caisse,
+// paiement, clôture, synchronisation WhatsApp/Meta) peut dépasser 10 s.
 const withLock = <T>(scope: any, key: string, job: () => Promise<T>): Promise<T> =>
-  scope.resolve(Modules.LOCKING).execute(key, job, { timeout: 10 }) as Promise<T>
+  scope.resolve(Modules.LOCKING).execute(key, job, { timeout: 30 }) as Promise<T>
 
 // Journée du livreur déjà validée : plus aucune livraison ne peut être terminée
 // (même règle que prepareCompletionStep).
