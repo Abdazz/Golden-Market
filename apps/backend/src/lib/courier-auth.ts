@@ -25,6 +25,24 @@ export const verifyPin = async (pin: string, stored: string): Promise<boolean> =
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
+// Adresse du client pour la limite d'essais par IP de la connexion. Secret de
+// relais défini (production) : seule une requête du relais du storefront
+// (en-tête x-courier-relay-secret identique) est acceptée, et l'adresse vient
+// de x-courier-client-ip posé par ce relais. Sans secret (dev local) : adresse
+// de connexion (socket). Jamais x-forwarded-for, déclaratif côté client.
+export const resolveClientIp = (
+  headers: Record<string, string | string[] | undefined>,
+  reqIp: string | undefined,
+  secret: string | undefined
+): { ok: true; ip: string } | { ok: false } => {
+  if (!secret) return { ok: true, ip: reqIp || "unknown" }
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ""
+  const given = Buffer.from(one(headers["x-courier-relay-secret"]))
+  const expected = Buffer.from(secret)
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return { ok: false }
+  return { ok: true, ip: one(headers["x-courier-client-ip"]).trim() || reqIp || "unknown" }
+}
+
 const sign = (payload: string, secret: string) => createHmac("sha256", secret).update(payload).digest("base64url")
 
 export const signCourierToken = (courierId: string, secret: string, now: number = Date.now()): string => {

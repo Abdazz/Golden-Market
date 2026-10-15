@@ -1,5 +1,5 @@
 import { scryptSync } from "crypto"
-import { hashPin, isValidPin, signCourierToken, verifyCourierToken, verifyPin } from "../courier-auth"
+import { hashPin, isValidPin, resolveClientIp, signCourierToken, verifyCourierToken, verifyPin } from "../courier-auth"
 
 describe("PIN", () => {
   it("4 chiffres exactement", () => {
@@ -51,5 +51,22 @@ describe("jeton livreur", () => {
   })
   it("token qui n'a pas exactement deux parties : null", () => {
     expect(verifyCourierToken("a.b.c", secret, now)).toBeNull()
+  })
+})
+
+describe("resolveClientIp", () => {
+  const relay = { "x-courier-relay-secret": "s3cret", "x-courier-client-ip": "41.1.2.3", "x-forwarded-for": "6.6.6.6" }
+  it("sans secret : adresse de connexion, en-têtes transmis ignorés", () => {
+    expect(resolveClientIp(relay, "10.0.0.1", undefined)).toEqual({ ok: true, ip: "10.0.0.1" })
+    expect(resolveClientIp({}, undefined, "")).toEqual({ ok: true, ip: "unknown" })
+  })
+  it("secret défini : en-tête absent ou faux refusé", () => {
+    expect(resolveClientIp({ "x-courier-client-ip": "41.1.2.3" }, "10.0.0.1", "s3cret")).toEqual({ ok: false })
+    expect(resolveClientIp({ ...relay, "x-courier-relay-secret": "s3creT" }, "10.0.0.1", "s3cret")).toEqual({ ok: false })
+    expect(resolveClientIp({ ...relay, "x-courier-relay-secret": "s3cret-long" }, "10.0.0.1", "s3cret")).toEqual({ ok: false })
+  })
+  it("secret défini et bon : adresse posée par le relais, sinon adresse de connexion", () => {
+    expect(resolveClientIp(relay, "10.0.0.1", "s3cret")).toEqual({ ok: true, ip: "41.1.2.3" })
+    expect(resolveClientIp({ "x-courier-relay-secret": "s3cret" }, "10.0.0.1", "s3cret")).toEqual({ ok: true, ip: "10.0.0.1" })
   })
 })

@@ -21,7 +21,7 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 détail technique dans `AGENTS.md` (« Espace livreur (2026-10-15) »).
 - Espace livreur : page `/livreur` du storefront (mobile-first, relais `/api/livreur/*`, cookie httpOnly
   `_gm_courier`), routes backend `/courier/*` avec jeton HMAC (`COOKIE_SECRET`, 12 h, livreur désactivé
-  refusé), PIN à 4 chiffres haché scrypt créé dans l'onglet « Livreurs », limiteur 5 échecs / 15 min par numéro (verrou par numéro) et 20 essais / 15 min par IP. Rapport
+  refusé), PIN à 4 chiffres haché scrypt créé dans l'onglet « Livreurs », limiteur 5 échecs / 15 min par numéro (verrou par numéro) et 20 essais / 15 min par IP (IP transmise par le relais, authentifié par `COURIER_RELAY_SECRET`). Rapport
   `delivery_report` (`submitted` / `returned` / `validated` / `applied`) ; champs selon Ouaga (montant encaissé +
   course) ou expédition (course + « Frais Expédition », montant à encaisser jamais montré). Onglet admin
   « Rapports livreurs » : valider ou renvoyer pour correction (expédition : montant saisi = payée, vide = pas encore payée ;
@@ -38,7 +38,7 @@ détail technique dans `AGENTS.md` (« Espace livreur (2026-10-15) »).
   le patch du dashboard (`#golden-market-order-top`, `scripts/patch-dashboard.mjs` ; après un changement,
   vider `apps/backend/node_modules/.vite` et recharger en forçant le cache).
 - Piège connu : verrous en mémoire, limite par IP non sérialisée (voir `AGENTS.md`).
-- **À faire en production avant usage** : `COOKIE_SECRET` présent dans les `.env` du VPS ;
+- **À faire en production avant usage** : `COOKIE_SECRET` présent dans les `.env` du VPS ; `COURIER_RELAY_SECRET` (longue chaîne aléatoire, même valeur) dans les `.env` backend ET storefront du VPS ;
   `NEXT_PUBLIC_MEDUSA_BACKEND_URL` du storefront de production pointant sur le backend ; migration
   `db:migrate` (table `delivery_report`, colonne `courier.pin_hash`) ; créer les PIN des livreurs ; tester
   sur un vrai téléphone sans valider de rapport réel.

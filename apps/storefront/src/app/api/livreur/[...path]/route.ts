@@ -39,9 +39,16 @@ async function relay(
   }
 
   const token = req.cookies.get(COOKIE)?.value
-  // Connexion : adresse du client transmise au backend (limite d'essais par IP).
-  const forwardedFor =
-    req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip")
+  // Connexion : adresse du client pour la limite d'essais par IP du backend =
+  // dernière valeur de x-forwarded-for (ajoutée par le proxy le plus proche,
+  // les précédentes sont déclaratives), sinon x-real-ip. Le secret de relais
+  // (COURIER_RELAY_SECRET, même valeur côté backend) prouve que la requête
+  // vient d'ici.
+  const clientIp =
+    (req.headers.get("x-forwarded-for") ?? "").split(",").pop()?.trim() ||
+    req.headers.get("x-real-ip")?.trim() ||
+    ""
+  const relaySecret = process.env.COURIER_RELAY_SECRET
   let backend: Response
   try {
     backend = await fetch(`${BACKEND_URL}/courier/${route}`, {
@@ -51,8 +58,11 @@ async function relay(
         ...(token && route !== "login"
           ? { authorization: `Bearer ${token}` }
           : {}),
-        ...(route === "login" && forwardedFor
-          ? { "x-forwarded-for": forwardedFor }
+        ...(route === "login" && relaySecret
+          ? { "x-courier-relay-secret": relaySecret }
+          : {}),
+        ...(route === "login" && clientIp
+          ? { "x-courier-client-ip": clientIp }
           : {}),
       },
       body: req.method === "POST" ? await req.text() : undefined,

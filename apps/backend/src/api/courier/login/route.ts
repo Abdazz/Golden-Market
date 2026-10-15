@@ -2,7 +2,7 @@ import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { DELIVERY_MODULE } from "../../../modules/delivery"
 import type DeliveryModuleService from "../../../modules/delivery/service"
-import { hashPin, isValidPin, signCourierToken, verifyPin } from "../../../lib/courier-auth"
+import { hashPin, isValidPin, resolveClientIp, signCourierToken, verifyPin } from "../../../lib/courier-auth"
 import { normalizePhone } from "../../../lib/normalize-phone"
 import { checkRateLimit } from "../../middlewares/rate-limiter"
 
@@ -18,19 +18,24 @@ const tooMany = (retryAfterSeconds: number) => ({
 let dummyHash: Promise<string> | undefined
 const dummy = () => (dummyHash ??= hashPin("0000"))
 
-// Adresse du client : relayée par le storefront (x-forwarded-for, première valeur).
-const clientIp = (req: MedusaRequest) =>
-  String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() || req.ip || "unknown"
-
 // Connexion du livreur : téléphone + PIN, même réponse que le numéro existe ou
-// non. Deux limites sur 15 minutes : 20 essais par adresse IP (tous comptés),
+// non. Avec COURIER_RELAY_SECRET (production), seul le relais du storefront est
+// accepté (resolveClientIp). Deux limites sur 15 minutes : 20 essais par
+// adresse IP (tous comptés),
 // 5 échecs par téléphone. Les essais d'un même téléphone passent un par un
 // (verrou) : la lecture et l'écriture du compteur ne peuvent pas être doublées
 // par des essais simultanés.
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const body = (req.body ?? {}) as { phone?: unknown; pin?: unknown }
+  // Adresse de connexion réelle : req.ip suit x-forwarded-for (Medusa règle
+  // « trust proxy » à 1), donc falsifiable par un appel direct.
+  const client = resolveClientIp(req.headers, req.socket?.remoteAddress, process.env.COURIER_RELAY_SECRET)
+  if (!client.ok) {
+    res.status(401).json(DENIED)
+    return
+  }
   const cache = req.scope.resolve(Modules.CACHE)
-  const ipLimit = await checkRateLimit(cache, `rate-limit:courier-login:ip:${clientIp(req)}`, {
+  const ipLimit = await checkRateLimit(cache, `rate-limit:courier-login:ip:${client.ip}`, {
     maxRequests: 20,
     windowSeconds: WINDOW_SECONDS,
   })
