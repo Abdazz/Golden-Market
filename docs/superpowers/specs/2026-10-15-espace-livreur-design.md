@@ -59,8 +59,18 @@ commande. Première version : une seule page web ; une application livreur viend
 - **Validation d'un rapport « Oui »** : réutilise le code existant de fin de livraison et de paiement
   (`finishDelivery`, `markOrderDelivered`, mark-paid) avec les valeurs du rapport ; stock livreur, caisse
   (frais) et commande se mettent à jour comme aujourd'hui. Un rapport validé ne peut plus changer.
-- **Écran admin** : onglet « Rapports livreurs » dans `/app/deliveries` (par livreur, rapports « Oui » en attente, un par
-  ligne, boutons « Valider » et « Renvoyer pour correction », compteur dans l'onglet), champ PIN dans la fiche livreur.
+- **Écran admin** : onglet « Rapports livreurs » dans `/app/deliveries`, en deux niveaux.
+  1. **Liste des livreurs à qui des commandes ont été confiées aujourd'hui** (tournée du jour), avec pour
+     chacun : nombre de commandes, rapports reçus, rapports à valider, renvoyés, échecs. Compteur global
+     des rapports à valider dans l'onglet.
+  2. **Clic sur un livreur** : tableau de ses commandes du jour, avec toutes les informations utiles :
+     numéro de commande, client et téléphone, type (livraison Ouaga / expédition), ville ou adresse,
+     compagnie, produits, montant à encaisser, état du rapport (pas encore de rapport / à valider /
+     renvoyé / validé / non livrée), et pour un rapport : livrée oui ou non, motif, montant encaissé,
+     course, Frais Expédition, heure d'envoi. Sur chaque ligne « à valider » : boutons **Valider** et
+     **Renvoyer pour correction** (motif obligatoire) ; le Montant encaissé d'une expédition se saisit
+     dans la ligne à la validation. Les autres champs sont en lecture seule.
+  Champ PIN dans la fiche livreur (création / réinitialisation).
 
 ## Hors périmètre
 
