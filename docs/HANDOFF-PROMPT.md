@@ -12,7 +12,8 @@ dans le code, sans trailer Co-Authored-By.
 
 **À lire d'abord** : `AGENTS.md` (structure, commandes, conventions, pièges), `HANDOFF.md`
 (section « Dernière mise à jour »), puis ta mémoire (`MEMORY.md`). Sur un autre ordinateur, la
-mémoire n'existe pas encore : l'installer d'abord depuis `docs/claude-memory/` (voir son `README.md`). Le projet n8n est à côté :
+mémoire n'est pas encore reliée : créer d'abord le lien vers `docs/claude-memory/` (voir son
+`README.md`) ; ensuite git synchronise la mémoire (commiter à chaque lot, `git pull` en début de session). Le projet n8n est à côté :
 `../n8n_automation/` (`schema.sql`, `guide-golden-market-agent.md`, `AGENTS.md`).
 
 ## État (tout est en production)

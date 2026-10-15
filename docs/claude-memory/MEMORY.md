@@ -9,4 +9,4 @@
 - [Tests navigateur via l'extension Chrome](tests-navigateur-extension-chrome.md) — préférer Claude in Chrome (sessions du propriétaire) ; en production, regarder sans valider (2026-10-07)
 - [Livreurs reconnus par l'agent](agent-livreurs-reconnus.md) — Identify Courier + report_courier_receipt, Copier le message livreur, variante dans la confirmation (2026-10-10) ; pièges de test n8n (média simulé, corps des modèles Meta)
 - [Prod après staging](deploiement-prod-apres-staging.md) — chaque push staging enchaîne le déploiement production sans demander (2026-10-12)
-- [Copie de la mémoire dans le dépôt](copie-memoire-dans-depot.md) — docs/claude-memory/ à resynchroniser, HANDOFF à jour à chaque lot (2026-10-15)
+- [Mémoire synchronisée par git](copie-memoire-dans-depot.md) — dossier mémoire = lien vers docs/claude-memory/, commiter à chaque lot, git pull en début de session (2026-10-15)
