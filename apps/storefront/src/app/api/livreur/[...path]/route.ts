@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server"
 // Relais de la page /livreur vers les routes backend /courier/* (spec
 // 2026-10-15 espace-livreur). Le jeton livreur reste dans un cookie httpOnly du
 // site : le JavaScript de la page ne le voit jamais.
-const BACKEND_URL = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
+// En production le relais joint le backend par le réseau docker (COURIER_BACKEND_URL) :
+// /courier n'est pas exposé par Apache. En local, l'adresse publique du backend suffit.
+const BACKEND_URL = process.env.COURIER_BACKEND_URL ?? process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
 const COOKIE = "_gm_courier"
 const MAX_AGE = 12 * 3600
 

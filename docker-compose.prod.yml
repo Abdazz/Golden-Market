@@ -103,6 +103,9 @@ services:
       # Relais /api/livreur/* : doit être identique à COURIER_RELAY_SECRET côté
       # apps/backend/.env (espace livreur, spec 2026-10-15).
       COURIER_RELAY_SECRET: ${COURIER_RELAY_SECRET}
+      # Le relais appelle /courier/* par le réseau docker (jamais par le domaine public :
+      # Apache ne proxyfie pas /courier).
+      COURIER_BACKEND_URL: http://backend:9000
 
   # Statistiques de visite (Matomo self-hosted) - production uniquement, voir
   # docs/superpowers/specs/2026-09-02-statistiques-visite-design.md. Gaté par
