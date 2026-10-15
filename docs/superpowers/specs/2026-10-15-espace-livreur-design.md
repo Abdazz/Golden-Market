@@ -18,43 +18,53 @@ commande. Première version : une seule page web ; une application livreur viend
 - **Expédition (hors Ouagadougou)** : le client paie par Mobile Money à l'entreprise. Le livreur **ne voit
   pas** « Montant encaissé » (il ne le connaît pas) ; il renseigne « Course du livreur » et « Frais
   Expédition ».
-- Le rapport n'écrit rien dans la caisse ni dans la commande : l'équipe le valide ensuite, commande par
-  commande. À la validation, tout est figé sauf « Montant encaissé » d'une expédition, saisi par l'équipe.
+- **Rapport « Oui » (livrée)** : n'écrit rien dans la caisse ni dans la commande ; l'équipe le valide
+  ensuite, commande par commande. À la validation, tout est figé sauf « Montant encaissé » d'une
+  expédition, saisi par l'équipe. Elle peut aussi **renvoyer le rapport au livreur pour correction avec un
+  motif** : le livreur voit le motif, corrige et renvoie.
+- **Rapport « Non » (non livrée)** : **aucune validation**. Dès l'envoi, l'échec est enregistré avec le
+  motif du livreur. La validation ne porte que sur les livraisons réussies.
 
 ## Hypothèses à valider (prises par défaut)
 
-1. Page servie par le backend (`/livreur`, HTML + JavaScript simple), sans passer par le site client ni par
-   l'admin Medusa : un livreur n'a jamais accès à l'admin.
+1. Page servie par le **storefront** (Next.js, route `/livreur`), conçue **mobile-first** avec la charte
+   graphique Golden Market (tous les livreurs utilisent un téléphone ; contrôle à 360 et 390 px d'abord).
+   Le navigateur ne parle qu'au storefront : ses route handlers `/api/livreur/*` relaient vers les routes
+   backend `/courier/*` et gardent le jeton dans un cookie `httpOnly` du site. Un livreur n'a jamais
+   accès à l'admin Medusa.
 2. PIN à 4 chiffres, stocké haché ; 5 essais ratés par téléphone -> blocage 15 minutes (même limiteur que
    les routes de vérification existantes). L'équipe peut le réinitialiser depuis la fiche du livreur.
-3. Un rapport par livraison ; le livreur peut le modifier tant qu'il n'est pas validé.
+3. Un rapport par livraison ; le livreur peut modifier un rapport « Oui » tant qu'il n'est pas validé, et
+   corriger un rapport renvoyé. Un rapport « Non » est définitif (la commande revient à confier).
 4. Le livreur ne voit que ses livraisons en cours et ses rapports non validés (pas le téléphone ni
    l'adresse d'autres livreurs, pas de montants de caisse).
 
 ## Architecture
 
 - **Modèle** : table `delivery_report` dans le module `delivery` (livraison unique, livreur, `status`
-  `submitted` / `validated`, `delivered` (oui / non), `failure_reason` (si non), `amount_collected` nullable, `courier_fee`, `transport_fee`,
+  `submitted` / `returned` (renvoyé pour correction, avec `return_reason`) / `validated` / `applied`
+  (rapport « Non », appliqué sans validation), `delivered` (oui / non), `failure_reason` (si non), `amount_collected` nullable, `courier_fee`, `transport_fee`,
   `submitted_at`, `validated_at`). Colonne `pin_hash` ajoutée à `courier`.
 - **Authentification livreur** : routes `/courier/login` (téléphone + PIN) et `/courier/logout` ; jeton
   signé (HMAC, `COOKIE_SECRET`), cookie `httpOnly`, 12 h. Middleware dédié sur `/courier/*` : une session
   livreur ne donne accès à rien d'autre. Écritures par workflows, règles pures testées
   (`src/lib/courier-report-rules.ts` : champs visibles et obligatoires selon le type).
-- **Routes livreur** : `GET /courier/deliveries` (ses livraisons en cours), `POST /courier/deliveries/:id/report`.
+- **Routes livreur** (jeton livreur, appelées par le storefront) : `GET /courier/deliveries` (ses livraisons en cours), `POST /courier/deliveries/:id/report`.
 - **Routes admin** : `GET /admin/courier-reports` (rapports à valider, groupés par livreur),
   `POST /admin/courier-reports/:id/validate` (montant encaissé seulement pour une expédition),
+  `POST /admin/courier-reports/:id/return` (motif obligatoire),
   `POST /admin/couriers/:id/pin`.
-- **Validation** : un rapport « Oui » suit le chemin ci-dessous ; un rapport « Non » enregistre un échec
-  de livraison avec le motif du livreur (même écriture que le bouton « Échec » existant : la commande
-  redevient à confier, aucune écriture de caisse). Réutilise le code existant de fin de livraison et de paiement
+- **Rapport « Non »** : à l'envoi, même écriture que le bouton « Échec » existant (la commande redevient à
+  confier, aucune écriture de caisse), statut `applied`.
+- **Validation d'un rapport « Oui »** : réutilise le code existant de fin de livraison et de paiement
   (`finishDelivery`, `markOrderDelivered`, mark-paid) avec les valeurs du rapport ; stock livreur, caisse
   (frais) et commande se mettent à jour comme aujourd'hui. Un rapport validé ne peut plus changer.
-- **Écran admin** : onglet « Rapports livreurs » dans `/app/deliveries` (par livreur, un rapport par
-  ligne, bouton « Valider », compteur dans l'onglet), champ PIN dans la fiche livreur.
+- **Écran admin** : onglet « Rapports livreurs » dans `/app/deliveries` (par livreur, rapports « Oui » en attente, un par
+  ligne, boutons « Valider » et « Renvoyer pour correction », compteur dans l'onglet), champ PIN dans la fiche livreur.
 
 ## Hors périmètre
 
-Application mobile, géolocalisation, notifications push, preuve de livraison par photo, rapport groupé
+Application mobile native, géolocalisation, notifications push, preuve de livraison par photo, rapport groupé
 « fin de journée » en un seul envoi (le livreur envoie un rapport par commande).
 
 ## Tests
