@@ -16,6 +16,52 @@ Statuts possibles : `à faire` · `en cours` · `bloqué` · `fait`.
 
 ## Dernière mise à jour
 
+2026-10-12 - **Commandes modifiables, caisse en colonnes, « Livrée » et « Marquer payée » séparés, menu
+réordonné** (demandes rapides du propriétaire, tout en production, dernier commit `676150b`).
+- « Modifier la commande » (widget `order-edit-button.tsx`, page `phone-orders/new?order_id=`, route
+  `api/admin/phone-orders/[order_id]/edit`, `lib/order-edit.ts`) : mêmes champs que « Nouvelle
+  commande », tant que la commande n'est ni payée, ni livrée / expédiée, ni annulée. Passe par l'order
+  edit de Medusa (articles ; frais : retrait de l'ancien mode de livraison + ajout au nouveau montant),
+  puis met à jour la livraison en cours (type, adresse, montant à encaisser).
+- Caisse (`admin/routes/cash/page.tsx`, `lib/cashbook-rules.ts`) : colonnes Entrée / Sortie / Solde, une
+  ligne par commande (`rowsByOrder`), périodes jour / semaine / mois / année (`periodRange`,
+  `summarizeRange`), tableau du chiffre d'affaires qui suit la période (`?period=` sur l'historique).
+- Sessions admin dans Redis (`projectConfig.redisUrl` de `medusa-config.ts`) : plus de déconnexion à
+  chaque déploiement ; session expirée -> retour automatique à la connexion (`admin/lib/session-expiry.ts`,
+  installé depuis `admin/i18n/index.ts`).
+- « Livrée » = simple confirmation Oui / Non, sans formulaire : tournée du jour (Ouaga ET expéditions,
+  « Déposée à la gare » renommé « Livrée ») et bouton « Marquer livrée » de l'encadré Livraison de la fiche
+  commande (`POST /admin/order-payments/:id/deliver`, `markOrderDelivered`, `lib/delivery-completion.ts`
+  `finishDelivery`). `unpaid-expeditions` accepte `shipped` et `delivered` : une expédition livrée non
+  payée reste dans « Expéditions à faire payer ».
+- « Marquer comme payée » (bouton natif « Mark as paid » patché -> `widgets/order-mark-paid.tsx`, ou
+  `?mark_paid=1`) : montant encaissé, course du livreur (1 000 F par défaut), frais de la compagnie
+  (expédition seulement, pré-remplis avec les frais d'expédition payés par le client), case « Livrée ? »
+  (cochée par défaut pour Ouaga). Payée après livraison : montant et course reportés sur la livraison ;
+  payée avant : la vente déjà inscrite est reprise.
+- Menu latéral : Tableau de bord, Orders, **Livraisons, Caisse**, puis le reste
+  (`scripts/patch-dashboard.mjs`, listes `PINNED_FIRST` / `PINNED_AFTER_ORDERS`).
+- Méthode : chaque push sur `staging` enchaîne désormais le déploiement production (`git push origin
+  origin/staging:main`) sans demander (consigne du propriétaire du 2026-10-12).
+
+2026-10-11 - **Envois WhatsApp automatiques suspendus, liste des commandes enrichie, stock livreurs par
+carte, formulaire « Marquer comme payée »** (en production).
+- Suspendus à la demande du propriétaire : confirmation WhatsApp des commandes saisies dans l'admin et
+  message au livreur à l'attribution (l'équipe utilise « Copier le message livreur » ; bouton « Envoyer le
+  message » retiré). Réactivables par `PHONE_ORDER_CUSTOMER_WHATSAPP_ENABLED=true` et
+  `COURIER_WHATSAPP_ON_ASSIGN_ENABLED=true`.
+- Boutique : produits en stock en premier sur l'accueil ; bouton Partager sur la fiche produit.
+- Liste des commandes : « Canal de vente » devient « Livraison » (type, `lib/order-list-delivery.ts`,
+  surcharge i18n) ; colonne « Livreur » et heure dans « Date » ajoutées par **patch du dashboard compilé**
+  (`apps/backend/scripts/patch-dashboard.mjs`, lancé par `npm run build` / `dev`, idempotent, échoue si
+  `@medusajs/dashboard` change : adapter les ancres à chaque mise à jour de Medusa). Le patch couvre aussi
+  la page d'arrivée `/dashboard` et le bouton « Mark as paid ». Pour réappliquer un patch modifié en local :
+  restaurer les chunks d'origine (`npm pack @medusajs/dashboard@2.18.0`), relancer le script, vider
+  `apps/backend/node_modules/.vite`.
+- Stock livreurs : une carte par livreur (`admin/components/courier-stock-tab.tsx`).
+- Caisse : la caisse d'une commande payée est remplacée par les montants du formulaire « Marquer comme
+  payée » (références `order-final:<id>:sale|courier_fee|transport_fee`).
+
 2026-10-10 - **Livreurs reconnus par l'agent WhatsApp, copie du message livreur, variante dans la
 confirmation client** (trois demandes du propriétaire le même jour ; spec et plan
 `docs/superpowers/{specs,plans}/2026-10-10-agent-livreurs-et-copie-message-livreur*`).

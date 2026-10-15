@@ -1,7 +1,7 @@
 # Prompt de reprise (nouvelle session Claude Code)
 
 Copier le bloc ci-dessous comme premier message d'une nouvelle session ouverte dans
-`medusa-golden-market/`. Mis à jour le 2026-10-06.
+`medusa-golden-market/`. Mis à jour le 2026-10-15.
 
 ---
 
@@ -11,7 +11,8 @@ l'admin Medusa. Réponds-lui en français ; code, commentaires, UI et commits en
 dans le code, sans trailer Co-Authored-By.
 
 **À lire d'abord** : `AGENTS.md` (structure, commandes, conventions, pièges), `HANDOFF.md`
-(section « Dernière mise à jour »), puis ta mémoire (`MEMORY.md`). Le projet n8n est à côté :
+(section « Dernière mise à jour »), puis ta mémoire (`MEMORY.md`). Sur un autre ordinateur, la
+mémoire n'existe pas encore : l'installer d'abord depuis `docs/claude-memory/` (voir son `README.md`). Le projet n8n est à côté :
 `../n8n_automation/` (`schema.sql`, `guide-golden-market-agent.md`, `AGENTS.md`).
 
 ## État (tout est en production)
@@ -45,7 +46,18 @@ dans le code, sans trailer Co-Authored-By.
   guide n8n § 2.12) ; badge « Livreur · Nom » dans le chat admin ; bouton « Copier le message livreur »
   dans l'encadré Livraison de la fiche commande (même texte que les modèles Meta) ; variante du produit
   (« - Avec seau ») dans la confirmation WhatsApp au client (`lib/order-item-label.ts`).
-- Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier lot : 2026-10-10).
+- Lot du 2026-10-11 : envois WhatsApp automatiques suspendus (confirmation des commandes saisies dans
+  l'admin, message au livreur à l'attribution ; réactivables par `PHONE_ORDER_CUSTOMER_WHATSAPP_ENABLED`
+  et `COURIER_WHATSAPP_ON_ASSIGN_ENABLED`) ; liste des commandes avec colonnes « Livraison » et
+  « Livreur » et heure dans « Date » (patch du dashboard compilé, `apps/backend/scripts/patch-dashboard.mjs`) ;
+  stock livreurs par carte ; accueil de la boutique avec les produits en stock en premier.
+- Lot du 2026-10-12 : « Modifier la commande » ; caisse Entrée / Sortie / Solde, une ligne par commande,
+  périodes jour / semaine / mois / année ; sessions admin dans Redis ; « Livrée » = simple confirmation
+  (tournée du jour, expéditions comprises, et encadré Livraison) ; « Marquer comme payée » séparé (bouton
+  natif « Mark as paid » : montant, course, frais compagnie, case « Livrée ? ») ; menu Tableau de bord,
+  Orders, Livraisons, Caisse. Détail dans `HANDOFF.md`.
+- Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier plan : 2026-10-10 ;
+  les lots des 2026-10-11 et 12, petites demandes enchaînées, n'ont pas de plan).
 
 ## À vérifier en début de session
 
@@ -102,7 +114,8 @@ dans le code, sans trailer Co-Authored-By.
   n8n en production faits par le contrôleur, pas par les sous-agents ; TDD (test qui échoue
   d'abord) ; revue finale par un agent frais sur le modèle le plus capable. Skills medusa-dev
   (`building-with-medusa`, `building-admin-dashboard-customizations`) pour tout code Medusa.
-- Il a donné carte blanche pour déployer jusqu'en production après tests ; tests autorisés sur son
+- Il a donné carte blanche pour déployer jusqu'en production après tests ; depuis le 2026-10-12,
+  **chaque push sur `staging` enchaîne le déploiement production** sans lui demander ; tests autorisés sur son
   numéro +226 77 40 61 01 (prévenir avant tout envoi réel ; ne plus simuler de messages entrants
   sur son numéro sans le dire : ils faussent la fenêtre de 24 h).
 - Déploiement : `git push origin staging` (staging), `git push origin staging:main` (production),
@@ -126,9 +139,14 @@ dans le code, sans trailer Co-Authored-By.
   en lecture) et demander au propriétaire de cliquer « Re-run » si besoin (pas de `gh` ici).
 - Local : Postgres docker sur 5433 ; lancer `npx medusa develop` directement dans `apps/backend`
   (turbo enlève les variables) avec `WHATSAPP_CHAT_DATABASE_URL` pointant sur la base
-  `golden_market_chat_test` ; sessions en mémoire (se reconnecter après chaque redémarrage).
-  Créer un admin de test local avec `npx medusa user` et un mot de passe généré, gardé dans le
-  scratchpad, jamais affiché. Navigateur : Playwright MCP, fichiers sous `.playwright-mcp/`.
+  `golden_market_chat_test`. Depuis le 2026-10-11 : `cd apps/backend && npm run dev` (applique aussi
+  `scripts/patch-dashboard.mjs`), backend et admin sur **localhost:9001** ; Postgres et Redis dans
+  Docker (`golden_market_medusa_postgres`, `golden_market_medusa_redis`). Admin de test local
+  `admin-local@golden-market.test`, mot de passe dans `apps/backend/.env` (`LOCAL_TEST_ADMIN_PASSWORD`,
+  non commité : sur un autre ordinateur, recréer l'admin avec `npx medusa user` et un mot de passe
+  généré). Navigateur : extension Claude in Chrome de préférence (les clics sont souvent ignorés par
+  l'admin Medusa : `element.click()` en JS) ; cache Vite : Ctrl+Maj+R ou vider
+  `apps/backend/node_modules/.vite`.
 - Ne jamais afficher ni committer de secret (.env) ; ne jamais utiliser son mot de passe réel.
 
 ## Pièges connus

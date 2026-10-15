@@ -1,0 +1,29 @@
+---
+name: mini-saas-gestion-livreurs
+description: "Mini-SaaS de gestion dans l'admin Medusa (remplace les Excel) : livraisons, caisse, marges, prospects, stock livreurs, frais d'expédition, tableau de bord, modifier la commande, Livrée / Marquer payée séparés — en production au 2026-10-12"
+metadata:
+  node_type: memory
+  type: project
+  originSessionId: 81b0ad81-4304-4021-8801-c7b46cdddc72
+  modified: 2026-10-05T22:50:17.970Z
+---
+
+Le propriétaire remplace ses fichiers Excel (`management/Journal de caisse-2026.xlsx`, `Répertoir des commandes.xlsx`) par des écrans dans l'admin Medusa, tous en production :
+1. Livreurs et livraisons — 2026-09-27 (`/app/deliveries`).
+2. Journal de caisse — 2026-09-28 (`/app/cash`, module `cashbook`).
+3. Approvisionnement et marges — 2026-09-28 (`/app/procurement`, formules de sa feuille Sourcing : taux 670, frais 2,99 %).
+4. Prospects à relancer — 2026-09-28 (`/app/prospects`) ; « Prévenir » = modèle Meta `retour_en_stock`.
+5. Stock confié aux livreurs — 2026-09-28 (onglet « Stock livreurs ») ; stock Medusa = total possédé, déstockage auto à « Livrée ».
+6. Frais d'expédition par produit — 2026-10-04 : option « Livraison » calculée (fournisseur `golden-market-shipping`), `metadata.frais_expedition_xof` saisi dans l'encadré de la fiche produit, gratuit à Ouaga, max du panier ailleurs, 1 500 F si vide (1 000 F depuis le 2026-10-06). Saisis le 2026-10-05 à sa demande : balai-éponge 1 500 F, 38 autres produits 1 000 F.
+7. Tableau de bord — 2026-10-05 (`/app/dashboard`, route `GET /admin/dashboard`, blocs indépendants), recoupé en production avec les pages détaillées.
+8. Session autonome du 2026-10-06 (propriétaire endormi) : bouton « Nouvelle commande » remis dans l'en-tête de la liste (Medusa 2.18 rend les widgets order.list.before sous le tableau), finitions stock livreurs (recherche, verrou, avertissement « Retour »), frais par défaut 1 000 F, frais dans le total du formulaire téléphone, Meta phone_call, purge/média orphelin. Bilan des décisions à lui présenter.
+
+**Why:** il gère seul et veut abandonner les Excel ; il fait confiance pour décider et déployer (carte blanche jusqu'en production après tests).
+
+**How to apply:** lui rappeler de saisir le solde initial de caisse et les coûts de revient du stock existant, et de valider les hypothèses des specs du 2026-09-28. Prochaines tâches et pièges à jour dans `docs/HANDOFF-PROMPT.md`. Pièges clés : `query.graph` sur `order` -> `items.*`/`summary.*`/`shipping_methods.*` ; Medusa fusionne `metadata` (envoyer `""` pour retirer une clé) ; le job nocturne réécrit `tour_date` (retard = `first_tour_date`). Voir [[golden-market-whatsapp-agent-audit]] et [[methode-execution-sous-agents]].
+
+**2026-10-11 (déployé en production) :** envois WhatsApp automatiques SUSPENDUS à la demande du propriétaire — confirmation au client pour les commandes saisies dans l'admin (metadata.source "telephone") et message au livreur à l'attribution (livraison reste whatsapp_status "pending", l'équipe utilise « Copier le message livreur » ; bouton « Envoyer le message » retiré à sa demande). Réactivables par env : PHONE_ORDER_CUSTOMER_WHATSAPP_ENABLED=true, COURIER_WHATSAPP_ON_ASSIGN_ENABLED=true. Liste des commandes : « Canal de vente » → « Livraison » (type, lib/order-list-delivery.ts + surcharge i18n fields.salesChannel) ; colonne « Livreur » et heure dans « Date » ajoutées par PATCH du dashboard compilé (apps/backend/scripts/patch-dashboard.mjs, lancé par npm run build/dev, échoue si @medusajs/dashboard change — à refaire à chaque mise à jour de Medusa, choix validé par le propriétaire). Onglet Stock livreurs réorganisé : une carte par livreur. Admin de test local : admin-local@golden-market.test (mdp dans apps/backend/.env). Les sessions admin prod/staging expirent à chaque déploiement.
+
+**2026-10-11 (staging, commit 92f0369) :** bouton natif « Mark as paid » patché → formulaire (widgets/order-mark-paid.tsx) : montant encaissé + frais engagés par le livreur (course + compagnie), pré-remplis (frais de la livraison, sinon frais d'expédition des produits pour une expédition). La caisse de la commande est REMPLACÉE par ces montants (références order-final:<id>:sale/fees ; écritures auto vente/frais soft-deleted ; abonné payment.captured et fin de livraison ignorent ensuite la commande). Le paiement Medusa reste celui du bouton natif (montant total). Clics de l'extension Chrome souvent non reçus par l'admin Medusa : passer par element.click() en JS.
+
+**2026-10-12 (tout en production, dernier commit 676150b) :** « Modifier la commande » (order edit Medusa, tant que ni payée ni livrée ; `lib/order-edit.ts`, page `phone-orders/new?order_id=`) ; Caisse en colonnes Entrée / Sortie / Solde, une ligne par commande, périodes jour/semaine/mois/année (CA compris) ; sessions admin dans Redis (`projectConfig.redisUrl`, plus de déconnexion au déploiement) + retour auto à la connexion si session expirée ; « Livrée » = simple confirmation Oui/Non (tournée du jour, y compris expéditions : « Déposée à la gare » renommé « Livrée » ; bouton « Marquer livrée » de l'encadré Livraison, `POST /admin/order-payments/:id/deliver`) ; « Marquer comme payée » séparé (bouton natif « Mark as paid ») avec montant, course 1 000 F, frais compagnie (expédition), case « Livrée ? » ; expéditions livrées non payées dans « Expéditions à faire payer » ; menu : Tableau de bord, Orders, Livraisons, Caisse (patch-dashboard.mjs, listes PINNED_FIRST / PINNED_AFTER_ORDERS). Local : backend sur le port 9001 (`npm run dev` dans apps/backend) ; pour réappliquer un patch modifié, restaurer les chunks d'origine depuis `npm pack @medusajs/dashboard@2.18.0` puis vider `node_modules/.vite`.

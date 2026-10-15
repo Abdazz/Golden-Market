@@ -1,0 +1,12 @@
+- [Meta catalog sync status](meta-catalog-sync-status.md) — Pixel associé 2026-09-17 ; AddToCart: quick-add (09-22) + stub fbq sans callMethod (09-23) corrigés
+- [Storefront build cassé (VerifyPhone)](storefront-build-broken-verify-phone.md) — composant client important cookies.ts server-only, bloquait déploiements depuis 52e7ec9, corrigé/déployé le 2026-09-22
+- [Audit agent WhatsApp](golden-market-whatsapp-agent-audit.md) — Claude principal 09-23, photos 09-24, reprise manuelle 09-27, chat multimédia 09-28, secours médias 10-01, paiements/reçus/réactions 10-04
+- [Recherche sémantique produits (pgvector)](recherche-semantique-produits-pgvector.md) — 3e niveau de repli déployé/vérifié le 2026-09-18, piège image Postgres sans pgvector
+- [Catalogue Meta app mobile WhatsApp](whatsapp-app-mobile-catalog.md) — 2e catalogue (1 par WABA max) créé/connecté/déployé le 2026-09-22, sujet clos
+- [Mini-SaaS gestion](mini-saas-gestion-livreurs.md) — livraisons, caisse, marges, prospects, stock livreurs, frais d'expédition, tableau de bord ; 10-11 envois WhatsApp auto suspendus ; 10-12 modifier la commande, caisse Entrée/Sortie/Solde, Livrée = confirmation, menu réordonné ; reprise docs/HANDOFF-PROMPT.md
+- [Exécution des plans avec sous-agents](methode-execution-sous-agents.md) — préférence du propriétaire (10-04, 10-05) ; production gérée par le contrôleur
+- [Autonomie totale demandée](autonomie-totale-proprietaire.md) — enchaîner sans demander de confirmation, bilan des décisions au réveil (2026-10-05)
+- [Tests navigateur via l'extension Chrome](tests-navigateur-extension-chrome.md) — préférer Claude in Chrome (sessions du propriétaire) ; en production, regarder sans valider (2026-10-07)
+- [Livreurs reconnus par l'agent](agent-livreurs-reconnus.md) — Identify Courier + report_courier_receipt, Copier le message livreur, variante dans la confirmation (2026-10-10) ; pièges de test n8n (média simulé, corps des modèles Meta)
+- [Prod après staging](deploiement-prod-apres-staging.md) — chaque push staging enchaîne le déploiement production sans demander (2026-10-12)
+- [Copie de la mémoire dans le dépôt](copie-memoire-dans-depot.md) — docs/claude-memory/ à resynchroniser, HANDOFF à jour à chaque lot (2026-10-15)
