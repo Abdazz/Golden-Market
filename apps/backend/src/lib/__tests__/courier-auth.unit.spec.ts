@@ -34,4 +34,15 @@ describe("jeton livreur", () => {
     expect(verifyCourierToken("abc", secret, now)).toBeNull()
     expect(verifyCourierToken(`${payload}.`, secret, now)).toBeNull()
   })
+  it("signature non ASCII de 43 caractères : null, sans exception", () => {
+    const token = signCourierToken("cour_1", secret, now)
+    const [payload] = token.split(".")
+    const forged = `${payload}.é${"A".repeat(42)}`
+    expect(forged.split(".")[1]).toHaveLength(43)
+    expect(() => verifyCourierToken(forged, secret, now)).not.toThrow()
+    expect(verifyCourierToken(forged, secret, now)).toBeNull()
+  })
+  it("token qui n'a pas exactement deux parties : null", () => {
+    expect(verifyCourierToken("a.b.c", secret, now)).toBeNull()
+  })
 })

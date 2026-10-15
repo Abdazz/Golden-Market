@@ -28,10 +28,13 @@ export const signCourierToken = (courierId: string, secret: string, now: number 
 }
 
 export const verifyCourierToken = (token: string, secret: string, now: number = Date.now()): string | null => {
-  const [payload, signature] = token.split(".")
+  const parts = token.split(".")
+  if (parts.length !== 2) return null
+  const [payload, signature] = parts
   if (!payload || !signature) return null
-  const expected = sign(payload, secret)
-  if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null
+  const expected = Buffer.from(sign(payload, secret))
+  const actual = Buffer.from(signature)
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null
   try {
     const { c, e } = JSON.parse(Buffer.from(payload, "base64url").toString())
     return typeof c === "string" && typeof e === "number" && e > now ? c : null
