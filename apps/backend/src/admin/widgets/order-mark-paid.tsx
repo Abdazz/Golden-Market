@@ -27,6 +27,8 @@ type Defaults = {
   transport_fee_saved: boolean
   delivered_default: boolean
   delivery_status: string | null
+  delivered: boolean
+  recorded: { recorded: boolean; editable: boolean } | null
 }
 
 const readFee = (text: string) => (text.trim() === "" ? 0 : parseAmountInput(text))
@@ -52,7 +54,7 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
           setAmount(String(d.amount))
           setCourierFee(String(d.courier_fee))
           setTransportFee(String(d.transport_fee))
-          setDelivered(d.delivered_default)
+          setDelivered(d.delivered ? false : d.delivered_default)
         })
         .catch((e) => setError((e as Error).message))
     }
@@ -78,7 +80,7 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
   const submit = async () => {
     if (!parsedAmount) return setError("Montant encaissé invalide : nombre entier positif en F CFA.")
     if (parsedCourierFee === null) return setError("Course du livreur invalide : nombre entier en F CFA (0 si aucune).")
-    if (parsedTransportFee === null) return setError("Frais de la compagnie invalides : nombre entier en F CFA (0 si aucun).")
+    if (parsedTransportFee === null) return setError("Frais Expédition invalides : nombre entier en F CFA (0 si aucun).")
     setBusy(true)
     setError(null)
     try {
@@ -95,8 +97,10 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
   }
 
   // Origine des valeurs pré-remplies (même règle que expectedFees côté serveur).
-  const courierHint = defaults?.courier_fee_saved ? "Saisie sur la livraison." : "Tarif habituel de la course."
-  const transportHint = defaults?.transport_fee_saved
+  const courierHint = defaults?.recorded ? "Valeur enregistrée." : defaults?.courier_fee_saved ? "Saisie sur la livraison." : "Tarif habituel de la course."
+  const transportHint = defaults?.recorded
+    ? "Valeur enregistrée."
+    : defaults?.transport_fee_saved
     ? "Saisis sur la livraison."
     : "Frais d'expédition payés par le client, reversés à la compagnie."
   const totalFees = (parsedCourierFee ?? 0) + (parsedTransportFee ?? 0)
@@ -105,7 +109,7 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
       <div className="bg-ui-bg-base shadow-elevation-modal flex w-full max-w-md flex-col gap-y-3 rounded-lg p-5">
         <span className="txt-compact-medium-plus text-ui-fg-base">
-          Marquer comme payée{defaults ? ` · commande ${defaults.order_number}` : ""}
+          {defaults?.recorded ? "Modifier le paiement" : "Marquer comme payée"}{defaults ? ` · commande ${defaults.order_number}` : ""}
         </span>
         {!defaults && !error && <span className="txt-compact-small text-ui-fg-subtle">Chargement…</span>}
         {defaults && (
@@ -121,11 +125,12 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
             </label>
             {isExpedition && (
               <label className="flex flex-col gap-y-1">
-                <span className="txt-compact-small-plus text-ui-fg-base">Frais compagnie de transport (F CFA)</span>
+                <span className="txt-compact-small-plus text-ui-fg-base">Frais Expédition (F CFA)</span>
                 <input className={inputClass} inputMode="numeric" value={transportFee} onChange={(e) => setTransportFee(e.target.value)} />
                 <span className="txt-compact-small text-ui-fg-subtle">{transportHint}</span>
               </label>
             )}
+            {!defaults.delivered && (
             <label className="txt-compact-small-plus flex items-center gap-x-2 text-ui-fg-base">
               <input type="checkbox" checked={delivered} onChange={(e) => setDelivered(e.target.checked)} />
               <span className="whitespace-nowrap">Livrée ?</span>
@@ -137,6 +142,7 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
                   : "la commande reste à livrer"}
               </span>
             </label>
+            )}
             {parsedAmount !== null && parsedCourierFee !== null && parsedTransportFee !== null && (
               <span className="txt-compact-small text-ui-fg-base">
                 Caisse : entrée {formatXof(parsedAmount)}
@@ -151,7 +157,7 @@ const OrderMarkPaidWidget = ({ data }: Props) => {
             Annuler
           </button>
           <button type="button" className={primaryButton} disabled={busy || !defaults} onClick={submit}>
-            {busy ? "Enregistrement…" : "Confirmer"}
+            {busy ? "Enregistrement…" : defaults?.recorded ? "Enregistrer les modifications" : "Confirmer"}
           </button>
         </div>
       </div>

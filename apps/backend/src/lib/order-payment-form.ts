@@ -1,4 +1,4 @@
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
 import { capturePaymentWorkflow, markPaymentCollectionAsPaid } from "@medusajs/medusa/core-flows"
 import { CASHBOOK_MODULE } from "../modules/cashbook"
 import { expectedFees, finalPaymentEntries, finalReferences, type PaymentFormValues } from "./cashbook-rules"
@@ -11,6 +11,7 @@ import { completeDeliveryWorkflow } from "../workflows/complete-delivery"
 import { updateDeliveryWorkflow } from "../workflows/update-delivery"
 import { finishDelivery } from "./delivery-completion"
 import { syncOrderAfterDelivery } from "./delivery-order-sync"
+import { paymentEditStatus } from "./payment-edit-rules"
 
 // Formulaire "Marquer comme payée" de la fiche commande (2026-10-11, demandé
 // par le propriétaire) : montant encaissé et frais engagés par le livreur
@@ -26,6 +27,7 @@ const loadOrder = async (scope: any, orderId: string) => {
     entity: "order",
     fields: [
       ...ORDER_FIELDS,
+      "metadata",
       "items.variant.product.metadata",
       "payment_collections.id",
       "payment_collections.status",
@@ -48,6 +50,22 @@ const latestDelivery = async (scope: any, orderId: string) => {
   return (data as any[])
     .filter((d) => d.status !== "canceled")
     .sort((a, b) => new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime())[0]
+}
+
+// Paiement réellement saisi dans le formulaire, relu dans les écritures finales
+// de la caisse (la date de la vente = dernière action). Null : jamais enregistré.
+export async function recordedPayment(scope: any, orderId: string) {
+  const refs = finalReferences(orderId)
+  const entries: any[] = await scope.resolve(CASHBOOK_MODULE).listCashEntries({ reference: [refs.sale, refs.courierFee, refs.transportFee] })
+  const sale = entries.find((e) => e.reference === refs.sale)
+  if (!sale) return null
+  const amountOf = (reference: string) => Number(entries.find((e) => e.reference === reference)?.amount ?? 0)
+  return {
+    amount: Number(sale.amount),
+    courier_fee: amountOf(refs.courierFee),
+    transport_fee: amountOf(refs.transportFee),
+    recorded_at: new Date(sale.date).toISOString(),
+  }
 }
 
 export async function paymentFormDefaults(scope: any, orderId: string) {
@@ -73,18 +91,29 @@ export async function paymentFormDefaults(scope: any, orderId: string) {
   const collection = (order.payment_collections ?? [])[0]
   // Commande déjà payée (formulaire rouvert pour la marquer livrée) : montant
   // déjà retenu par la caisse, sinon le total de la commande.
-  const previousSale = (await scope.resolve(CASHBOOK_MODULE).listCashEntries({ reference: [finalReferences(orderId).sale] }))[0]
-  const outstanding = outstandingOf(order) || Number(previousSale?.amount ?? 0) || Number(order.total ?? collection?.amount ?? 0)
+  const recorded = await recordedPayment(scope, orderId)
+  const outstanding = outstandingOf(order) || Number(recorded?.amount ?? 0) || Number(order.total ?? collection?.amount ?? 0)
+  // Déjà enregistré : les valeurs réelles, pas des valeurs proposées.
+  const fees = recorded
+    ? { courier_fee: recorded.courier_fee, transport_fee: recorded.transport_fee }
+    : expectedFees({
+        type,
+        courierFee: delivery?.courier_fee ?? null,
+        transportFee: delivery?.transport_fee ?? null,
+        productShippingFee,
+      })
+  const delivered =
+    delivery?.status === "delivered" ||
+    delivery?.status === "shipped" ||
+    (order.fulfillments ?? []).some((f: any) => f.delivered_at && !f.canceled_at)
   return {
     order_number: orderNumberOf(order),
     type,
-    amount: Math.round(outstanding),
-    ...expectedFees({
-      type,
-      courierFee: delivery?.courier_fee ?? null,
-      transportFee: delivery?.transport_fee ?? null,
-      productShippingFee,
-    }),
+    amount: recorded ? recorded.amount : Math.round(outstanding),
+    ...fees,
+    recorded: recorded ? { ...paymentEditStatus(recorded.recorded_at), ...recorded } : null,
+    payment_method: (order.metadata?.payment_method as string | undefined) ?? null,
+    delivered,
     // Origine des frais pré-remplis : saisis sur la livraison ou valeur par défaut.
     courier_fee_saved: delivery?.courier_fee !== null && delivery?.courier_fee !== undefined,
     // Case "Livrée ?" : cochée par défaut pour une livraison Ouaga.
@@ -120,6 +149,11 @@ export async function submitPaymentForm(
 ): Promise<{ warning: string | null }> {
   const order = await loadOrder(scope, orderId)
   if (!order) throw new Error("Commande introuvable.")
+  // Déjà enregistré : modifiable seulement 24 h après la dernière action.
+  const recorded = await recordedPayment(scope, orderId)
+  if (recorded && !paymentEditStatus(recorded.recorded_at).editable) {
+    throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "Délai de 24 h dépassé : le paiement ne peut plus être modifié.")
+  }
   // Livraison Ouaga : pas de compagnie de transport (champ masqué dans le formulaire).
   const delivery = await latestDelivery(scope, orderId)
   const type: DeliveryType = delivery?.type ?? defaultTypeForCity(order.shipping_address?.city)
