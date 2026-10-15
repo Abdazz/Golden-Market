@@ -4,6 +4,7 @@ import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import * as Sentry from "@sentry/node"
 import { cashEntryMiddlewares } from "./admin/cash-entries/middlewares"
 import { deliveryMiddlewares } from "./admin/deliveries/middlewares"
+import { courierMiddlewares } from "./courier/middlewares"
 import { prospectMiddlewares } from "./admin/prospects/middlewares"
 import { supplierOrderMiddlewares } from "./admin/supplier-orders/middlewares"
 import multer from "multer"
@@ -310,6 +311,8 @@ export default defineMiddlewares({
     },
     // Livreurs et livraisons (spec 2026-09-28).
     ...deliveryMiddlewares,
+    // Espace livreur : jeton signé (spec 2026-10-15).
+    ...courierMiddlewares,
     // Journal de caisse (spec 2026-09-28).
     ...cashEntryMiddlewares,
     // Approvisionnement et marges (spec 2026-09-28).

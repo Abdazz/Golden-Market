@@ -66,7 +66,11 @@ export type CourierStockMovementSchema = z.infer<typeof CourierStockMovementSche
 export const ReassignDeliverySchema = z.object({ courier_id: z.string().min(1, "Choisissez un livreur.") })
 export type ReassignDeliverySchema = z.infer<typeof ReassignDeliverySchema>
 
+export const SetPinSchema = z.object({ pin: z.string().regex(/^\d{4}$/, "Le code PIN doit comporter 4 chiffres.") })
+export type SetPinSchema = z.infer<typeof SetPinSchema>
+
 export const deliveryMiddlewares: MiddlewareRoute[] = [
+  { matcher: "/admin/couriers/:id/pin", methods: ["POST"], middlewares: [validateAndTransformBody(SetPinSchema)] },
   { matcher: "/admin/couriers", methods: ["POST"], middlewares: [validateAndTransformBody(CreateCourierSchema)] },
   { matcher: "/admin/couriers/:id", methods: ["POST"], middlewares: [validateAndTransformBody(UpdateCourierSchema)] },
   { matcher: "/admin/deliveries", methods: ["POST"], middlewares: [validateAndTransformBody(AssignDeliveriesSchema)] },
