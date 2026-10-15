@@ -38,7 +38,7 @@ détail technique dans `AGENTS.md` (« Espace livreur (2026-10-15) »).
   le patch du dashboard (`#golden-market-order-top`, `scripts/patch-dashboard.mjs` ; après un changement,
   vider `apps/backend/node_modules/.vite` et recharger en forçant le cache).
 - Piège connu : verrous en mémoire, limite par IP non sérialisée (voir `AGENTS.md`).
-- **À faire en production avant usage** : `COOKIE_SECRET` présent dans les `.env` du VPS ; `COURIER_RELAY_SECRET` (longue chaîne aléatoire, même valeur) dans les `.env` backend ET storefront du VPS ;
+- **À faire en production avant usage** : `COOKIE_SECRET` présent dans les `.env` du VPS ; `COURIER_RELAY_SECRET` (longue chaîne aléatoire, même valeur) dans `apps/backend/.env` ET dans `.env.deploy` (transmis au conteneur storefront par `docker-compose.prod.yml`) ; règle Apache `ProxyPass /courier` des deux vhosts (déjà dans `deploy/apache/*.conf`, à recopier et recharger Apache sur le VPS) ;
   `NEXT_PUBLIC_MEDUSA_BACKEND_URL` du storefront de production pointant sur le backend ; migration
   `db:migrate` (table `delivery_report`, colonne `courier.pin_hash`) ; créer les PIN des livreurs ; tester
   sur un vrai téléphone sans valider de rapport réel.

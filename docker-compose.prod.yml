@@ -100,6 +100,9 @@ services:
       # apps/backend/.env pour que price-updated-storefront-revalidate.ts
       # puisse invalider le cache produits après un changement de prix.
       REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+      # Relais /api/livreur/* : doit être identique à COURIER_RELAY_SECRET côté
+      # apps/backend/.env (espace livreur, spec 2026-10-15).
+      COURIER_RELAY_SECRET: ${COURIER_RELAY_SECRET}
 
   # Statistiques de visite (Matomo self-hosted) - production uniquement, voir
   # docs/superpowers/specs/2026-09-02-statistiques-visite-design.md. Gaté par
