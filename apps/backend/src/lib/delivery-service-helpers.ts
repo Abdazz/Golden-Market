@@ -88,6 +88,7 @@ export const toTourLine = (d: any, o: any, courierName?: string) => ({
   id: d.id,
   order_id: d.order_id,
   order_number: o ? orderNumberOf(o) : d.order_id,
+  order_created_at: o?.created_at ? new Date(o.created_at).toISOString() : null,
   courier_id: d.courier_id,
   courier_name: courierName ?? null,
   customer_name: customerName(o),

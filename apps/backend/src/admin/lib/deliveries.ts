@@ -12,6 +12,7 @@ export type TourLine = {
   id: string
   order_id: string
   order_number: string
+  order_created_at: string | null
   courier_id: string
   courier_name: string | null
   customer_name: string
@@ -157,6 +158,13 @@ export const formatXof = (amount: number | null | undefined) =>
   `${new Intl.NumberFormat("fr-FR").format(Number(amount ?? 0)).replace(/ | /g, " ")} F`
 
 // "2026-09-27" -> "27/09"
+// « 15/10 à 14:32 » : date et heure de la commande.
+export const formatOrderDate = (iso: string | null) => {
+  if (!iso) return ""
+  const d = new Date(iso)
+  return `${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
+}
+
 export const formatDay = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`
 
 // Aujourd'hui à l'heure de Ouagadougou (UTC toute l'année).

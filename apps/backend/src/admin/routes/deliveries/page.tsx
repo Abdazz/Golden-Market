@@ -6,6 +6,7 @@ import {
   FAILURE_REASONS,
   FEE_SHORTCUTS,
   formatDay,
+  formatOrderDate,
   formatXof,
   parseAmount,
   STATUS_BADGE,
@@ -212,6 +213,7 @@ const ToAssignTab = () => {
                     {o.paid ? "Payée" : `Reste à payer ${formatXof(o.amount_to_collect.express)}`}
                   </Badge>
                 </div>
+                <span className="txt-compact-small text-ui-fg-subtle">Commandée le {formatOrderDate(o.created_at)}</span>
                 <span className="txt-compact-small text-ui-fg-base">
                   {o.customer_name} · {o.customer_phone}
                 </span>
@@ -424,6 +426,9 @@ const TourLineCard = ({ line, locked, onChanged }: { line: TourLine; locked: boo
           <Badge className="bg-ui-tag-orange-bg text-ui-tag-orange-text">{`Reportée (depuis le ${formatDay(line.postponed_from)})`}</Badge>
         )}
       </div>
+      {line.order_created_at && (
+        <span className="txt-compact-small text-ui-fg-subtle">Commandée le {formatOrderDate(line.order_created_at)}</span>
+      )}
       <span className="txt-compact-small text-ui-fg-base">
         {line.customer_name} · {line.customer_phone}
       </span>
