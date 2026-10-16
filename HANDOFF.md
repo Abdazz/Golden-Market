@@ -42,9 +42,18 @@ détail technique dans `AGENTS.md` (« Espace livreur (2026-10-15) »).
   `NEXT_PUBLIC_MEDUSA_BACKEND_URL` du storefront de production pointant sur le backend ; migration
   `db:migrate` (table `delivery_report`, colonne `courier.pin_hash`) ; créer les PIN des livreurs ; tester
   sur un vrai téléphone sans valider de rapport réel.
-- Pistes : application livreur native ; « Marquer non payée » / « Marquer non livrée » (demandé le 2026-10-15,
-  visible 24 h après la dernière action) : Medusa n'a pas d'annulation d'un paiement capturé ni d'une
-  expédition faite, enquête de faisabilité en attente d'accord du propriétaire, NON commencée.
+- Pistes : application livreur native.
+
+2026-10-16 - **« Marquer non payée » / « Marquer non livrée »** (staging, non poussé). Boutons dans la carte
+du haut de la fiche commande et dans l'encadré Livraison, visibles 24 h après la dernière action « payée » /
+« livrée » (`lib/undo-rules.ts`), confirmation sur place. La commande revient exactement à l'état d'avant
+(« Non payée » avec le montant dû ou « Autorisée » pour le paiement à la livraison du site ; « Non traitée »,
+stock Medusa et stock du livreur remis, livraison « Confiée » dans la tournée du jour, rapport validé renvoyé
+« À corriger »), sans trace dans l'historique Medusa ; caisse et transactions supprimées de façon réversible ;
+trace `metadata.payment_undone_at` / `delivery_undone_at` / `undone_by`. Refus si versement du livreur validé.
+Pièges : version du résumé de commande (transaction déplacée à la version courante), Medusa refuse d'annuler
+une expédition expédiée (dates effacées d'abord), fulfillments annulés ignorés par `delivery-order-sync`,
+méthodes internes Medusa (revérifier après mise à jour). Détail dans `AGENTS.md`.
 
 2026-10-12 - **Commandes modifiables, caisse en colonnes, « Livrée » et « Marquer payée » séparés, menu
 réordonné** (demandes rapides du propriétaire, tout en production, dernier commit `676150b`).

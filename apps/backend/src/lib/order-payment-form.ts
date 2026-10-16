@@ -234,13 +234,17 @@ export async function markOrderDelivered(scope: any, orderId: string): Promise<{
   if (delivery?.status === "assigned") {
     // Déjà marquée payée (formulaire) alors que le livreur devait encaisser :
     // il a encaissé ce montant (versement du soir). Sinon rien pour l'instant,
-    // repris quand on marquera la commande payée.
-    const previousSale =
-      Number(delivery.amount_to_collect ?? 0) > 0
-        ? (await scope.resolve(CASHBOOK_MODULE).listCashEntries({ reference: [finalReferences(orderId).sale] }))[0]
-        : undefined
+    // repris quand on marquera la commande payée. Frais déjà saisis dans le
+    // formulaire repris sur la livraison (versement du soir), par exemple après
+    // « Marquer non livrée » d'une commande restée payée.
+    const recorded = await recordedPayment(scope, orderId)
     const { result: completed } = await completeDeliveryWorkflow(scope).run({
-      input: { id: delivery.id, status: "delivered", amount_collected: Number(previousSale?.amount ?? 0) },
+      input: {
+        id: delivery.id,
+        status: "delivered",
+        amount_collected: Number(delivery.amount_to_collect ?? 0) > 0 ? Number(recorded?.amount ?? 0) : 0,
+        ...(recorded ? { courier_fee: recorded.courier_fee, transport_fee: recorded.transport_fee } : {}),
+      },
     })
     const { warning } = await finishDelivery(scope, completed)
     return { warning }

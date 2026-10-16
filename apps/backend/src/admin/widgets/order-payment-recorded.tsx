@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { api, formatXof } from "../lib/deliveries"
 import { secondaryButton } from "../components/delivery-ui"
+import { UndoAction, type UndoInfo } from "../components/undo-action"
 
 // Section "Paiement enregistré" en haut de la fiche commande (2026-10-15,
 // demandé par le propriétaire) : montants réellement saisis dans « Marquer
@@ -13,6 +14,9 @@ import { secondaryButton } from "../components/delivery-ui"
 // `*.before` sous le contenu ; scripts/patch-dashboard.mjs ajoute donc un
 // conteneur #golden-market-order-top en haut, où la carte est rendue par un
 // portail (à défaut de conteneur : à sa place d'origine).
+// « Marquer non payée » / « Marquer non livrée » (2026-10-16) : dans la carte
+// pendant les 24 h qui suivent la dernière action ; une commande payée sans
+// formulaire (fin de livraison) a une carte compacte tant que la fenêtre est ouverte.
 // Pas de composant @medusajs/ui (conflit de types React 18/19).
 const MARK_PAID_EVENT = "golden-market:mark-as-paid"
 
@@ -29,6 +33,7 @@ type Info = {
     editable: boolean
     editable_until: string | null
   } | null
+  undo: UndoInfo | null
 }
 
 const METHODS: Record<string, string> = {
@@ -52,18 +57,39 @@ const OrderPaymentRecordedWidget = ({ data }: Props) => {
   }, [data.id])
 
   const recorded = info?.recorded
+  const undoOpen = !!(info?.undo?.paid.available || info?.undo?.delivered.available)
+  const shown = !!recorded || undoOpen
   useEffect(() => {
     const el = document.getElementById("golden-market-order-top")
-    if (!el || !recorded) return
+    if (!el || !shown) return
     el.style.display = "block"
     setTop(el)
     return () => {
       el.style.display = "none"
       setTop(null)
     }
-  }, [recorded])
+  }, [shown])
 
-  if (!info || !recorded) return null
+  if (!info || !shown) return null
+
+  const undo = (
+    <>
+      <UndoAction orderId={data.id} kind="paid" window={info.undo?.paid} />
+      <UndoAction orderId={data.id} kind="delivered" window={info.undo?.delivered} />
+    </>
+  )
+
+  if (!recorded) {
+    const compact = (
+      <div className="bg-ui-bg-base shadow-elevation-card-rest flex flex-col gap-y-3 rounded-lg px-6 py-4">
+        <span className="txt-compact-medium-plus text-ui-fg-base">
+          {info.undo?.paid.available ? "Commande payée" : "Commande livrée"}
+        </span>
+        {undo}
+      </div>
+    )
+    return top ? createPortal(compact, top) : compact
+  }
 
   const rows: [string, string][] = [
     ["Montant encaissé", formatXof(recorded.amount)],
@@ -103,6 +129,7 @@ const OrderPaymentRecordedWidget = ({ data }: Props) => {
           <span className="txt-compact-small text-ui-fg-subtle">Modification impossible après 24 h.</span>
         )}
       </div>
+      {undo}
     </div>
   )
   return top ? createPortal(card, top) : card

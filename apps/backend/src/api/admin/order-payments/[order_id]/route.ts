@@ -2,6 +2,7 @@ import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/frame
 import { MedusaError } from "@medusajs/framework/utils"
 import { parsePaymentForm } from "../../../../lib/cashbook-rules"
 import { paymentFormDefaults, submitPaymentForm } from "../../../../lib/order-payment-form"
+import { undoAvailability } from "../../../../lib/order-undo"
 
 // Formulaire "Marquer comme payée" de la fiche commande (voir
 // lib/order-payment-form.ts) : GET -> valeurs pré-remplies, POST -> commande
@@ -10,7 +11,8 @@ import { paymentFormDefaults, submitPaymentForm } from "../../../../lib/order-pa
 export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) {
   const defaults = await paymentFormDefaults(req.scope, req.params.order_id)
   if (!defaults) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Commande introuvable.")
-  res.json(defaults)
+  // Boutons « Marquer non payée / non livrée » (fenêtre de 24 h, lib/undo-rules.ts).
+  res.json({ ...defaults, undo: await undoAvailability(req.scope, req.params.order_id) })
 }
 
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {

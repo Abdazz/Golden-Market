@@ -37,6 +37,7 @@ export async function syncOrderAfterDelivery(
       "fulfillments.id",
       "fulfillments.shipped_at",
       "fulfillments.delivered_at",
+      "fulfillments.canceled_at",
     ],
     filters: { id: input.orderId },
   })
@@ -63,7 +64,9 @@ export async function syncOrderAfterDelivery(
   }
 
   try {
-    let fulfillment = (order.fulfillments ?? [])[0]
+    // Expédition annulée (« Marquer non livrée », annulation native) ignorée :
+    // Medusa refuse d'expédier un fulfillment annulé.
+    let fulfillment = (order.fulfillments ?? []).find((f: any) => !f.canceled_at)
     if (!fulfillment) {
       const { result } = await createOrderFulfillmentWorkflow(container).run({
         input: {

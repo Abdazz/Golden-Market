@@ -55,3 +55,22 @@ describe("syncOrderAfterDelivery : encaissement", () => {
     expect(markPaymentCollectionAsPaid).not.toHaveBeenCalled()
   })
 })
+
+describe("syncOrderAfterDelivery : expédition annulée", () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it("une expédition annulée est ignorée : nouvelle expédition créée", async () => {
+    const { createOrderFulfillmentWorkflow, createOrderShipmentWorkflow } = jest.requireMock("@medusajs/medusa/core-flows")
+    const container = containerWith({
+      id: "order_9",
+      items: [{ id: "item_1", quantity: 1 }],
+      fulfillments: [{ id: "ful_old", shipped_at: null, delivered_at: null, canceled_at: "2026-10-16T00:00:00Z" }],
+      payment_collections: [],
+    })
+    const warning = await syncOrderAfterDelivery(container, { orderId: "order_9", status: "delivered", collected: 0 })
+    expect(warning).toBeNull()
+    expect(createOrderFulfillmentWorkflow).toHaveBeenCalled()
+    expect(createOrderShipmentWorkflow).toHaveBeenCalled()
+    expect(mockRun).not.toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ fulfillment_id: "ful_old" }) }))
+  })
+})

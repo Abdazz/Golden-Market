@@ -251,7 +251,8 @@ async function returnLocked(scope: any, reportId: string, reason: unknown) {
 // avec leur message, toute autre erreur journalisée et masquée.
 export function sendReportError(scope: any, res: any, error: unknown, context: string) {
   const known = [MedusaError.Types.NOT_FOUND, MedusaError.Types.NOT_ALLOWED, MedusaError.Types.INVALID_DATA] as string[]
-  if (error instanceof MedusaError && known.includes(error.type)) {
+  // isMedusaError : une erreur levée dans une étape de workflow revient sans sa classe.
+  if (MedusaError.isMedusaError(error) && known.includes(error.type)) {
     res.status(error.type === MedusaError.Types.NOT_FOUND ? 404 : 400).json({ message: error.message })
     return
   }

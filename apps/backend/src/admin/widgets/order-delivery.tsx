@@ -12,6 +12,7 @@ import {
 } from "../lib/deliveries"
 import { parseAmountInput } from "../lib/delivery-amount"
 import { CopyCourierMessage } from "../components/copy-courier-message"
+import { UndoAction, type UndoInfo } from "../components/undo-action"
 import { courierMessageText } from "../../lib/courier-message-text"
 import type { AssignResult, Courier, DeliveryType, TourLine } from "../lib/deliveries"
 
@@ -57,6 +58,8 @@ const OrderDeliveryWidget = ({ data }: Props) => {
   const [message, setMessage] = useState<{ kind: "error" | "warning" | "success"; text: string } | null>(null)
   // Confirmation sur place du bouton "Marquer livrée".
   const [confirmDeliver, setConfirmDeliver] = useState(false)
+  // « Marquer non livrée » (2026-10-16) : fenêtre de 24 h lue avec le paiement.
+  const [undo, setUndo] = useState<UndoInfo | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +81,9 @@ const OrderDeliveryWidget = ({ data }: Props) => {
       setAddress(result.order.address ?? "")
       setDestination(initialType === "expedition" ? result.order.city ?? "" : "")
     })
+    api<{ undo: UndoInfo | null }>(`/admin/order-payments/${data.id}`)
+      .then((r) => setUndo(r.undo))
+      .catch(() => setUndo(null))
     api<{ couriers: Courier[] }>("/admin/couriers")
       .then((r) => setCouriers(r.couriers.filter((c) => c.active)))
       .catch(() => setCouriers([]))
@@ -228,6 +234,8 @@ const OrderDeliveryWidget = ({ data }: Props) => {
           Voir les livraisons
         </a>
       </div>
+
+      <UndoAction orderId={data.id} kind="delivered" window={undo?.delivered} />
 
       {current && (
         <div className="flex flex-col gap-y-1 rounded-md border border-ui-border-base p-3">
