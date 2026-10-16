@@ -28,6 +28,8 @@ import type {
 import { Badge, card, inputClass, NoticeText, primaryButton, secondaryButton, useCouriers } from "../../components/delivery-ui"
 import type { Notice } from "../../components/delivery-ui"
 import { CourierStockTab } from "../../components/courier-stock-tab"
+import { CopyCourierMessage } from "../../components/copy-courier-message"
+import { courierAccessMessage } from "../../lib/courier-access-message"
 import { countReportsToValidate, CourierReportsTab } from "../../components/courier-reports-tab"
 
 // Page "Livraisons" (spec 2026-09-28 livreurs-livraisons) : confier les
@@ -739,7 +741,7 @@ const CourierForm = ({ courier, onSaved, onCancel }: { courier?: Courier; onSave
   )
 }
 
-const PinControl = ({ courier, onSaved }: { courier: Courier; onSaved: () => void }) => {
+const PinControl = ({ courier, onSaved }: { courier: Courier; onSaved: (pin: string) => void }) => {
   const [open, setOpen] = useState(false)
   const [pin, setPin] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -750,7 +752,7 @@ const PinControl = ({ courier, onSaved }: { courier: Courier; onSaved: () => voi
       await api(`/admin/couriers/${courier.id}/pin`, { method: "POST", body: { pin } })
       setOpen(false)
       setPin("")
-      onSaved()
+      onSaved(pin)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -789,6 +791,8 @@ const PinControl = ({ courier, onSaved }: { courier: Courier; onSaved: () => voi
 const CouriersTab = () => {
   const { couriers, reload } = useCouriers()
   const [editing, setEditing] = useState<string | null>(null)
+  // PIN défini pendant cette session (le serveur ne garde qu'un hachage) : ajouté au message copié.
+  const [freshPins, setFreshPins] = useState<Record<string, string>>({})
 
   const toggleActive = async (c: Courier) => {
     await api(`/admin/couriers/${c.id}`, { method: "POST", body: { active: !c.active } })
@@ -836,7 +840,21 @@ const CouriersTab = () => {
                 </div>
               </div>
             )}
-            {editing !== c.id && <PinControl courier={c} onSaved={reload} />}
+            {editing !== c.id && (
+              <PinControl
+                courier={c}
+                onSaved={(pin) => {
+                  setFreshPins((p) => ({ ...p, [c.id]: pin }))
+                  reload()
+                }}
+              />
+            )}
+            {editing !== c.id && (
+              <CopyCourierMessage
+                label="Copier le message d'accès"
+                text={courierAccessMessage(c, window.location.origin, freshPins[c.id])}
+              />
+            )}
           </div>
         ))
       )}

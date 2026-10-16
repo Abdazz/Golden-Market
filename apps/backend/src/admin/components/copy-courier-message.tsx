@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react"
 const secondaryButton =
   "txt-compact-small-plus rounded-md border border-ui-border-base bg-ui-bg-base px-3 py-1.5 text-ui-fg-base"
 
-export const CopyCourierMessage = ({ text }: { text: string }) => {
+export const CopyCourierMessage = ({ text, label = "Copier le message livreur" }: { text: string; label?: string }) => {
   const [copied, setCopied] = useState(false)
   const [showFallback, setShowFallback] = useState(false)
   const [preview, setPreview] = useState(false)
@@ -43,7 +43,7 @@ export const CopyCourierMessage = ({ text }: { text: string }) => {
     <div className="flex flex-col gap-y-1">
       <div className="flex items-center gap-x-3">
         <button type="button" className={secondaryButton} onClick={copy}>
-          {copied ? "Message copié" : "Copier le message livreur"}
+          {copied ? "Message copié" : label}
         </button>
         <button type="button" className="txt-compact-small text-ui-fg-interactive" onClick={() => setPreview((v) => !v)}>
           {preview ? "Masquer le message" : "Voir le message"}
