@@ -85,7 +85,7 @@ describe("GET /meta-catalog-feed", () => {
     expect(res.headers["Content-Type"]).toBe("text/csv")
     const rows = (res.sentBody as string).trim().split("\n")
     expect(rows[0]).toBe(
-      "id,title,description,availability,condition,price,link,image_link,brand,item_group_id,video[0].url"
+      "id,title,description,availability,condition,price,link,image_link,brand,item_group_id,video[0].url,additional_image_link"
     )
     expect(rows).toHaveLength(3) // header + 2 variants
     expect(rows[1]).toContain('"variant_1"')
@@ -94,7 +94,7 @@ describe("GET /meta-catalog-feed", () => {
     expect(rows[2]).toContain('"variant_2"')
     expect(rows[2]).toContain('"out of stock"') // available_quantity 0, tracked, no backorder
     expect(rows[2]).toContain('"Desc ""B"""') // embedded quote escaped per CSV convention
-    expect(rows[2]).toMatch(/,""$/) // produit B n'a pas de vidéo -> colonne vide
+    expect(rows[2]).toContain(',"",') // produit B n'a pas de vidéo -> colonne vide
   })
 
   it("returns just the header row when there are no published products", async () => {
@@ -105,7 +105,7 @@ describe("GET /meta-catalog-feed", () => {
     await GET(req, res)
 
     expect((res.sentBody as string).trim()).toBe(
-      "id,title,description,availability,condition,price,link,image_link,brand,item_group_id,video[0].url"
+      "id,title,description,availability,condition,price,link,image_link,brand,item_group_id,video[0].url,additional_image_link"
     )
   })
 })

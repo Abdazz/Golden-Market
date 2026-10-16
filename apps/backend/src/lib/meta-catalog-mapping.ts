@@ -15,6 +15,8 @@ export type MetaCatalogItem = {
   price: string
   link: string
   image_link: string
+  // Autres photos du produit (Meta en accepte 20 au plus) ; la première est image_link.
+  additional_image_links: string[]
   brand: string
   video_url: string | null
 }
@@ -75,6 +77,17 @@ export function resolveImageLink(
   )
 }
 
+// Photos supplémentaires : toutes celles du produit (et de la variante) sauf la principale, sans
+// doublon. Une adresse contenant une virgule est écartée : le flux CSV les sépare par des virgules.
+export function resolveAdditionalImageLinks(
+  variant: Pick<CatalogVariant, "images">,
+  product: Pick<CatalogProduct, "thumbnail" | "images">
+): string[] {
+  const main = resolveImageLink(variant, product)
+  const all = [...(variant.images ?? []), ...(product.images ?? [])].map((i) => i.url)
+  return [...new Set(all)].filter((url) => url && url !== main && !url.includes(",")).slice(0, 20)
+}
+
 // La vidéo se règle une fois pour le produit entier (upload via le widget
 // admin "product-video", voir apps/backend/src/admin/widgets), pas par
 // variante - un produit n'a généralement qu'une seule vidéo publicitaire,
@@ -115,6 +128,7 @@ export function buildCatalogItem(
       : "0 XOF",
     link: `${STORE_PRODUCT_BASE_URL}/${product.handle}`,
     image_link: resolveImageLink(variant, product),
+    additional_image_links: resolveAdditionalImageLinks(variant, product),
     brand: BRAND,
     video_url: resolveVideoLink(product),
   }

@@ -12,6 +12,7 @@ describe("upsertCatalogItem", () => {
     price: "15000 XOF",
     link: "https://golden-market.co/bf/products/produit",
     image_link: "https://example.com/img.jpg",
+    additional_image_links: [],
     brand: "Golden Market",
     video_url: null,
   }
@@ -31,7 +32,7 @@ describe("upsertCatalogItem", () => {
     const body = init.body as FormData
     expect(body.get("access_token")).toBe("token_abc")
     expect(body.get("item_type")).toBe("PRODUCT_ITEM")
-    const { video_url, ...itemWithoutVideoUrl } = item
+    const { video_url, additional_image_links, ...itemWithoutVideoUrl } = item
     expect(JSON.parse(body.get("requests") as string)).toEqual([
       { method: "UPDATE", data: itemWithoutVideoUrl },
     ])
@@ -104,5 +105,21 @@ describe("upsertCatalogItem", () => {
     await expect(
       upsertCatalogItem(item, config, fetchMock as unknown as typeof fetch)
     ).rejects.toThrow(/Invalid parameter/)
+  })
+})
+
+describe("photos supplémentaires", () => {
+  it("envoyées en additional_image_urls seulement quand il y en a", async () => {
+    const calls: any[] = []
+    const fetchImpl = (async (_url: string, init: any) => {
+      calls.push(JSON.parse(init.body.get("requests"))[0].data)
+      return { ok: true } as any
+    }) as any
+    const base: any = { id: "v", item_group_id: "p", title: "t", description: "", availability: "in stock", condition: "new", price: "1 XOF", link: "l", image_link: "a", additional_image_links: ["b", "c"], brand: "b", video_url: null }
+    await upsertCatalogItem(base, { catalogId: "c", accessToken: "t" }, fetchImpl)
+    await upsertCatalogItem({ ...base, additional_image_links: [] }, { catalogId: "c", accessToken: "t" }, fetchImpl)
+    expect(calls[0].additional_image_urls).toEqual(["b", "c"])
+    expect(calls[0].additional_image_links).toBeUndefined()
+    expect(calls[1].additional_image_urls).toBeUndefined()
   })
 })

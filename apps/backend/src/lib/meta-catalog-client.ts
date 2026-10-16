@@ -33,8 +33,12 @@ export async function upsertCatalogItem(
   // Meta attend "videos: [{url}]" (voir doc Product Item), pas notre champ
   // interne "video_url" - absent plutôt que null quand il n'y a pas de vidéo
   // (Meta rejette certains champs inconnus/mal typés selon l'endpoint).
-  const { video_url, ...itemWithoutVideoUrl } = item
-  const data: Record<string, unknown> = { ...itemWithoutVideoUrl }
+  const { video_url, additional_image_links, ...itemWithoutExtras } = item
+  const data: Record<string, unknown> = { ...itemWithoutExtras }
+  // API items_batch : additional_image_urls (tableau) ; le flux CSV utilise additional_image_link.
+  if (additional_image_links.length > 0) {
+    data.additional_image_urls = additional_image_links
+  }
   if (video_url) {
     data.videos = [{ url: video_url }]
   }

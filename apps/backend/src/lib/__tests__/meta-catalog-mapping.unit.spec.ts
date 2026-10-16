@@ -1,4 +1,5 @@
 import {
+  resolveAdditionalImageLinks,
   computeAvailability,
   formatMetaPrice,
   resolveImageLink,
@@ -136,6 +137,7 @@ describe("buildCatalogItem", () => {
       price: "15000 XOF",
       link: "https://golden-market.co/bf/products/serpilliere-auto-essorante",
       image_link: "https://example.com/thumb.jpg",
+      additional_image_links: [],
       brand: "Golden Market",
       video_url: null,
     })
@@ -218,5 +220,14 @@ describe("buildCatalogItem", () => {
     const item = buildCatalogItem(product, variant, null)
     expect(item.availability).toBe("out of stock")
     expect(item.price).toBe("0 XOF")
+  })
+})
+
+describe("resolveAdditionalImageLinks", () => {
+  it("toutes les photos sauf la principale, sans doublon ni adresse à virgule", () => {
+    const product = { thumbnail: null, images: [{ url: "a" }, { url: "b" }, { url: "b" }, { url: "c,d" }, { url: "e" }] }
+    expect(resolveAdditionalImageLinks({ images: [] }, product)).toEqual(["b", "e"])
+    expect(resolveAdditionalImageLinks({ images: [{ url: "e" }] }, product)).toEqual(["a", "b"])
+    expect(resolveAdditionalImageLinks({ images: [] }, { thumbnail: "t", images: [] })).toEqual([])
   })
 })
