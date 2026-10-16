@@ -30,17 +30,18 @@ export async function upsertCatalogItem(
     throw new Error("META_CATALOG_ACCESS_TOKEN non configuré")
   }
 
-  // Meta attend "videos: [{url}]" (voir doc Product Item), pas notre champ
+  // Meta attend "video: [{url}]" (le nom "videos" est refusé comme champ non reconnu, vérifié le
+  // 2026-10-16 avec validation_status), pas notre champ
   // interne "video_url" - absent plutôt que null quand il n'y a pas de vidéo
   // (Meta rejette certains champs inconnus/mal typés selon l'endpoint).
   const { video_url, additional_image_links, ...itemWithoutExtras } = item
   const data: Record<string, unknown> = { ...itemWithoutExtras }
-  // API items_batch : additional_image_urls (tableau) ; le flux CSV utilise additional_image_link.
+  // items_batch : "additional_image_link" (tableau) ; "additional_image_urls" est refusé comme champ non reconnu.
   if (additional_image_links.length > 0) {
-    data.additional_image_urls = additional_image_links
+    data.additional_image_link = additional_image_links
   }
   if (video_url) {
-    data.videos = [{ url: video_url }]
+    data.video = [{ url: video_url }]
   }
 
   const body = new FormData()

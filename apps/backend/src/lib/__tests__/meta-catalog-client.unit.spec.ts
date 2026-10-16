@@ -38,7 +38,7 @@ describe("upsertCatalogItem", () => {
     ])
   })
 
-  it("translates video_url into Meta's 'videos' array field, and omits the internal video_url key", async () => {
+  it("translates video_url into Meta's 'video' array field, and omits the internal video_url key", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 })
     const itemWithVideo: MetaCatalogItem = {
       ...item,
@@ -49,20 +49,20 @@ describe("upsertCatalogItem", () => {
 
     const body = fetchMock.mock.calls[0][1].body as FormData
     const sentData = JSON.parse(body.get("requests") as string)[0].data
-    expect(sentData.videos).toEqual([
+    expect(sentData.video).toEqual([
       { url: "https://golden-market.co/static/video.mp4" },
     ])
     expect(sentData).not.toHaveProperty("video_url")
   })
 
-  it("does not send a 'videos' field at all when there is no video", async () => {
+  it("does not send a 'video' field at all when there is no video", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 })
 
     await upsertCatalogItem(item, config, fetchMock as unknown as typeof fetch)
 
     const body = fetchMock.mock.calls[0][1].body as FormData
     const sentData = JSON.parse(body.get("requests") as string)[0].data
-    expect(sentData).not.toHaveProperty("videos")
+    expect(sentData).not.toHaveProperty("video")
     expect(sentData).not.toHaveProperty("video_url")
   })
 
@@ -109,7 +109,7 @@ describe("upsertCatalogItem", () => {
 })
 
 describe("photos supplémentaires", () => {
-  it("envoyées en additional_image_urls seulement quand il y en a", async () => {
+  it("envoyées en additional_image_link seulement quand il y en a", async () => {
     const calls: any[] = []
     const fetchImpl = (async (_url: string, init: any) => {
       calls.push(JSON.parse(init.body.get("requests"))[0].data)
@@ -118,8 +118,8 @@ describe("photos supplémentaires", () => {
     const base: any = { id: "v", item_group_id: "p", title: "t", description: "", availability: "in stock", condition: "new", price: "1 XOF", link: "l", image_link: "a", additional_image_links: ["b", "c"], brand: "b", video_url: null }
     await upsertCatalogItem(base, { catalogId: "c", accessToken: "t" }, fetchImpl)
     await upsertCatalogItem({ ...base, additional_image_links: [] }, { catalogId: "c", accessToken: "t" }, fetchImpl)
-    expect(calls[0].additional_image_urls).toEqual(["b", "c"])
+    expect(calls[0].additional_image_link).toEqual(["b", "c"])
     expect(calls[0].additional_image_links).toBeUndefined()
-    expect(calls[1].additional_image_urls).toBeUndefined()
+    expect(calls[1].additional_image_link).toBeUndefined()
   })
 })
