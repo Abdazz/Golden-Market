@@ -746,46 +746,50 @@ const CourierForm = ({ courier, onSaved, onCancel }: { courier?: Courier; onSave
   )
 }
 
+// PIN à 4 chiffres tiré au hasard (jamais saisi à la main), sans suite triviale.
+const randomPin = () => {
+  for (;;) {
+    const pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, "0")
+    if (!/^(\d)\1{3}$/.test(pin)) return pin
+  }
+}
+
 const PinControl = ({ courier, onSaved }: { courier: Courier; onSaved: (pin: string) => void }) => {
-  const [open, setOpen] = useState(false)
-  const [pin, setPin] = useState("")
+  const [confirm, setConfirm] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const save = async () => {
+  const generate = async () => {
     setError(null)
+    setBusy(true)
+    const pin = randomPin()
     try {
       await api(`/admin/couriers/${courier.id}/pin`, { method: "POST", body: { pin } })
-      setOpen(false)
-      setPin("")
+      setConfirm(false)
       onSaved(pin)
     } catch (e) {
       setError((e as Error).message)
+    } finally {
+      setBusy(false)
     }
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {courier.has_pin && <span className="txt-compact-small text-ui-fg-subtle">PIN défini</span>}
-      {open ? (
+      {confirm ? (
         <>
-          <input
-            className={`${inputClass} max-w-[100px]`}
-            inputMode="numeric"
-            maxLength={4}
-            placeholder="4 chiffres"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          />
-          <button type="button" className={primaryButton} onClick={save}>
-            Enregistrer
+          <span className="txt-compact-small text-ui-fg-subtle">L'ancien PIN ne fonctionnera plus.</span>
+          <button type="button" className={primaryButton} disabled={busy} onClick={generate}>
+            Oui, générer un nouveau PIN
           </button>
-          <button type="button" className={secondaryButton} onClick={() => { setOpen(false); setError(null) }}>
+          <button type="button" className={secondaryButton} onClick={() => setConfirm(false)}>
             Annuler
           </button>
         </>
       ) : (
-        <button type="button" className={secondaryButton} onClick={() => setOpen(true)}>
-          {courier.has_pin ? "Changer le PIN" : "Créer le PIN"}
+        <button type="button" className={secondaryButton} disabled={busy} onClick={() => (courier.has_pin ? setConfirm(true) : generate())}>
+          {courier.has_pin ? "Générer un nouveau PIN" : "Générer le PIN"}
         </button>
       )}
       {error && <span className="txt-compact-small text-ui-fg-error">{error}</span>}
@@ -854,7 +858,12 @@ const CouriersTab = () => {
                 }}
               />
             )}
-            {editing !== c.id && (
+            {freshPins[c.id] && (
+              <span className="txt-compact-small-plus text-ui-fg-base">
+                PIN généré : {freshPins[c.id]} (visible seulement jusqu'au rechargement de la page : copiez le message maintenant)
+              </span>
+            )}
+            {editing !== c.id && c.has_pin && (
               <CopyCourierMessage
                 label="Copier le message d'accès"
                 text={courierAccessMessage(c, window.location.origin, freshPins[c.id])}
