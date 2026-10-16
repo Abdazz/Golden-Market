@@ -8,4 +8,6 @@ export const Courier = model.define("courier", {
   active: model.boolean().default(true),
   notes: model.text().nullable(),
   pin_hash: model.text().nullable(),
+  // PIN chiffré (AES-GCM) : l'équipe doit pouvoir le remettre dans le message d'accès. Jamais exposé au livreur.
+  pin_cipher: model.text().nullable(),
 })

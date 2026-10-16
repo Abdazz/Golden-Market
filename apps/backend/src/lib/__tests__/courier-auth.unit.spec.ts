@@ -1,5 +1,5 @@
 import { scryptSync } from "crypto"
-import { hashPin, isValidPin, resolveClientIp, signCourierToken, verifyCourierToken, verifyPin } from "../courier-auth"
+import { decryptPin, encryptPin, hashPin, isValidPin, resolveClientIp, signCourierToken, verifyCourierToken, verifyPin } from "../courier-auth"
 
 describe("PIN", () => {
   it("4 chiffres exactement", () => {
@@ -68,5 +68,17 @@ describe("resolveClientIp", () => {
   it("secret défini et bon : adresse posée par le relais, sinon adresse de connexion", () => {
     expect(resolveClientIp(relay, "10.0.0.1", "s3cret")).toEqual({ ok: true, ip: "41.1.2.3" })
     expect(resolveClientIp({ "x-courier-relay-secret": "s3cret" }, "10.0.0.1", "s3cret")).toEqual({ ok: true, ip: "10.0.0.1" })
+  })
+})
+
+describe("PIN chiffré pour le message d'accès", () => {
+  it("se relit avec le même secret, jamais en clair, illisible sinon", () => {
+    const a = encryptPin("4826", "secret-a")
+    expect(a).not.toContain("4826")
+    expect(a).not.toEqual(encryptPin("4826", "secret-a"))
+    expect(decryptPin(a, "secret-a")).toBe("4826")
+    expect(decryptPin(a, "secret-b")).toBeNull()
+    expect(decryptPin(null, "secret-a")).toBeNull()
+    expect(decryptPin("zz:zz:zz", "secret-a")).toBeNull()
   })
 })

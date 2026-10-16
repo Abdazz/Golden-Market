@@ -7,6 +7,6 @@ export async function POST(req: AuthenticatedMedusaRequest<UpdateCourierSchema>,
   const { result } = await updateCourierWorkflow(req.scope).run({
     input: { id: req.params.id, ...req.validatedBody },
   })
-  const { pin_hash, ...courier } = result as any
+  const { pin_hash, pin_cipher, ...courier } = result as any
   res.json({ courier: { ...courier, has_pin: Boolean(pin_hash) } })
 }

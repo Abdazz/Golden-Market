@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scrypt, timingSafeEqual } from "crypto"
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from "crypto"
 import { promisify } from "util"
 
 // Authentification du livreur (spec 2026-10-15 espace-livreur) : PIN à 4 chiffres
@@ -23,6 +23,30 @@ export const verifyPin = async (pin: string, stored: string): Promise<boolean> =
   const expected = Buffer.from(hashHex, "hex")
   const actual = await scryptAsync(pin, Buffer.from(saltHex, "hex"), expected.length || 32)
   return actual.length === expected.length && timingSafeEqual(actual, expected)
+}
+
+// PIN chiffré pour l'affichage dans l'admin (message d'accès) : AES-256-GCM, clé dérivée
+// du secret serveur. Format « iv:étiquette:données » en hexadécimal.
+const pinKey = (secret: string) => createHash("sha256").update(`courier-pin:${secret}`).digest()
+
+export const encryptPin = (pin: string, secret: string): string => {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", pinKey(secret), iv)
+  const data = Buffer.concat([cipher.update(pin, "utf8"), cipher.final()])
+  return [iv, cipher.getAuthTag(), data].map((b) => b.toString("hex")).join(":")
+}
+
+// Null si absent, altéré ou chiffré avec un autre secret.
+export const decryptPin = (stored: string | null | undefined, secret: string): string | null => {
+  try {
+    const [iv, tag, data] = (stored ?? "").split(":").map((h) => Buffer.from(h, "hex"))
+    if (!iv || !tag || !data) return null
+    const decipher = createDecipheriv("aes-256-gcm", pinKey(secret), iv)
+    decipher.setAuthTag(tag)
+    return Buffer.concat([decipher.update(data), decipher.final()]).toString("utf8")
+  } catch {
+    return null
+  }
 }
 
 // Adresse du client pour la limite d'essais par IP de la connexion. Secret de

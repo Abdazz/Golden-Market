@@ -6,7 +6,7 @@
 export type DeliveryStatus = "assigned" | "delivered" | "failed" | "shipped" | "canceled"
 export type DeliveryType = "express" | "expedition"
 
-export type Courier = { id: string; name: string; phone: string; active: boolean; notes: string | null; has_pin?: boolean }
+export type Courier = { id: string; name: string; phone: string; active: boolean; notes: string | null; has_pin?: boolean; pin?: string | null }
 
 export type TourLine = {
   id: string

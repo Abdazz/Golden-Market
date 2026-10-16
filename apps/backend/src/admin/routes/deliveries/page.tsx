@@ -800,7 +800,7 @@ const PinControl = ({ courier, onSaved }: { courier: Courier; onSaved: (pin: str
 const CouriersTab = () => {
   const { couriers, reload } = useCouriers()
   const [editing, setEditing] = useState<string | null>(null)
-  // PIN défini pendant cette session (le serveur ne garde qu'un hachage) : ajouté au message copié.
+  // PIN défini pendant cette session : affiché sous la carte (ensuite lu depuis le PIN chiffré du livreur).
   const [freshPins, setFreshPins] = useState<Record<string, string>>({})
 
   const toggleActive = async (c: Courier) => {
@@ -860,13 +860,13 @@ const CouriersTab = () => {
             )}
             {freshPins[c.id] && (
               <span className="txt-compact-small-plus text-ui-fg-base">
-                PIN généré : {freshPins[c.id]} (visible seulement jusqu'au rechargement de la page : copiez le message maintenant)
+                PIN généré : {freshPins[c.id]}
               </span>
             )}
             {editing !== c.id && c.has_pin && (
               <CopyCourierMessage
                 label="Copier le message d'accès"
-                text={courierAccessMessage(c, window.location.origin, freshPins[c.id])}
+                text={courierAccessMessage(c, window.location.origin, freshPins[c.id] ?? c.pin ?? undefined)}
               />
             )}
           </div>

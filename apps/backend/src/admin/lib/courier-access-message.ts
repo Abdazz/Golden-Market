@@ -1,5 +1,5 @@
 // Message WhatsApp d'accès à l'espace livreur, copié depuis l'onglet « Livreurs ».
-// Le PIN n'est stocké que haché : il n'apparaît que s'il vient d'être défini dans cette session.
+// Le PIN apparaît quand l'équipe le connaît (défini ou régénéré depuis le chiffrement du PIN) ; sinon une formule de repli.
 export const courierAccessMessage = (courier: { name: string; phone: string }, origin: string, pin?: string) =>
   [
     `Bonjour ${courier.name} 👋`,
