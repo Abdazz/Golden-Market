@@ -43,6 +43,51 @@ const secondary = `inline-flex min-h-[48px] w-full items-center justify-center r
 const label = "flex flex-col gap-1.5 text-sm font-semibold"
 const alertBox = "rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700"
 
+// Numéro du client avec copie (presse-papiers ; sans lui, le numéro reste sélectionnable à la main).
+const CustomerPhone = ({ phone }: { phone: string }) => {
+  const [copied, setCopied] = useState<"ok" | "ko" | null>(null)
+  const copy = async () => {
+    // Copie par sélection d'un champ temporaire, synchrone dans le geste du clic (fiable
+    // sur tous les téléphones) ; à défaut, API presse-papiers.
+    const area = document.createElement("textarea")
+    area.value = phone
+    area.style.position = "fixed"
+    area.style.opacity = "0"
+    document.body.appendChild(area)
+    area.select()
+    let ok = false
+    try {
+      ok = document.execCommand("copy")
+    } catch {
+      ok = false
+    }
+    area.remove()
+    if (!ok) {
+      try {
+        await navigator.clipboard.writeText(phone)
+        ok = true
+      } catch {
+        ok = false
+      }
+    }
+    setCopied(ok ? "ok" : "ko")
+    setTimeout(() => setCopied(null), 2500)
+  }
+  return (
+    <p className="mt-1 flex items-center gap-2 text-sm">
+      <span className="select-all font-semibold">{phone}</span>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={`Copier le numéro ${phone}`}
+        className={`min-h-[44px] rounded-lg px-3 text-sm font-semibold text-gm-amethyst ${focusRing}`}
+      >
+        {copied === "ok" ? "Copié" : copied === "ko" ? "Appui long sur le numéro" : "Copier"}
+      </button>
+    </p>
+  )
+}
+
 const STATE: Record<Line["state"], { label: string; tone: string }> = {
   todo: { label: "À renseigner", tone: "bg-gm-gold-soft text-gm-ink" },
   submitted: {
@@ -523,6 +568,7 @@ export const LivreurApp = () => {
                 Commandée le {orderDate(l.order_created_at)}
               </p>
             )}
+            <CustomerPhone phone={l.customer_phone} />
             {l.place && <p className="mt-1 text-sm">{l.place}</p>}
             <p className="mt-1 text-sm">
               {l.items.map((i) => `${i.quantity} × ${i.title}`).join(", ")}
