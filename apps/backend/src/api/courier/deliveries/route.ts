@@ -46,6 +46,7 @@ export async function GET(req: CourierRequest, res: MedusaResponse) {
           courier_fee: l.report.courier_fee,
           transport_fee: l.report.transport_fee,
           return_reason: l.report.return_reason,
+          comment: l.report.comment,
           status: l.report.status,
         },
       }

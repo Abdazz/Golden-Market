@@ -90,6 +90,7 @@ const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => voi
                 {isExpedition && <span>Frais Expédition : {formatXof(report.transport_fee)}</span>}
               </>
             )}
+            {report.comment && <span>Commentaire : {report.comment}</span>}
             <span className="txt-compact-xsmall text-ui-fg-subtle">Envoyé à {sentAt(report.submitted_at)}</span>
           </div>
         )}

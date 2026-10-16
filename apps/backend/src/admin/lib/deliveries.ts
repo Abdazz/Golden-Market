@@ -50,6 +50,7 @@ export type CourierReport = {
   courier_fee: number | null
   transport_fee: number | null
   return_reason: string | null
+  comment: string | null
   submitted_at: string
 }
 export type ReportLine = TourLine & { state: ReportState; report: CourierReport | null }

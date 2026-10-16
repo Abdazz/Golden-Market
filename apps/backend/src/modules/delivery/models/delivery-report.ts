@@ -16,6 +16,8 @@ export const DeliveryReport = model
     courier_fee: model.number().nullable(),
     transport_fee: model.number().nullable(),
     return_reason: model.text().nullable(),
+    // Commentaire facultatif du livreur (rapport « Oui »).
+    comment: model.text().nullable(),
     submitted_at: model.dateTime(),
     validated_at: model.dateTime().nullable(),
   })

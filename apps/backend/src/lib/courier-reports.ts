@@ -22,6 +22,7 @@ export type ReportView = {
   courier_fee: number | null
   transport_fee: number | null
   return_reason: string | null
+  comment: string | null
   submitted_at: string
 }
 export type ReportLine = ReturnType<typeof toTourLine> & { state: LineState; report: ReportView | null }
@@ -53,6 +54,7 @@ const toView = (r: any): ReportView => ({
   courier_fee: r.courier_fee ?? null,
   transport_fee: r.transport_fee ?? null,
   return_reason: r.return_reason ?? null,
+  comment: r.comment ?? null,
   submitted_at: new Date(r.submitted_at).toISOString(),
 })
 
@@ -138,6 +140,7 @@ async function submitLocked(scope: any, courierId: string, deliveryId: string, b
     amount_collected: values.amount_collected,
     courier_fee: values.courier_fee,
     transport_fee: values.transport_fee,
+    comment: values.delivered ? values.comment : null,
     return_reason: null,
     submitted_at: new Date(),
   } as const

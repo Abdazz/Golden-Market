@@ -27,6 +27,7 @@ type Line = {
     courier_fee: number | null
     transport_fee: number | null
     return_reason: string | null
+    comment: string | null
   } | null
 }
 
@@ -183,6 +184,7 @@ const ReportSheet = ({
   const [amount, setAmount] = useState(numStr(prev?.amount_collected))
   const [courierFee, setCourierFee] = useState(numStr(prev?.courier_fee))
   const [transportFee, setTransportFee] = useState(numStr(prev?.transport_fee))
+  const [comment, setComment] = useState(prev?.comment ?? "")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -231,6 +233,7 @@ const ReportSheet = ({
         amount_collected: amount,
         courier_fee: courierFee,
         transport_fee: transportFee,
+        comment,
       })
       onSent()
     } catch (err) {
@@ -350,6 +353,17 @@ const ReportSheet = ({
                 />
               </label>
             )}
+            <label className={label}>
+              Commentaire (facultatif)
+              <textarea
+                className={field}
+                rows={3}
+                maxLength={500}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Une information à nous communiquer sur cette commande"
+              />
+            </label>
           </div>
         )}
 

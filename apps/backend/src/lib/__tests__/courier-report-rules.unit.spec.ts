@@ -31,7 +31,7 @@ describe("parseReport", () => {
   it("Ouaga livrée : montant encaissé entier positif et course obligatoires", () => {
     expect(parseReport("express", { delivered: true, amount_collected: 9500, courier_fee: 1000 })).toEqual({
       ok: true,
-      values: { delivered: true, failure_reason: null, amount_collected: 9500, courier_fee: 1000, transport_fee: null },
+      values: { delivered: true, failure_reason: null, amount_collected: 9500, courier_fee: 1000, transport_fee: null, comment: null },
     })
     expect(parseReport("express", { delivered: true, courier_fee: 1000 })).toMatchObject({ ok: false })
     expect(parseReport("express", { delivered: true, amount_collected: 0, courier_fee: 1000 })).toMatchObject({ ok: false })
@@ -41,7 +41,7 @@ describe("parseReport", () => {
   it("Ouaga déjà payée : montant absent accepté, enregistré à 0", () => {
     expect(parseReport("express", { delivered: true, courier_fee: 1000 }, { amountToCollect: 0 })).toEqual({
       ok: true,
-      values: { delivered: true, failure_reason: null, amount_collected: 0, courier_fee: 1000, transport_fee: null },
+      values: { delivered: true, failure_reason: null, amount_collected: 0, courier_fee: 1000, transport_fee: null, comment: null },
     })
     expect(parseReport("express", { delivered: true, courier_fee: 1000 }, { amountToCollect: 9500 })).toMatchObject({ ok: false })
   })
@@ -52,7 +52,7 @@ describe("parseReport", () => {
   it("expédition livrée : course et Frais Expédition obligatoires, montant encaissé refusé du livreur", () => {
     expect(parseReport("expedition", { delivered: true, courier_fee: 1000, transport_fee: 2000, amount_collected: 99999 })).toEqual({
       ok: true,
-      values: { delivered: true, failure_reason: null, amount_collected: null, courier_fee: 1000, transport_fee: 2000 },
+      values: { delivered: true, failure_reason: null, amount_collected: null, courier_fee: 1000, transport_fee: 2000, comment: null },
     })
     expect(parseReport("expedition", { delivered: true, courier_fee: 1000 })).toMatchObject({ ok: false })
     expect(parseReport("expedition", { delivered: true, transport_fee: 2000 })).toMatchObject({ ok: false })
@@ -97,5 +97,11 @@ describe("reportBelongsTo / wholeAmount", () => {
     expect(wholeAmount(true)).toBeNull()
     expect(wholeAmount("1e3")).toBeNull()
     expect(wholeAmount(-1)).toBeNull()
+  })
+  it("garde le commentaire facultatif du rapport Oui, nettoyé et limité à 500 caractères", () => {
+    expect(parseReport("express", { delivered: true, amount_collected: 9500, courier_fee: 0, comment: "  Portail bleu  " })).toMatchObject({ ok: true, values: { comment: "Portail bleu" } })
+    expect(parseReport("express", { delivered: true, amount_collected: 9500, courier_fee: 0, comment: "   " })).toMatchObject({ ok: true, values: { comment: null } })
+    const long = parseReport("express", { delivered: true, amount_collected: 9500, courier_fee: 0, comment: "a".repeat(600) })
+    expect(long.ok && long.values.delivered && long.values.comment?.length).toBe(500)
   })
 })

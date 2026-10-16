@@ -4,7 +4,7 @@
 export type DeliveryType = "express" | "expedition"
 
 export type ReportValues =
-  | { delivered: true; failure_reason: null; amount_collected: number | null; courier_fee: number; transport_fee: number | null }
+  | { delivered: true; failure_reason: null; amount_collected: number | null; courier_fee: number; transport_fee: number | null; comment: string | null }
   | { delivered: false; failure_reason: string; amount_collected: null; courier_fee: null; transport_fee: null }
 
 // Champs montrés au livreur : en expédition le client paie l'entreprise par
@@ -24,7 +24,7 @@ export const wholeAmount = (value: unknown): number | null => {
 
 export const parseReport = (
   type: DeliveryType,
-  body: { delivered?: unknown; failure_reason?: unknown; amount_collected?: unknown; courier_fee?: unknown; transport_fee?: unknown },
+  body: { delivered?: unknown; failure_reason?: unknown; amount_collected?: unknown; courier_fee?: unknown; transport_fee?: unknown; comment?: unknown },
   context: { amountToCollect?: number | null } = {}
 ): { ok: true; values: ReportValues } | { ok: false; message: string } => {
   if (typeof body.delivered !== "boolean") return { ok: false, message: "Indiquez si la commande a été livrée." }
@@ -52,9 +52,10 @@ export const parseReport = (
     transportFee = wholeAmount(body.transport_fee)
     if (transportFee === null) return { ok: false, message: "Frais Expédition invalides : nombre entier en F CFA (0 si aucun)." }
   }
+  const comment = typeof body.comment === "string" && body.comment.trim() ? body.comment.trim().slice(0, 500) : null
   return {
     ok: true,
-    values: { delivered: true, failure_reason: null, amount_collected: amountCollected, courier_fee: courierFee, transport_fee: transportFee },
+    values: { delivered: true, failure_reason: null, amount_collected: amountCollected, courier_fee: courierFee, transport_fee: transportFee, comment },
   }
 }
 
