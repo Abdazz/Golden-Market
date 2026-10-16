@@ -19,6 +19,7 @@ export const assignDeliveryWorkflow = createWorkflow(
       transport_company: input.transport_company,
       destination_city: input.destination_city,
       amount_to_collect: input.amount_to_collect,
+      tour_date: input.tour_date,
     }))
     const delivery = createDeliveryStep(fields)
     const links = transform({ delivery, input }, ({ delivery, input }) => [

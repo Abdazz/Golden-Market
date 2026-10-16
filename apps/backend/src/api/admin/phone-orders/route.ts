@@ -6,6 +6,7 @@ import {
   createOrUpdateOrderPaymentCollectionWorkflow,
   createOrderWorkflow,
 } from "@medusajs/medusa/core-flows"
+import { todayInOuaga } from "../../../lib/delivery-rules"
 import { buildDraftOrderInput, parsePhoneOrderInput } from "../../../lib/phone-order"
 import { shippingFeeForVariants } from "../../../lib/shipping-fee-query"
 
@@ -20,6 +21,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return
   }
   const input = parsed.input
+  if (input.delivery_date < todayInOuaga()) {
+    res.status(400).json({ message: "La date de livraison ne peut pas être dans le passé." })
+    return
+  }
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
   // Store mono-région (Burkina Faso, XOF), un seul canal de vente, un seul

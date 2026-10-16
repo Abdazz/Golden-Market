@@ -1,5 +1,5 @@
 import type { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { amountForAssignment, computeAmountToCollect, defaultTypeForCity } from "../../../lib/delivery-rules"
+import { amountForAssignment, computeAmountToCollect, defaultTypeForCity, tourDateFor } from "../../../lib/delivery-rules"
 import { isPaid, loadOrders, notifyCourier, outstandingOf } from "../../../lib/delivery-service-helpers"
 import { orderNumberOf } from "../../../lib/order-number"
 import { assignDeliveryWorkflow } from "../../../workflows/assign-delivery"
@@ -38,6 +38,7 @@ export async function POST(req: AuthenticatedMedusaRequest<AssignDeliveriesSchem
             }),
             body.amounts?.[orderId]
           ),
+          tour_date: tourDateFor(order.metadata?.delivery_date),
           order_canceled: order.status === "canceled",
         },
       })

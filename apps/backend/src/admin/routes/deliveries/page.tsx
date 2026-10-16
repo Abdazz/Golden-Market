@@ -214,6 +214,9 @@ const ToAssignTab = () => {
                   </Badge>
                 </div>
                 <span className="txt-compact-small text-ui-fg-subtle">Commandée le {formatOrderDate(o.created_at)}</span>
+                {o.delivery_date && o.delivery_date > todayInOuaga() && (
+                  <span className="txt-compact-small-plus text-ui-fg-base">Livraison prévue le {formatDay(o.delivery_date)}</span>
+                )}
                 <span className="txt-compact-small text-ui-fg-base">
                   {o.customer_name} · {o.customer_phone}
                 </span>

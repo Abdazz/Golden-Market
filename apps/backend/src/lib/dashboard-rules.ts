@@ -54,7 +54,8 @@ export const countInProgress = (
   deliveries: { status: string; tour_date?: string; first_tour_date: string }[],
   today: string
 ) => {
-  const inProgress = deliveries.filter((d) => d.status === "assigned")
+  // Une livraison prévue un jour futur n'est pas encore « en cours ».
+  const inProgress = deliveries.filter((d) => d.status === "assigned" && (!d.tour_date || d.tour_date <= today))
   return { count: inProgress.length, late: inProgress.filter((d) => d.first_tour_date < today).length }
 }
 

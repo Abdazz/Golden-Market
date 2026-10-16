@@ -22,6 +22,11 @@ export type DeliveryLike = {
 export const dayOf = (date: Date | string): string => new Date(date).toISOString().slice(0, 10)
 export const todayInOuaga = (now: Date = new Date()): string => dayOf(now)
 
+// Jour de tournée d'une livraison : la date de livraison de la commande, jamais avant
+// aujourd'hui (une commande sans date ou à date passée se livre aujourd'hui).
+export const tourDateFor = (deliveryDate: unknown, today: string = todayInOuaga()): string =>
+  typeof deliveryDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(deliveryDate) && deliveryDate > today ? deliveryDate : today
+
 // Ouagadougou -> livraison express ; toute autre ville -> expédition.
 export const defaultTypeForCity = (city: string | null | undefined): DeliveryType => {
   const c = (city ?? "").trim().toLowerCase()

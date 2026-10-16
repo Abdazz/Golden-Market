@@ -33,6 +33,8 @@ export async function loadOrdersToAssign(scope: { resolve: (key: string) => any 
         id: o.id as string,
         order_number: orderNumberOf(o),
         created_at: o.created_at,
+        // Jour de livraison convenu ; null = le jour même (commande sans date).
+        delivery_date: (o.metadata?.delivery_date as string | undefined) ?? null,
         customer_name: customerName(o),
         customer_phone: o.shipping_address?.phone ?? "",
         city: o.shipping_address?.city ?? null,

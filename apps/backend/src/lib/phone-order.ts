@@ -1,4 +1,5 @@
 import { z } from "@medusajs/framework/zod"
+import { todayInOuaga } from "./delivery-rules"
 import { normalizePhone } from "./normalize-phone"
 
 // Commande prise par téléphone depuis l'admin (bouton "Nouvelle commande") :
@@ -23,6 +24,8 @@ export type PhoneOrderInput = {
   city: string
   address: string
   payment_method: PhoneOrderPaymentMethod
+  // Jour de livraison convenu avec le client (AAAA-MM-JJ, heure de Ouagadougou) ; le jour même par défaut.
+  delivery_date: string
   items: { variant_id: string; quantity: number }[]
 }
 
@@ -36,6 +39,11 @@ const Body = z.object({
   payment_method: z.enum(["cash-on-delivery", "orange-money", "moov-money"], {
     message: "Choisissez le moyen de paiement convenu avec le client.",
   }),
+  delivery_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date de livraison invalide.")
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Date de livraison invalide.")
+    .optional(),
   items: z
     .array(
       z.object({
@@ -61,7 +69,7 @@ export const parsePhoneOrderInput = (
     return { ok: false, message: "Numéro WhatsApp invalide (8 chiffres, avec ou sans +226)." }
   }
 
-  return { ok: true, input: { ...parsed.data, phone } }
+  return { ok: true, input: { ...parsed.data, phone, delivery_date: parsed.data.delivery_date ?? todayInOuaga() } }
 }
 
 export const buildDraftOrderInput = ({
@@ -106,6 +114,6 @@ export const buildDraftOrderInput = ({
     // source "telephone" : distingue ces commandes de celles du site et du
     // chatbot ("whatsapp") ; payment_method : moyen convenu de vive voix,
     // repris dans la confirmation WhatsApp.
-    metadata: { source: "telephone", payment_method: input.payment_method },
+    metadata: { source: "telephone", payment_method: input.payment_method, delivery_date: input.delivery_date },
   }
 }

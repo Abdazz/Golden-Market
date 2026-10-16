@@ -7,6 +7,7 @@ const validBody = {
   city: "Ouagadougou",
   address: "Pissy, près de la pharmacie",
   payment_method: "cash-on-delivery",
+  delivery_date: "2026-10-16",
   items: [{ variant_id: "variant_1", quantity: 2 }],
 }
 
@@ -91,8 +92,19 @@ describe("buildDraftOrderInput", () => {
       },
       items: [{ variant_id: "variant_1", quantity: 2 }],
       shipping_methods: [{ name: "Livraison — à convenir avec le marchand", shipping_option_id: "so_1", amount: 0 }],
-      metadata: { source: "telephone", payment_method: "cash-on-delivery" },
+      metadata: { source: "telephone", payment_method: "cash-on-delivery", delivery_date: "2026-10-16" },
     })
     expect(draft).not.toHaveProperty("email")
+  })
+})
+
+describe("date de livraison", () => {
+  const body = { phone: "70000000", city: "Ouagadougou", address: "Pissy", payment_method: "cash-on-delivery", items: [{ variant_id: "v", quantity: 1 }] }
+  it("aujourd'hui par défaut, date donnée conservée, date invalide refusée", () => {
+    const today = new Date().toISOString().slice(0, 10)
+    expect(parsePhoneOrderInput(body)).toMatchObject({ ok: true, input: { delivery_date: today } })
+    expect(parsePhoneOrderInput({ ...body, delivery_date: "2026-12-24" })).toMatchObject({ ok: true, input: { delivery_date: "2026-12-24" } })
+    expect(parsePhoneOrderInput({ ...body, delivery_date: "demain" })).toMatchObject({ ok: false })
+    expect(parsePhoneOrderInput({ ...body, delivery_date: "2026-13-45" })).toMatchObject({ ok: false })
   })
 })

@@ -76,6 +76,7 @@ export type OrderToAssign = {
   id: string
   order_number: string
   created_at: string
+  delivery_date: string | null
   customer_name: string
   customer_phone: string
   city: string | null

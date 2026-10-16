@@ -1,4 +1,5 @@
 import {
+  tourDateFor,
   amountForAssignment,
   amountsByType,
   canAssign,
@@ -182,5 +183,15 @@ describe("deliveriesToCancel", () => {
   })
   it("aucune livraison : rien", () => {
     expect(deliveriesToCancel([])).toEqual([])
+  })
+})
+
+describe("tourDateFor", () => {
+  it("date future respectée, sinon aujourd'hui", () => {
+    expect(tourDateFor("2026-10-20", "2026-10-16")).toBe("2026-10-20")
+    expect(tourDateFor("2026-10-16", "2026-10-16")).toBe("2026-10-16")
+    expect(tourDateFor("2026-10-10", "2026-10-16")).toBe("2026-10-16")
+    expect(tourDateFor(undefined, "2026-10-16")).toBe("2026-10-16")
+    expect(tourDateFor("demain", "2026-10-16")).toBe("2026-10-16")
   })
 })

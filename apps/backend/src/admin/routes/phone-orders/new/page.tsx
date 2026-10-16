@@ -48,6 +48,8 @@ const NewPhoneOrderPage = () => {
   const [city, setCity] = useState("Ouagadougou")
   const [address, setAddress] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("")
+  const today = new Date().toISOString().slice(0, 10)
+  const [deliveryDate, setDeliveryDate] = useState(today)
   const [knownCustomer, setKnownCustomer] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [results, setResults] = useState<VariantResult[]>([])
@@ -90,6 +92,7 @@ const NewPhoneOrderPage = () => {
         setCity(data.city)
         setAddress(data.address)
         setPaymentMethod(data.payment_method)
+        setDeliveryDate(data.delivery_date)
         setLines(data.lines)
       })
       .catch(() => setError("Commande introuvable ou service injoignable."))
@@ -171,6 +174,7 @@ const NewPhoneOrderPage = () => {
           city,
           address,
           payment_method: paymentMethod,
+          delivery_date: deliveryDate,
           items: lines.map((l) => ({ variant_id: l.variant_id, quantity: l.quantity })),
         }),
       })
@@ -246,6 +250,19 @@ const NewPhoneOrderPage = () => {
             onChange={(e) => setAddress(e.target.value)}
             placeholder="Quartier, repère…"
           />
+        </label>
+        <label className="flex flex-col gap-y-1">
+          <span className={labelClass}>Date de livraison *</span>
+          <input
+            type="date"
+            className={inputClass}
+            value={deliveryDate}
+            min={today}
+            onChange={(e) => e.target.value && setDeliveryDate(e.target.value)}
+          />
+          <span className="txt-compact-xsmall text-ui-fg-subtle">
+            Le livreur ne verra la commande que ce jour-là. Aujourd'hui par défaut.
+          </span>
         </label>
       </section>
 

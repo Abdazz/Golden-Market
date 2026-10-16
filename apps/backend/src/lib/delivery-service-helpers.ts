@@ -15,6 +15,7 @@ export const ORDER_FIELDS = [
   "status",
   "total",
   "created_at",
+  "metadata",
   "shipping_address.first_name",
   "shipping_address.last_name",
   "shipping_address.phone",

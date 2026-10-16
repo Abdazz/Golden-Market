@@ -83,16 +83,18 @@ export type NewDelivery = {
   transport_company: string | null
   destination_city: string | null
   amount_to_collect: number
+  // Jour de tournée (date de livraison de la commande) ; aujourd'hui par défaut.
+  tour_date?: string
 }
 
 export const createDeliveryStep = createStep(
   "create-delivery",
   async (input: NewDelivery, { container }) => {
-    const today = todayInOuaga()
+    const day = input.tour_date ?? todayInOuaga()
     const delivery = await deliveryModule(container).createDeliveries({
       ...input,
-      tour_date: today,
-      first_tour_date: today,
+      tour_date: day,
+      first_tour_date: day,
       assigned_at: new Date(),
     })
     return new StepResponse(delivery, delivery.id)

@@ -10,7 +10,7 @@ import {
   requestOrderEditRequestWorkflow,
   updateOrderWorkflow,
 } from "@medusajs/medusa/core-flows"
-import { computeAmountToCollect, defaultTypeForCity } from "./delivery-rules"
+import { computeAmountToCollect, defaultTypeForCity, todayInOuaga, tourDateFor } from "./delivery-rules"
 import { isPaid, isShippedOrDelivered, outstandingOf } from "./delivery-service-helpers"
 import { orderNumberOf } from "./order-number"
 import type { PhoneOrderInput } from "./phone-order"
@@ -98,6 +98,8 @@ export async function orderEditDefaults(scope: any, orderId: string) {
     city: address.city ?? "",
     address: address.address_1 ?? "",
     payment_method: (order.metadata?.payment_method as string | undefined) ?? "",
+    // Commandes sans date (site, agent WhatsApp) : livraison le jour même.
+    delivery_date: (order.metadata?.delivery_date as string | undefined) ?? todayInOuaga(),
     lines: (order.items ?? []).map((item: any) => ({
       variant_id: item.variant_id ?? item.variant?.id,
       product_title: item.product_title ?? item.variant?.product?.title ?? item.title,
@@ -136,6 +138,11 @@ export async function submitOrderEdit(scope: any, orderId: string, input: PhoneO
   const deliveries = await loadDeliveries(scope, orderId)
   const reason = notEditableReason(order, deliveries)
   if (reason) throw new Error(`${reason} Elle ne peut plus être modifiée.`)
+
+  // Une date passée n'est acceptée que si c'est celle déjà enregistrée sur la commande.
+  if (input.delivery_date < todayInOuaga() && input.delivery_date !== order.metadata?.delivery_date) {
+    throw new Error("La date de livraison ne peut pas être dans le passé.")
+  }
 
   const query = scope.resolve(ContainerRegistrationKeys.QUERY)
   const fee = await shippingFeeForVariants(
@@ -216,7 +223,7 @@ export async function submitOrderEdit(scope: any, orderId: string, input: PhoneO
       user_id: userId,
       shipping_address: address,
       billing_address: address,
-      metadata: { ...(order.metadata ?? {}), payment_method: input.payment_method },
+      metadata: { ...(order.metadata ?? {}), payment_method: input.payment_method, delivery_date: input.delivery_date },
     },
   })
 
@@ -228,6 +235,8 @@ export async function submitOrderEdit(scope: any, orderId: string, input: PhoneO
     await updateDeliveryWorkflow(scope).run({
       input: {
         id: active.id,
+        // Nouvelle date de livraison : la commande n'apparaît chez le livreur qu'à ce jour (jamais avant aujourd'hui).
+        tour_date: tourDateFor(input.delivery_date),
         type,
         address: type === "express" ? input.address : null,
         destination_city: type === "expedition" ? input.city : null,
