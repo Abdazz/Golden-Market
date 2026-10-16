@@ -38,13 +38,16 @@ détail technique dans `AGENTS.md` (« Espace livreur (2026-10-15) »).
   le patch du dashboard (`#golden-market-order-top`, `scripts/patch-dashboard.mjs` ; après un changement,
   vider `apps/backend/node_modules/.vite` et recharger en forçant le cache).
 - Piège connu : verrous en mémoire, limite par IP non sérialisée (voir `AGENTS.md`).
-- **À faire en production avant usage** : `COOKIE_SECRET` présent dans les `.env` du VPS ; `COURIER_RELAY_SECRET` (longue chaîne aléatoire, même valeur) dans `apps/backend/.env` ET dans `.env.deploy` (transmis au conteneur storefront par `docker-compose.prod.yml`) (aucune règle Apache : le relais joint le backend par le réseau docker, `COURIER_BACKEND_URL=http://backend:9000` dans `docker-compose.prod.yml`, `/courier` n'est pas public) ;
-  `NEXT_PUBLIC_MEDUSA_BACKEND_URL` du storefront de production pointant sur le backend ; migration
-  `db:migrate` (table `delivery_report`, colonne `courier.pin_hash`) ; créer les PIN des livreurs ; tester
+- **Mise en production faite le 2026-10-16** : `COOKIE_SECRET` déjà présent ; `COURIER_RELAY_SECRET` ajouté le
+  2026-10-16 dans `apps/backend/.env` et `.env.deploy` de production ET de staging (valeurs différentes par
+  environnement, sauvegardes `*.bak-courier-*` sur le VPS) ; aucune règle Apache (le relais joint le backend par le
+  réseau docker, `COURIER_BACKEND_URL=http://backend:9000` dans `docker-compose.prod.yml`, `/courier` n'est pas
+  public) ; migration appliquée (`delivery_report`, `courier.pin_hash`) ; `/livreur` répond en staging et en
+  production. **Reste à faire par le propriétaire** : créer les PIN des livreurs (onglet « Livreurs »), puis tester
   sur un vrai téléphone sans valider de rapport réel.
 - Pistes : application livreur native.
 
-2026-10-16 - **« Marquer non payée » / « Marquer non livrée »** (pas encore en production). Boutons dans la
+2026-10-16 - **« Marquer non payée » / « Marquer non livrée »** (en production depuis le 2026-10-16). Boutons dans la
 carte du haut de la fiche commande et dans l'encadré Livraison, visibles 24 h après la dernière action « payée » /
 « livrée » (`lib/undo-rules.ts`), confirmation sur place. « Non payée » : la commande redevient « Non payée » avec
 le montant dû (« Autorisée » pour le paiement à la livraison du site), vente et frais du formulaire retirés de la
