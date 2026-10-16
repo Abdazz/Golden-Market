@@ -28,6 +28,7 @@ export async function GET(req: CourierRequest, res: MedusaResponse) {
       return {
         id: l.id,
         order_number: l.order_number,
+        order_created_at: l.order_created_at,
         customer_name: l.customer_name,
         customer_phone: l.customer_phone,
         place: l.place,

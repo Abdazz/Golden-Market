@@ -10,6 +10,7 @@ type Fields = {
 type Line = {
   id: string
   order_number: string
+  order_created_at: string | null
   customer_name: string
   customer_phone: string
   place: string
@@ -67,6 +68,12 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
     })
   }
   return json as T
+}
+
+// Heure de Ouagadougou = UTC.
+const orderDate = (iso: string) => {
+  const d = new Date(iso)
+  return `${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", timeZone: "UTC" })} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}`
 }
 
 const digits = (v: string) => v.replace(/\D/g, "")
@@ -497,6 +504,11 @@ export const LivreurApp = () => {
               {l.type === "express" ? "Livraison Ouaga" : "Expédition"} ·
               Commande {l.order_number}
             </p>
+            {l.order_created_at && (
+              <p className="mt-1 text-sm text-gm-ink-muted">
+                Commandée le {orderDate(l.order_created_at)}
+              </p>
+            )}
             {l.place && <p className="mt-1 text-sm">{l.place}</p>}
             <p className="mt-1 text-sm">
               {l.items.map((i) => `${i.quantity} × ${i.title}`).join(", ")}
