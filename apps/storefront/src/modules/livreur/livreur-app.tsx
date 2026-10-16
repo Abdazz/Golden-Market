@@ -236,7 +236,7 @@ const ReportSheet = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end bg-black/50"
+      className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center bg-black/50"
     >
       <div
         ref={dialogRef}
@@ -244,7 +244,7 @@ const ReportSheet = ({
         aria-modal="true"
         aria-labelledby="report-title"
         tabIndex={-1}
-        className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-gm-ivoire px-5 pb-8 pt-5 outline-none"
+        className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-gm-ivoire px-5 pb-8 pt-5 outline-none"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
