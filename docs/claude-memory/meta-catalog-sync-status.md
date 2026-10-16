@@ -160,3 +160,9 @@ chargement du script. Preuve : rejouer l'évènement via `fbq.callMethod.apply(f
 **How to apply** : pour un évènement Pixel "jamais reçu", inspecter `window.fbq.queue`
 après l'action en prod : s'il y est encore, le problème est le stub, pas l'appelant.
 **Déployé staging + prod le 2026-09-23 (commit `eec4eeb`) et vérifié en prod : vrai clic quick-add -> requête `ev=AddToCart` HTTP 200, file vide.** Reste à voir Meta passer "Ajouts au panier" de "Manquant" à OK (diagnostics mis à jour avec ~24h de retard).
+
+**2026-10-16 : photos, vidéos et ruptures dans le catalogue Meta.**
+- Champs de l'API `items_batch` (v20.0) : `additional_image_link` (tableau) et `video` (`[{url}]`). Les noms `additional_image_urls` et `videos` sont refusés comme « champ non reconnu » (visible dans `validation_status` de la réponse, pas dans le statut HTTP). Le flux CSV a les colonnes `video[0].url` et `additional_image_link`. Un produit modifié dans l'admin est renvoyé aux deux catalogues par `subscribers/product-updated-meta-catalog.ts`.
+- Le flux planifié (« Remplacé tous les jours », 23h Ouagadougou) prend la priorité sur l'API pour certains attributs : après un changement de format du flux, lancer une importation manuelle dans Meta (Sources de données).
+- 29 variantes sur 40 sont « en rupture de stock » dans Meta parce que leur stock Medusa est à 0 (gestion de stock active). Décision du propriétaire le 2026-10-16 : les laisser en rupture (hors publicités dynamiques), ne pas activer la commande sans stock.
+- Taux de correspondance pixel/catalogue 89,9 % : dû aux événements d'avant les corrections du 22-23/09 ; à revérifier après le 21/10. Les deux catalogues (principal et app mobile) sont associés au pixel, sans effet sur la synchro.
