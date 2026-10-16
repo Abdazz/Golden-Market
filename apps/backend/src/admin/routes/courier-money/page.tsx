@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { api, formatDay, formatOrderDate, formatXof, STATUS_BADGE, STATUS_LABELS, TYPE_LABELS } from "../../lib/deliveries"
 import type { TourLine } from "../../lib/deliveries"
-import { Badge, card } from "../../components/delivery-ui"
+import { Badge, card, inputClass, NoticeText, primaryButton } from "../../components/delivery-ui"
+import type { Notice } from "../../components/delivery-ui"
 
 // Page « Argent à récupérer chez les livreurs » (ouverte depuis la carte du
 // tableau de bord) : livreurs concernés et montants dus ; un clic sur un livreur
-// déroule ses journées sans versement validé avec le détail des commandes.
-// Pas dans le menu latéral (aucune defineRouteConfig). Lecture seule : le
-// versement se valide dans Livraisons > Tournée du jour.
+// déroule ses journées sans versement validé avec le détail des commandes, et
+// chaque journée se confirme ici (montant réellement remis par le livreur, même
+// route que « Valider le versement » de Livraisons > Tournée du jour).
+// Pas dans le menu latéral (aucune defineRouteConfig).
 
 type Day = {
   day: string
@@ -46,7 +48,58 @@ const LineDetail = ({ line }: { line: TourLine }) => (
   </div>
 )
 
-const CourierRow = ({ courier }: { courier: CourierMoney }) => {
+const DayBlock = ({ courierId, d, onDone }: { courierId: string; d: Day; onDone: (n: Notice) => void }) => {
+  const [received, setReceived] = useState(String(d.to_remit))
+  const [busy, setBusy] = useState(false)
+  const amount = received.trim() === "" ? null : Number(received.replace(/\s/g, ""))
+  const valid = amount !== null && Number.isInteger(amount) && amount >= 0
+  const gap = valid ? (amount as number) - d.to_remit : 0
+
+  const confirm = async () => {
+    if (!valid) return
+    setBusy(true)
+    try {
+      await api("/admin/courier-settlements", {
+        method: "POST",
+        body: { courier_id: courierId, day: d.day, received_amount: amount },
+      })
+      onDone({ kind: "success", text: `Argent du ${formatDay(d.day)} confirmé : ${formatXof(amount)} reçus.` })
+    } catch (e) {
+      onDone({ kind: "error", text: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="txt-compact-small flex flex-col gap-y-2 border-t border-ui-border-base bg-ui-bg-subtle px-4 py-3 text-ui-fg-base">
+        <span className="txt-compact-small-plus">Journée du {formatDay(d.day)}</span>
+        <span className="text-ui-fg-subtle">
+          Encaissé {formatXof(d.collected)} − frais livreur {formatXof(d.courier_fees)} − frais Expédition {formatXof(d.transport_fees)} ={" "}
+          <span className="txt-compact-small-plus text-ui-fg-base">{formatXof(d.to_remit)} à reverser</span>
+        </span>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-y-1">
+            <span className="text-ui-fg-subtle">Montant reçu du livreur (F CFA)</span>
+            <input className={`${inputClass} max-w-[160px]`} inputMode="numeric" value={received} onChange={(e) => setReceived(e.target.value)} />
+          </label>
+          <button type="button" className={primaryButton} disabled={busy || !valid} onClick={confirm}>
+            {busy ? "…" : "Confirmer la réception de l'argent"}
+          </button>
+          {valid && gap !== 0 && (
+            <span className="text-ui-fg-error">Écart : {gap > 0 ? "+" : ""}{formatXof(gap)}</span>
+          )}
+        </div>
+      </div>
+      {d.lines.map((l) => (
+        <LineDetail key={l.id} line={l} />
+      ))}
+    </div>
+  )
+}
+
+const CourierRow = ({ courier, onDone }: { courier: CourierMoney; onDone: (n: Notice) => void }) => {
   const [open, setOpen] = useState(false)
   return (
     <div className={card}>
@@ -62,21 +115,7 @@ const CourierRow = ({ courier }: { courier: CourierMoney }) => {
           <span className="txt-compact-small text-ui-fg-subtle">{open ? "▲" : "▼"}</span>
         </span>
       </button>
-      {open &&
-        courier.days.map((d) => (
-          <div key={d.day}>
-            <div className="txt-compact-small flex flex-wrap items-center justify-between gap-2 border-t border-ui-border-base bg-ui-bg-subtle px-4 py-2 text-ui-fg-base">
-              <span className="txt-compact-small-plus">Journée du {formatDay(d.day)}</span>
-              <span className="text-ui-fg-subtle">
-                Encaissé {formatXof(d.collected)} − frais livreur {formatXof(d.courier_fees)} − frais Expédition {formatXof(d.transport_fees)} ={" "}
-                <span className="txt-compact-small-plus text-ui-fg-base">{formatXof(d.to_remit)} à reverser</span>
-              </span>
-            </div>
-            {d.lines.map((l) => (
-              <LineDetail key={l.id} line={l} />
-            ))}
-          </div>
-        ))}
+      {open && courier.days.map((d) => <DayBlock key={d.day} courierId={courier.id} d={d} onDone={onDone} />)}
     </div>
   )
 }
@@ -84,11 +123,21 @@ const CourierRow = ({ courier }: { courier: CourierMoney }) => {
 const CourierMoneyPage = () => {
   const [data, setData] = useState<{ total: number; couriers: CourierMoney[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
+  const load = useCallback(
+    () =>
+      api<{ total: number; couriers: CourierMoney[] }>("/admin/deliveries/courier-money")
+        .then(setData)
+        .catch((e) => setError((e as Error).message)),
+    []
+  )
   useEffect(() => {
-    api<{ total: number; couriers: CourierMoney[] }>("/admin/deliveries/courier-money")
-      .then(setData)
-      .catch((e) => setError((e as Error).message))
-  }, [])
+    load()
+  }, [load])
+  const done = (n: Notice) => {
+    setNotice(n)
+    load()
+  }
 
   return (
     <div className="flex flex-col gap-y-3 p-6">
@@ -98,17 +147,19 @@ const CourierMoneyPage = () => {
         </a>
         <h1 className="txt-large-plus text-ui-fg-base">Argent à récupérer chez les livreurs</h1>
         <p className="txt-compact-small text-ui-fg-subtle">
-          Journées terminées sans versement validé. Le versement se valide dans Livraisons, onglet « Tournée du jour ».
+          Argent encaissé par les livreurs et pas encore remis. Quand un livreur vous remet l'argent d'une journée, saisissez le
+          montant reçu et confirmez : la journée est alors verrouillée et disparaît de cette liste.
         </p>
         {data && <p className="txt-xlarge-plus text-ui-fg-base">{formatXof(data.total)}</p>}
       </div>
+      <NoticeText notice={notice} />
       {error && <p className="txt-compact-small text-ui-fg-error">{error}</p>}
       {!data && !error && <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>}
       {data && !data.couriers.length && (
         <p className="txt-compact-small text-ui-fg-subtle">Tous les versements sont validés.</p>
       )}
       {data?.couriers.map((c) => (
-        <CourierRow key={c.id} courier={c} />
+        <CourierRow key={c.id} courier={c} onDone={done} />
       ))}
     </div>
   )
