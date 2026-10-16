@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { api, formatXof, TYPE_LABELS } from "../lib/deliveries"
+import { api, formatOrderDate, formatXof, todayInOuaga, TYPE_LABELS } from "../lib/deliveries"
 import type { CourierDaySummary, ReportLine, ReportState } from "../lib/deliveries"
 import { Badge, card, inputClass, primaryButton, secondaryButton } from "./delivery-ui"
 
@@ -58,6 +58,7 @@ const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => voi
       <td className="px-3 py-2">
         <a href={`/app/orders/${line.order_id}`} className="text-ui-fg-interactive">{line.order_number}</a>
       </td>
+      <td className="whitespace-nowrap px-3 py-2">{formatOrderDate(line.order_created_at)}</td>
       <td className="px-3 py-2">
         {line.customer_name}
         <div className="txt-compact-xsmall text-ui-fg-subtle">{line.customer_phone}</div>
@@ -148,16 +149,16 @@ const ReportRow = ({ line, onChanged }: { line: ReportLine; onChanged: () => voi
   )
 }
 
-const CourierLines = ({ courierId, onBack, onChanged }: { courierId: string; onBack: () => void; onChanged?: () => void }) => {
+const CourierLines = ({ courierId, date, onBack, onChanged }: { courierId: string; date: string; onBack: () => void; onChanged?: () => void }) => {
   const [data, setData] = useState<{ courier: { name: string }; lines: ReportLine[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Renvoie la promesse : après une action, la ligne reste occupée jusqu'à la fin du rechargement.
   const load = useCallback(
     () =>
-      api<{ courier: { name: string }; lines: ReportLine[] }>(`/admin/courier-reports/${courierId}`)
+      api<{ courier: { name: string }; lines: ReportLine[] }>(`/admin/courier-reports/${courierId}?date=${date}`)
         .then(setData)
         .catch((e) => setError((e as Error).message)),
-    [courierId]
+    [courierId, date]
   )
   useEffect(() => {
     load()
@@ -173,16 +174,16 @@ const CourierLines = ({ courierId, onBack, onChanged }: { courierId: string; onB
         <button type="button" className={secondaryButton} onClick={onBack}>
           ‹ Livreurs
         </button>
-        <span className="txt-compact-small-plus text-ui-fg-base">{data?.courier.name ?? "…"} · commandes du jour</span>
+        <span className="txt-compact-small-plus text-ui-fg-base">{data?.courier.name ?? "…"} · commandes du {date.slice(8, 10)}/{date.slice(5, 7)}</span>
       </div>
       {error && <p className="txt-compact-small text-ui-fg-error">{error}</p>}
-      {data && !data.lines.length && <p className="txt-compact-small text-ui-fg-subtle">Aucune commande aujourd'hui.</p>}
+      {data && !data.lines.length && <p className="txt-compact-small text-ui-fg-subtle">Aucune commande ce jour-là.</p>}
       {data && data.lines.length > 0 && (
         <div className={`${card} overflow-x-auto`}>
           <table className="txt-compact-small w-full text-left text-ui-fg-base">
             <thead className="txt-compact-xsmall-plus text-ui-fg-subtle">
               <tr>
-                {["Commande", "Client", "Type", "Lieu", "Produits", "À encaisser", "État", "Rapport", ""].map((h) => (
+                {["Commande", "Commandée le", "Client", "Type", "Lieu", "Produits", "À encaisser", "État", "Rapport", ""].map((h) => (
                   <th key={h} className="px-3 py-2">{h}</th>
                 ))}
               </tr>
@@ -206,19 +207,35 @@ export const countReportsToValidate = () =>
 export const CourierReportsTab = ({ onChanged }: { onChanged?: () => void }) => {
   const [couriers, setCouriers] = useState<DayCourier[] | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const today = todayInOuaga()
+  const [date, setDate] = useState(today)
   useEffect(() => {
     if (selected) return
-    api<{ couriers: DayCourier[] }>("/admin/courier-reports")
+    setCouriers(null)
+    api<{ couriers: DayCourier[] }>(`/admin/courier-reports?date=${date}`)
       .then((r) => setCouriers(r.couriers))
       .catch(() => setCouriers([]))
-  }, [selected])
+  }, [selected, date])
 
-  if (selected) return <CourierLines courierId={selected} onBack={() => setSelected(null)} onChanged={onChanged} />
-  if (couriers === null) return <p className="txt-compact-small text-ui-fg-subtle">Chargement…</p>
+  if (selected) return <CourierLines courierId={selected} date={date} onBack={() => setSelected(null)} onChanged={onChanged} />
+  const picker = (
+    <div className="mb-3 flex items-center gap-x-2">
+      <label className="txt-compact-small-plus text-ui-fg-base" htmlFor="reports-day">Jour</label>
+      <input id="reports-day" type="date" className={`${inputClass} max-w-[180px]`} value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} />
+      {date !== today && (
+        <button type="button" className={secondaryButton} onClick={() => setDate(today)}>
+          Aujourd'hui
+        </button>
+      )}
+    </div>
+  )
+  if (couriers === null) return <div>{picker}<p className="txt-compact-small text-ui-fg-subtle">Chargement…</p></div>
   if (!couriers.length) {
-    return <p className="txt-compact-small text-ui-fg-subtle">Aucune commande confiée à un livreur aujourd'hui.</p>
+    return <div>{picker}<p className="txt-compact-small text-ui-fg-subtle">Aucune commande confiée à un livreur ce jour-là.</p></div>
   }
   return (
+    <div>
+    {picker}
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
       {couriers.map((c) => (
         <button
@@ -229,13 +246,14 @@ export const CourierReportsTab = ({ onChanged }: { onChanged?: () => void }) => 
         >
           <span className="txt-compact-small-plus text-ui-fg-base">{c.courier_name}</span>
           <span className="txt-compact-small text-ui-fg-subtle">
-            {c.summary.total} commande(s) aujourd'hui · {c.summary.total - c.summary.todo} rapport(s) reçu(s)
+            {c.summary.total} commande(s) · {c.summary.total - c.summary.todo} rapport(s) reçu(s)
           </span>
           <span className="txt-compact-small text-ui-fg-subtle">
             {c.summary.submitted} à valider · {c.summary.returned} renvoyé(s) · {c.summary.validated} validé(s) · {c.summary.failed} non livrée(s) · {c.summary.todo} sans rapport
           </span>
         </button>
       ))}
+    </div>
     </div>
   )
 }
