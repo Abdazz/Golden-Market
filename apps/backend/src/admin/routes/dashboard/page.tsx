@@ -75,7 +75,7 @@ const TodoSection = ({ todo }: { todo: Dashboard["todo"] }) => {
         <div className={card}><p className="txt-compact-small text-ui-fg-subtle">Livraisons en cours</p><Unavailable /></div>
       )}
       {courier_money.available ? (
-        <TodoCard title="Argent à récupérer chez les livreurs" value={formatXof(courier_money.total)} empty={courier_money.couriers.length === 0} href="/app/deliveries?tab=tour">
+        <TodoCard title="Argent à récupérer chez les livreurs" value={formatXof(courier_money.total)} empty={courier_money.couriers.length === 0} href="/app/courier-money">
           {courier_money.couriers.length === 0
             ? "tous les versements sont validés"
             : courier_money.couriers.map((c) => `${c.name} : ${formatXof(c.amount)} (${plural(c.days, "jour")})`).join(" · ")}

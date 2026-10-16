@@ -14,12 +14,12 @@ const EXCLUDED_ORDER_STATUSES = ["canceled", "draft", "archived"]
 // Argent à récupérer : pour chaque livreur, journées terminées sans versement
 // validé, montant de chaque journée calculé comme dans l'onglet Tournée.
 // Une journée à 0 (rien encaissé, aucun frais) n'est pas de l'argent à récupérer.
-export const unremittedByCourier = (
-  deliveries: CourierDelivery[],
+export const unremittedDays = <T extends CourierDelivery>(
+  deliveries: T[],
   validated: { courier_id: string; day: string }[]
 ) => {
   const validatedKeys = new Set(validated.map((v) => `${v.courier_id}|${v.day}`))
-  const groups = new Map<string, { courier_id: string; day: string; deliveries: CourierDelivery[] }>()
+  const groups = new Map<string, { courier_id: string; day: string; deliveries: T[] }>()
   for (const d of deliveries) {
     if (!TERMINAL.includes(d.status) || !d.completed_at) continue
     const day = dayOf(d.completed_at)
@@ -29,12 +29,19 @@ export const unremittedByCourier = (
     group.deliveries.push(d)
     groups.set(key, group)
   }
+  return [...groups.values()]
+    .map((g) => ({ ...g, settlement: computeSettlement(g.deliveries, g.day) }))
+    .filter((g) => g.settlement.toRemit !== 0)
+}
+
+export const unremittedByCourier = (
+  deliveries: CourierDelivery[],
+  validated: { courier_id: string; day: string }[]
+) => {
   const byCourier = new Map<string, { courier_id: string; amount: number; days: number }>()
-  for (const g of groups.values()) {
-    const amount = computeSettlement(g.deliveries, g.day).toRemit
-    if (amount === 0) continue
+  for (const g of unremittedDays(deliveries, validated)) {
     const entry = byCourier.get(g.courier_id) ?? { courier_id: g.courier_id, amount: 0, days: 0 }
-    entry.amount += amount
+    entry.amount += g.settlement.toRemit
     entry.days += 1
     byCourier.set(g.courier_id, entry)
   }
