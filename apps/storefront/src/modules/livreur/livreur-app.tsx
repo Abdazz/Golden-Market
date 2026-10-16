@@ -382,14 +382,18 @@ export const LivreurApp = () => {
   const [lines, setLines] = useState<Line[]>([])
   const [open, setOpen] = useState<Line | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Jour affiché : vide = aujourd'hui (le serveur donne la date du jour).
+  const [day, setDay] = useState("")
+  const [today, setToday] = useState("")
 
   const load = useCallback(async () => {
     try {
-      const r = await call<{ courier: { name: string }; deliveries: Line[] }>(
-        "deliveries"
+      const r = await call<{ courier: { name: string }; date: string; deliveries: Line[] }>(
+        day ? `deliveries?date=${day}` : "deliveries"
       )
       setCourier(r.courier.name)
       setLines(r.deliveries)
+      setToday((t) => t || r.date)
       setState("ready")
       setError(null)
     } catch (err) {
@@ -399,7 +403,7 @@ export const LivreurApp = () => {
         setState("ready")
       }
     }
-  }, [])
+  }, [day])
 
   useEffect(() => {
     load()
@@ -445,9 +449,31 @@ export const LivreurApp = () => {
           </p>
         )}
       </div>
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="jour" className="text-sm font-semibold">
+          Jour
+        </label>
+        <input
+          id="jour"
+          type="date"
+          value={day || today}
+          max={today}
+          onChange={(e) => setDay(e.target.value === today ? "" : e.target.value)}
+          className={`min-h-[44px] flex-1 rounded-xl border border-gm-border bg-white px-3 ${focusRing}`}
+        />
+        {day && (
+          <button
+            type="button"
+            onClick={() => setDay("")}
+            className={`min-h-[44px] rounded-xl px-3 text-sm font-semibold text-gm-amethyst ${focusRing}`}
+          >
+            Aujourd&apos;hui
+          </button>
+        )}
+      </div>
       {!lines.length && !error && (
         <p className="rounded-2xl bg-white px-4 py-6 text-center text-gm-ink-muted">
-          Aucune commande aujourd&apos;hui.
+          {day ? "Aucune commande ce jour-là." : "Aucune commande aujourd'hui."}
         </p>
       )}
 

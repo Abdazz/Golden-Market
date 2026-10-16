@@ -53,7 +53,7 @@ async function relay(
   const relaySecret = process.env.COURIER_RELAY_SECRET
   let backend: Response
   try {
-    backend = await fetch(`${BACKEND_URL}/courier/${route}`, {
+    backend = await fetch(`${BACKEND_URL}/courier/${route}${route === "deliveries" ? req.nextUrl.search : ""}`, {
       method: req.method,
       headers: {
         "content-type": "application/json",

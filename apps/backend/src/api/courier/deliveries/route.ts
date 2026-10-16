@@ -15,7 +15,10 @@ export async function GET(req: CourierRequest, res: MedusaResponse) {
     res.status(401).json({ message: "Session expirée : reconnectez-vous." })
     return
   }
-  const date = todayInOuaga()
+  // Jour demandé (AAAA-MM-JJ) : un jour passé pour consulter l'historique ; sinon aujourd'hui.
+  const today = todayInOuaga()
+  const asked = typeof req.query.date === "string" ? req.query.date : ""
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked <= today ? asked : today
   const lines = await loadCourierDay(req.scope, courier.id, date)
   res.json({
     courier: { id: courier.id, name: courier.name },
