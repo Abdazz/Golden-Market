@@ -72,9 +72,13 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 const digits = (v: string) => v.replace(/\D/g, "")
 
 const Brand = () => (
-  <p className="font-display text-sm font-semibold uppercase tracking-wider text-gm-gold-strong">
-    Golden Market
-  </p>
+  <div className="flex items-center gap-x-2">
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src="/logo/logo-mark-color.png" alt="" width={40} height={40} className="h-10 w-10" />
+    <p className="font-display text-sm font-semibold uppercase tracking-wider text-gm-gold-strong">
+      Golden Market
+    </p>
+  </div>
 )
 
 const Login = ({ onLogged }: { onLogged: () => void }) => {
