@@ -74,8 +74,8 @@ const OrderPaymentRecordedWidget = ({ data }: Props) => {
 
   const undo = (
     <>
-      <UndoAction orderId={data.id} kind="paid" window={info.undo?.paid} />
-      <UndoAction orderId={data.id} kind="delivered" window={info.undo?.delivered} />
+      <UndoAction orderId={data.id} kind="paid" undo={info.undo} />
+      <UndoAction orderId={data.id} kind="delivered" undo={info.undo} />
     </>
   )
 

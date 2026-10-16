@@ -2,6 +2,7 @@ import { Modules } from "@medusajs/framework/utils"
 import { createWorkflow, transform, when, WorkflowResponse } from "@medusajs/framework/workflows-sdk"
 import { loadUndoContext } from "../lib/order-undo"
 import { COURIER_STOCK_LOCK_KEY } from "./courier-stock"
+import { recordAutoEntriesStep } from "./steps/cash-entry-steps"
 import { updateDeliveryStep } from "./steps/delivery-steps"
 import {
   eraseFulfillmentsStep,
@@ -21,6 +22,8 @@ import {
 export const undoOrderPaidWorkflow = createWorkflow("undo-order-paid", function (input: UndoInput) {
   const plan = prepareUndoPaidStep(input)
   softDeleteCashEntriesStep(transform({ plan }, ({ plan }) => plan.cash_ids))
+  // Après la suppression : frais de la livraison restée livrée (idempotent par référence, compensé).
+  recordAutoEntriesStep(transform({ plan }, ({ plan }) => plan.fee_entries.map((e) => ({ ...e, date: new Date(e.date) }))))
   when({ plan }, ({ plan }) => !!plan.delivery).then(() => {
     updateDeliveryStep(transform({ plan }, ({ plan }) => plan.delivery!)).config({ name: "undo-paid-update-delivery" })
   })
@@ -45,23 +48,27 @@ export const undoOrderDeliveredWorkflow = createWorkflow("undo-order-delivered",
   return new WorkflowResponse({ ok: true })
 })
 
-// Une seule annulation à la fois par commande ; si une livraison est terminée,
-// mêmes verrous que sa clôture (complete-delivery) et les rapports du livreur
-// (courier-report) ; « non livrée » prend aussi le verrou du stock livreur.
-// Les contrôles sont refaits dans le workflow, une fois les verrous pris.
-const withUndoLock = async <T>(scope: any, orderId: string, withStock: boolean, job: () => Promise<T>): Promise<T> => {
+// Une seule annulation à la fois par commande, puis mêmes verrous que la
+// validation d'un rapport (courier-report -> complete-delivery -> courier-stock,
+// même ordre : pas d'attente croisée). Verrous imbriqués un par un : le
+// fournisseur en mémoire se bloque lui-même sur une liste de clés dont l'une
+// est occupée. Les contrôles sont refaits dans le workflow, verrous pris.
+const withUndoLock = async <T>(scope: any, orderId: string, kind: "paid" | "delivered", job: () => Promise<T>): Promise<T> => {
   const ctx = await loadUndoContext(scope, orderId)
-  const id = ctx?.doneDelivery?.id
+  // « non payée » : aussi la livraison en cours (validation d'un rapport en parallèle).
+  const id = ctx?.doneDelivery?.id ?? (kind === "paid" ? ctx?.openDelivery?.id : undefined)
   const keys = [
     `order-undo:${orderId}`,
-    ...(id ? [`complete-delivery:${id}`, `courier-report:${id}`] : []),
-    ...(withStock ? [COURIER_STOCK_LOCK_KEY] : []),
+    ...(id ? [`courier-report:${id}`, `complete-delivery:${id}`] : []),
+    ...(kind === "delivered" ? [COURIER_STOCK_LOCK_KEY] : []),
   ]
-  return scope.resolve(Modules.LOCKING).execute(keys, job, { timeout: 30 }) as Promise<T>
+  const locking = scope.resolve(Modules.LOCKING)
+  const nest = (i: number): Promise<T> => (i === keys.length ? job() : locking.execute(keys[i], () => nest(i + 1), { timeout: 30 }))
+  return nest(0)
 }
 
 export const undoOrderPaid = (scope: any, orderId: string, userId: string | null) =>
-  withUndoLock(scope, orderId, false, () => undoOrderPaidWorkflow(scope).run({ input: { order_id: orderId, user_id: userId } }))
+  withUndoLock(scope, orderId, "paid", () => undoOrderPaidWorkflow(scope).run({ input: { order_id: orderId, user_id: userId } }))
 
 export const undoOrderDelivered = (scope: any, orderId: string, userId: string | null) =>
-  withUndoLock(scope, orderId, true, () => undoOrderDeliveredWorkflow(scope).run({ input: { order_id: orderId, user_id: userId } }))
+  withUndoLock(scope, orderId, "delivered", () => undoOrderDeliveredWorkflow(scope).run({ input: { order_id: orderId, user_id: userId } }))

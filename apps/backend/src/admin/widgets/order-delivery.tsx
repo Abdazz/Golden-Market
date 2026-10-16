@@ -235,7 +235,7 @@ const OrderDeliveryWidget = ({ data }: Props) => {
         </a>
       </div>
 
-      <UndoAction orderId={data.id} kind="delivered" window={undo?.delivered} />
+      <UndoAction orderId={data.id} kind="delivered" undo={undo} />
 
       {current && (
         <div className="flex flex-col gap-y-1 rounded-md border border-ui-border-base p-3">

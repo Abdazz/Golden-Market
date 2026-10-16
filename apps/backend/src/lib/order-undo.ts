@@ -20,6 +20,8 @@ export async function loadUndoContext(scope: any, orderId: string) {
       "id",
       "status",
       "metadata",
+      "display_id",
+      "custom_display_id",
       "payment_collections.id",
       "payment_collections.payments.id",
       "payment_collections.payments.provider_id",
@@ -39,7 +41,18 @@ export async function loadUndoContext(scope: any, orderId: string) {
   if (!order) return null
   const { data: deliveries } = await query.graph({
     entity: "delivery",
-    fields: ["id", "status", "completed_at", "courier_id", "amount_collected", "assigned_at"],
+    fields: [
+      "id",
+      "order_id",
+      "status",
+      "completed_at",
+      "courier_id",
+      "amount_collected",
+      "assigned_at",
+      "courier_fee",
+      "transport_fee",
+      "transport_company",
+    ],
     filters: { order_id: orderId },
   })
   const [finalSale] = await scope.resolve(CASHBOOK_MODULE).listCashEntries({ reference: [finalReferences(orderId).sale] })
@@ -64,10 +77,13 @@ export async function loadUndoContext(scope: any, orderId: string) {
     (deliveries as any[])
       .filter((d) => d.status === "delivered" || d.status === "shipped")
       .sort((a, b) => new Date(b.completed_at ?? 0).getTime() - new Date(a.completed_at ?? 0).getTime())[0] ?? null
-  return { order, deliveries: deliveries as any[], doneDelivery, finalSale: finalSale ?? null, captures, facts }
+  // Livraison en cours (verrou du rapport du livreur pendant « non payée »).
+  const openDelivery = (deliveries as any[]).find((d) => d.status === "assigned") ?? null
+  return { order, deliveries: deliveries as any[], doneDelivery, openDelivery, finalSale: finalSale ?? null, captures, facts }
 }
 
 export async function undoAvailability(scope: any, orderId: string) {
   const ctx = await loadUndoContext(scope, orderId)
-  return ctx ? undoStatus(ctx.facts) : null
+  // order_paid : rappel dans la confirmation de « non livrée » (la commande reste payée).
+  return ctx ? { ...undoStatus(ctx.facts), order_paid: ctx.facts.paid } : null
 }

@@ -1,7 +1,8 @@
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
 import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk"
 import { cancelOrderFulfillmentWorkflow } from "@medusajs/medusa/core-flows"
-import { finalReferences } from "../../lib/cashbook-rules"
+import { feeEntriesFromDelivery, finalReferences } from "../../lib/cashbook-rules"
+import { orderNumberOf } from "../../lib/order-number"
 import { dayOf, todayInOuaga } from "../../lib/delivery-rules"
 import { loadUndoContext } from "../../lib/order-undo"
 import { undoRefusal } from "../../lib/undo-rules"
@@ -42,6 +43,18 @@ const loadOrRefuse = async (container: Resolver, kind: "paid" | "delivered", ord
   return ctx
 }
 
+// Méthodes Medusa hors interface publique (enquête) : vérifiées avant toute
+// écriture, pour qu'une mise à jour de Medusa échoue franchement et pas à mi-chemin.
+const assertMethods = (service: any, names: string[], moduleName: string) => {
+  const missing = names.filter((n) => typeof service?.[n] !== "function")
+  if (missing.length) {
+    throw new MedusaError(
+      MedusaError.Types.UNEXPECTED_STATE,
+      `Annulation impossible : méthodes Medusa absentes (${moduleName} : ${missing.join(", ")}). Vérifier la version de Medusa.`
+    )
+  }
+}
+
 const auditMetadata = (ctx: { order: any }, key: string, userId: string | null) => ({
   ...(ctx.order.metadata ?? {}),
   [key]: new Date().toISOString(),
@@ -50,6 +63,16 @@ const auditMetadata = (ctx: { order: any }, key: string, userId: string | null) 
 
 export const prepareUndoPaidStep = createStep("prepare-undo-paid", async (input: UndoInput, { container }) => {
   const ctx = await loadOrRefuse(container, "paid", input.order_id)
+  assertMethods(
+    container.resolve(Modules.PAYMENT),
+    ["deleteCaptures", "deletePayments", "deletePaymentSessions", "updatePayment", "maybeUpdatePaymentCollection_"],
+    "paiement"
+  )
+  assertMethods(
+    container.resolve(Modules.ORDER),
+    ["listOrderTransactions", "updateOrderTransactions", "softDeleteOrderTransactions", "restoreOrderTransactions", "retrieveOrder", "updateOrders"],
+    "commande"
+  )
   const refs = finalReferences(input.order_id)
   const finalRefs = [refs.sale, refs.courierFee, refs.transportFee]
   const entries = await cashbook(container).listCashEntries({ order_id: input.order_id })
@@ -58,7 +81,16 @@ export const prepareUndoPaidStep = createStep("prepare-undo-paid", async (input:
     ? await container.resolve(Modules.ORDER).listOrderTransactions({ order_id: input.order_id, reference: "capture", reference_id: captureIds })
     : []
   const done = ctx.doneDelivery
+  // Commande qui reste livrée : les frais de sa livraison (course, compagnie)
+  // restent dus. Ceux du formulaire sont retirés avec la vente ; les écritures
+  // automatiques de la livraison (delivery:<id>:*) sont donc (ré)inscrites.
+  let feeEntries: ReturnType<typeof feeEntriesFromDelivery> = []
+  if (done) {
+    const courier = await deliveries(container).retrieveCourier(done.courier_id).catch(() => null)
+    feeEntries = feeEntriesFromDelivery(done, courier?.name ?? null, orderNumberOf(ctx.order))
+  }
   return new StepResponse({
+    fee_entries: feeEntries,
     // Vente et frais du formulaire, ventes automatiques des captures.
     cash_ids: entries
       .filter((e) => finalRefs.includes(e.reference ?? "") || (e.category === "sale" && (e.reference ?? "").startsWith("capture:")))
@@ -83,6 +115,8 @@ export const prepareUndoPaidStep = createStep("prepare-undo-paid", async (input:
 
 export const prepareUndoDeliveredStep = createStep("prepare-undo-delivered", async (input: UndoInput, { container }) => {
   const ctx = await loadOrRefuse(container, "delivered", input.order_id)
+  assertMethods(container.resolve(Modules.ORDER), ["retrieveOrder", "listOrderItems", "updateOrderItems", "updateOrders"], "commande")
+  assertMethods(container.resolve(Modules.FULFILLMENT), ["retrieveFulfillment", "updateFulfillment", "deleteFulfillment"], "expédition")
   const done = ctx.doneDelivery
   const fulfillments = (ctx.order.fulfillments ?? []).filter((f: any) => !f.canceled_at)
   // Emplacement où remettre le stock : celui de l'expédition s'il a un niveau
@@ -235,16 +269,30 @@ export const resetPaymentsStep = createStep("undo-reset-payments", async (collec
   return new StepResponse(collections.length)
 })
 
+// Compteurs expédié / livré des articles (version courante) : sans remise à 0,
+// une nouvelle expédition serait refusée (« Cannot ship more items… »).
+const resetItemCounters = async (container: Resolver, orderId: string) => {
+  const orders = container.resolve(Modules.ORDER) as any
+  const { version } = await orders.retrieveOrder(orderId, { select: ["id", "version"] })
+  const items = await orders.listOrderItems({ order_id: orderId, version })
+  if (items.length) {
+    await orders.updateOrderItems(items.map((i: any) => ({ id: i.id, shipped_quantity: 0, delivered_quantity: 0 })))
+  }
+}
+
 // Expédition annulée par le workflow natif (stock remis, réservation recréée),
 // puis effacée : la fiche revient à « Non traitée », sans trace. Medusa refuse
 // d'annuler une expédition expédiée / livrée : ces dates sont d'abord effacées
 // (remises si l'annulation échoue). Sans compensation : dernière étape.
+// Compteurs remis à 0 juste après l'annulation ; l'effacement est au mieux
+// (une expédition annulée restante est ignorée par delivery-order-sync).
 export const eraseFulfillmentsStep = createStep(
   "undo-erase-fulfillments",
   async (input: { order_id: string; fulfillments: { id: string; location_id: string | null }[] }, { container }) => {
     if (!input.fulfillments.length) return new StepResponse(0)
     const fm = container.resolve(Modules.FULFILLMENT)
     const link = container.resolve(ContainerRegistrationKeys.LINK)
+    const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
     for (const f of input.fulfillments) {
       const previous = await fm.retrieveFulfillment(f.id, { select: ["id", "shipped_at", "delivered_at", "location_id"] })
       await fm.updateFulfillment(f.id, { shipped_at: null, delivered_at: null, ...(f.location_id ? { location_id: f.location_id } : {}) } as any)
@@ -260,16 +308,13 @@ export const eraseFulfillmentsStep = createStep(
         } as any)
         throw error
       }
-      await link.dismiss({ [Modules.ORDER]: { order_id: input.order_id }, [Modules.FULFILLMENT]: { fulfillment_id: f.id } })
-      await fm.deleteFulfillment(f.id)
-    }
-    // Compteurs expédié / livré des articles (version courante) : sans remise à
-    // 0, une nouvelle expédition serait refusée (« Cannot ship more items… »).
-    const orders = container.resolve(Modules.ORDER) as any
-    const { version } = await orders.retrieveOrder(input.order_id, { select: ["id", "version"] })
-    const items = await orders.listOrderItems({ order_id: input.order_id, version })
-    if (items.length) {
-      await orders.updateOrderItems(items.map((i: any) => ({ id: i.id, shipped_quantity: 0, delivered_quantity: 0 })))
+      await resetItemCounters(container, input.order_id)
+      try {
+        await link.dismiss({ [Modules.ORDER]: { order_id: input.order_id }, [Modules.FULFILLMENT]: { fulfillment_id: f.id } })
+        await fm.deleteFulfillment(f.id)
+      } catch (error) {
+        logger.error(`Marquer non livrée : expédition annulée ${f.id} non effacée (${(error as Error).message})`)
+      }
     }
     return new StepResponse(input.fulfillments.length)
   }

@@ -12,7 +12,9 @@ export async function GET(req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const defaults = await paymentFormDefaults(req.scope, req.params.order_id)
   if (!defaults) throw new MedusaError(MedusaError.Types.NOT_FOUND, "Commande introuvable.")
   // Boutons « Marquer non payée / non livrée » (fenêtre de 24 h, lib/undo-rules.ts).
-  res.json({ ...defaults, undo: await undoAvailability(req.scope, req.params.order_id) })
+  // Un échec ici ne doit jamais casser le formulaire « Marquer payée ».
+  const undo = await undoAvailability(req.scope, req.params.order_id).catch(() => null)
+  res.json({ ...defaults, undo })
 }
 
 export async function POST(req: AuthenticatedMedusaRequest, res: MedusaResponse) {

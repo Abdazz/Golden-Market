@@ -7,7 +7,7 @@ import { primaryButton, secondaryButton } from "./delivery-ui"
 // rechargement de la fiche. Affichés seulement dans la fenêtre de 24 h
 // (undo.*.available renvoyé par GET /admin/order-payments/:id).
 export type UndoWindow = { available: boolean; until: string | null }
-export type UndoInfo = { paid: UndoWindow; delivered: UndoWindow }
+export type UndoInfo = { paid: UndoWindow; delivered: UndoWindow; order_paid: boolean }
 
 const TEXT = {
   paid: {
@@ -27,10 +27,13 @@ const TEXT = {
 // Ouagadougou = UTC : "2026-10-16T08:05:00.000Z" -> "16/10 à 08:05".
 const untilText = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)} à ${iso.slice(11, 16)}`
 
-export const UndoAction = ({ orderId, kind, window: w }: { orderId: string; kind: "paid" | "delivered"; window?: UndoWindow }) => {
+const STILL_PAID = "La commande reste payée : utilisez aussi « Marquer non payée » si l'argent n'a pas été reçu."
+
+export const UndoAction = ({ orderId, kind, undo }: { orderId: string; kind: "paid" | "delivered"; undo?: UndoInfo | null }) => {
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const w = undo?.[kind]
   if (!w?.available || !w.until) return null
   const t = TEXT[kind]
 
@@ -51,6 +54,7 @@ export const UndoAction = ({ orderId, kind, window: w }: { orderId: string; kind
       {confirm ? (
         <div className="flex flex-col gap-y-2 rounded-md border border-ui-border-base p-3">
           <span className="txt-compact-small text-ui-fg-base">{t.reminder}</span>
+          {kind === "delivered" && undo?.order_paid && <span className="txt-compact-small text-ui-fg-base">{STILL_PAID}</span>}
           <div className="flex flex-wrap gap-2">
             <button type="button" className={primaryButton} disabled={busy} onClick={run}>
               {busy ? "Annulation…" : "Oui, annuler"}
