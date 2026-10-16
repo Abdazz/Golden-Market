@@ -47,9 +47,10 @@ trop risqué pour ce gain.
 
 **Solution retenue et déployée : second catalogue Meta, alimenté par le même flux Medusa.**
 Cohérent avec la règle "Medusa = source de vérité unique" ([[medusa-golden-market-overview]]).
-- Catalogue créé dans Commerce Manager : `Catalogue_Produits_Golden_Market_App_TEST` (nom
-  jamais renommé faute d'avoir trouvé l'option de rename dans l'UI - cosmétique seulement,
-  à corriger si l'occasion se présente), `catalog_id` = `1018445977919742`.
+- Catalogue créé dans Commerce Manager : `Catalogue_Produits_Golden_Market_App` (renommé le
+  2026-10-16, ex `..._App_TEST` ; fait par l'API Graph : `POST /<catalog_id>` avec `name`, jeton
+  du catalogue, réponse `success`), `catalog_id` = `1018445977919742` (inchangé : synchro et
+  liaison WhatsApp non affectées).
 - Source de données : flux planifié horaire sur `https://golden-market.co/meta-catalog-feed`
   (même route publique que le catalogue de production, aucune modification de code
   nécessaire pour le flux lui-même), devise XOF. Premier import : 39 produits, 0 échec.

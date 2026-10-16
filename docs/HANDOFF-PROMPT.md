@@ -63,10 +63,20 @@ mémoire n'est pas encore reliée : créer d'abord le lien vers `docs/claude-mem
 - Lot du 2026-10-15 : suppression d'une commande saisie à la main, « Changer de livreur », caisse (jour par
   défaut, carte « Résultat », heure), modification du paiement dans les 24 h après la dernière action
   (section « Paiement enregistré » en tête de la fiche commande), libellé « Frais Expédition ».
+- Lot du 2026-10-16 (soir, en production) : espace livreur avec sélecteur de jour, date de commande, numéro
+  copiable et commentaire du rapport ; PIN chiffré pour le message d'accès copié ; page « Argent à
+  récupérer » ; date de livraison des commandes (`metadata.delivery_date`) ; catalogue Meta : photos
+  supplémentaires et vidéo (champs `additional_image_link` / `video`), renvoi automatique d'un produit modifié,
+  catalogue de l'app mobile renommé `Catalogue_Produits_Golden_Market_App`, 29 produits en rupture voulue.
+  Détail dans `AGENTS.md` et la mémoire `mini-saas-gestion-livreurs`.
 - Specs et plans : `docs/superpowers/specs/` et `docs/superpowers/plans/` (dernier plan : 2026-10-10 ;
   les lots des 2026-10-11 et 12, petites demandes enchaînées, n'ont pas de plan).
 
 ## À vérifier en début de session
+
+- Lot du 2026-10-16 : PIN des livreurs à régénérer une fois (anciens PIN sans version chiffrée) ; copie du
+  numéro client à tester sur un vrai téléphone ; taux de correspondance du pixel Meta (89,9 % le 16/10) à
+  revérifier après le 21/10 ; migrations `comment` (rapports) et `pin_cipher` (livreurs) à confirmer en production.
 
 - Espace livreur : premier vrai passage d'un livreur (connexion par téléphone + PIN, rapport, validation dans
   « Rapports livreurs ») une fois déployé ; avant cela, vérifier en production `COOKIE_SECRET`,
