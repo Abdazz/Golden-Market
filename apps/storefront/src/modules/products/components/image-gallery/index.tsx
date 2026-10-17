@@ -8,19 +8,25 @@ import { getYoutubeVideoId } from "@lib/util/youtube"
 
 type ImageGalleryProps = {
   images: HttpTypes.StoreProductImage[]
-  // URL YouTube optionnelle (product.metadata.video_url) - ajoutée comme
-  // dernière vignette de la galerie quand elle est renseignée et parseable.
+  // URL optionnelle (product.metadata.video_url) : lien YouTube ou fichier
+  // vidéo téléversé depuis l'admin - ajoutée comme dernière vignette de la
+  // galerie quand elle est renseignée et reconnue.
   videoUrl?: string | null
 }
 
 type GalleryItem =
   | { type: "image"; id: string; url: string }
   | { type: "video"; id: string; videoId: string }
+  | { type: "file"; id: string; url: string }
 
 const ImageGallery = ({ images, videoUrl }: ImageGalleryProps) => {
   const [active, setActive] = useState(0)
 
   const videoId = videoUrl ? getYoutubeVideoId(videoUrl) : null
+  const videoFile =
+    videoUrl && !videoId && /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(videoUrl)
+      ? videoUrl
+      : null
 
   const items: GalleryItem[] = [
     ...images.map((image) => ({
@@ -30,7 +36,9 @@ const ImageGallery = ({ images, videoUrl }: ImageGalleryProps) => {
     })),
     ...(videoId
       ? [{ type: "video" as const, id: `video-${videoId}`, videoId }]
-      : []),
+      : videoFile
+        ? [{ type: "file" as const, id: "video-file", url: videoFile }]
+        : []),
   ]
 
   if (!items.length) {
@@ -49,7 +57,16 @@ const ImageGallery = ({ images, videoUrl }: ImageGalleryProps) => {
   return (
     <div className="flex flex-col gap-3">
       <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-gm-ivoire-2 border border-gm-border">
-        {main.type === "video" ? (
+        {main.type === "file" ? (
+          <video
+            key={main.url}
+            src={main.url}
+            controls
+            playsInline
+            preload="metadata"
+            className="absolute inset-0 h-full w-full bg-black object-contain"
+          />
+        ) : main.type === "video" ? (
           <iframe
             src={`https://www.youtube.com/embed/${main.videoId}`}
             title="Vidéo du produit"
@@ -103,7 +120,7 @@ const ImageGallery = ({ images, videoUrl }: ImageGalleryProps) => {
               type="button"
               onClick={() => setActive(index)}
               aria-label={
-                item.type === "video"
+                item.type !== "image"
                   ? "Voir la vidéo du produit"
                   : `Voir l'image ${index + 1}`
               }
@@ -112,15 +129,25 @@ const ImageGallery = ({ images, videoUrl }: ImageGalleryProps) => {
                 index === active ? "border-gm-violet" : "border-transparent"
               )}
             >
-              {item.type === "video" ? (
+              {item.type !== "image" ? (
                 <>
-                  <Image
-                    src={`https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`}
-                    className="absolute inset-0 object-cover"
-                    alt=""
-                    fill
-                    sizes="64px"
-                  />
+                  {item.type === "file" ? (
+                    <video
+                      src={`${item.url}#t=0.1`}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={`https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`}
+                      className="absolute inset-0 object-cover"
+                      alt=""
+                      fill
+                      sizes="64px"
+                    />
+                  )}
                   <span className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                       <path d="M8 5v14l11-7z" />
