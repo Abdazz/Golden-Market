@@ -58,6 +58,8 @@ const OrderDeliveryWidget = ({ data }: Props) => {
   const [message, setMessage] = useState<{ kind: "error" | "warning" | "success"; text: string } | null>(null)
   // Confirmation sur place du bouton "Marquer livrée".
   const [confirmDeliver, setConfirmDeliver] = useState(false)
+  // Confirmation sur place du bouton "Retirer l'affectation".
+  const [confirmUnassign, setConfirmUnassign] = useState(false)
   // « Marquer non livrée » (2026-10-16) : fenêtre de 24 h lue avec le paiement.
   const [undo, setUndo] = useState<UndoInfo | null>(null)
 
@@ -207,6 +209,21 @@ const OrderDeliveryWidget = ({ data }: Props) => {
     }
   }
 
+  const unassign = async (id: string) => {
+    setBusy(true)
+    setMessage(null)
+    try {
+      await api(`/admin/deliveries/${id}/unassign`, { method: "POST" })
+      setConfirmUnassign(false)
+      setMessage({ kind: "success", text: "Affectation retirée : la commande est de nouveau à confier." })
+      await load()
+    } catch (error) {
+      setMessage({ kind: "error", text: (error as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const resend = async (id: string) => {
     setBusy(true)
     setMessage(null)
@@ -312,6 +329,20 @@ const OrderDeliveryWidget = ({ data }: Props) => {
             ) : (
               <button type="button" className={secondaryButton} disabled={busy} onClick={() => setConfirmDeliver(true)}>
                 Marquer livrée
+              </button>
+            )}
+            {confirmUnassign ? (
+              <>
+                <button type="button" className={primaryButton} disabled={busy} onClick={() => unassign(current.id)}>
+                  Confirmer : retirer
+                </button>
+                <button type="button" className={secondaryButton} disabled={busy} onClick={() => setConfirmUnassign(false)}>
+                  Annuler
+                </button>
+              </>
+            ) : (
+              <button type="button" className={secondaryButton} disabled={busy} onClick={() => setConfirmUnassign(true)}>
+                Retirer l'affectation
               </button>
             )}
           </div>

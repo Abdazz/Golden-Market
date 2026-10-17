@@ -42,3 +42,6 @@ Le propriétaire remplace ses fichiers Excel (`management/Journal de caisse-2026
 
 ## 2026-10-17 : widget « Prix » de la fiche produit
 Le tableau d'édition natif des prix de Medusa affichait le prix de gros (groupe « Grossistes », 0 client, 37 prix) à la place du prix standard. Widget `admin/widgets/product-prices.tsx` (zone `product.details.after`) + `GET/POST /admin/product-prices/:id` (`lib/product-prices.ts`) : standard (sans règle), promotionnel (price list Sale active unique) et de gros, modifiables séparément. Promo vide ou gros vide = ligne retirée. Ne pas utiliser le tableau natif pour le standard.
+
+## 2026-10-17 : retirer l'affectation d'un livreur
+`POST /admin/deliveries/:id/unassign` + bouton « Retirer l'affectation » (confirmation sur place) dans le widget Livraison de la fiche commande. La tentative passe `canceled` (comme à l'annulation de commande), le rapport non validé est supprimé, la commande revient dans « À confier » et disparaît de l'espace livreur. Refusé si le rapport est déjà validé.
